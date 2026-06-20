@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shop — Sprylo</title>
+  <meta name="description"
+    content="Browse the full Sprylo catalogue — smartphones, laptops, cameras, audio, wearables, and gaming. Filter by brand, price, and rating." />
+  <meta name="theme-color" content="#4F46E5" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Outfit:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <div class="utility">
+    <div class="container">
+      <span class="promo"><span class="tag">SALE</span>Free shipping on orders over $50 · 30-day returns</span>
+      <span class="links"><a href="#">Track order</a><a href="#">Help</a><a href="#">EN · USD</a></span>
+    </div>
+  </div>
+
+  <header class="site-header">
+    <div class="container">
+      <a href="index.html" class="brand"><span class="brand-mark">S</span> Sprylo</a>
+      <form class="search" role="search" onsubmit="event.preventDefault();">
+        <input type="text" placeholder="Search for products, brands, categories…" />
+        <button type="submit" aria-label="Search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M21 21l-4.3-4.3" />
+          </svg></button>
+      </form>
+      <div class="icon-row">
+        <a href="#" class="icon-btn" aria-label="Account"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 21c0-4 4-7 8-7s8 3 8 7" />
+          </svg></a>
+        <a href="#" class="icon-btn" aria-label="Wishlist"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path
+              d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+          </svg><span class="count">3</span></a>
+        <a href="cart.html" class="icon-btn icon-btn--cart" aria-label="Cart"><svg width="20" height="20"
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M6 2l-2 5v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7l-2-5z" />
+            <path d="M4 7h16" />
+            <path d="M16 11a4 4 0 0 1-8 0" />
+          </svg><span class="count">2</span></a>
+        <button class="nav-toggle" aria-label="Open menu">≡</button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="nav-bar" aria-label="Primary">
+    <div class="container">
+      <a href="shop.html" class="all-cats"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>All Categories</a>
+      <div class="main-nav">
+        <a href="index.html">Home</a>
+        <a href="shop.html" aria-current="page">Shop ▾</a>
+        <a href="product.html">Products</a>
+        <a href="cart.html">Cart</a>
+        <a href="contact.html">Contact</a>
+      </div>
+      <span class="nav-cta">UP TO <strong>60% OFF</strong> ALL ITEMS</span>
+    </div>
+  </nav>
+
+  <div class="drawer" id="drawer" aria-hidden="true">
+    <div class="drawer-head"><a href="index.html" class="brand"><span class="brand-mark">S</span> Sprylo</a><button
+        class="drawer-close">Close ✕</button></div>
+    <a href="index.html">Home</a><a href="shop.html">Shop</a><a href="product.html">Products</a><a
+      href="cart.html">Cart</a><a href="contact.html">Contact</a>
+  </div>
+
+  <main id="main">
+
+    <section class="page-head">
+      <div class="container">
+        <div class="crumbs"><a href="index.html">Home</a> <span class="sep">›</span> <span>Shop · All products</span>
+        </div>
+        <h1>All Products</h1>
+        <p>314 products across smartphones, laptops, audio, cameras, wearables, and gaming. Use the filters on the left
+          to narrow down by brand, price, rating, or availability.</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="shop-layout">
+
+          <aside class="filters" aria-label="Filters">
+            <div class="filter-block">
+              <h3>Category</h3>
+              <label><input type="checkbox" checked> Smartphones <span class="ct">76</span></label>
+              <label><input type="checkbox"> Laptops &amp; Desktops <span class="ct">42</span></label>
+              <label><input type="checkbox"> Smart Watches <span class="ct">28</span></label>
+              <label><input type="checkbox"> Cameras <span class="ct">42</span></label>
+              <label><input type="checkbox"> Headphones &amp; Buds <span class="ct">35</span></label>
+              <label><input type="checkbox"> Gaming <span class="ct">31</span></label>
+              <label><input type="checkbox"> Accessories <span class="ct">112</span></label>
+            </div>
+            <div class="filter-block">
+              <h3>Price range</h3>
+              <div
+                style="display:flex; justify-content:space-between; font-family:var(--ff-mono); font-size:11px; color:var(--fg-mute)">
+                <span>$120</span><span>$3,400</span></div>
+              <div class="range-bar" aria-hidden="true"></div>
+              <div
+                style="display:flex; justify-content:space-between; font-family:var(--ff-mono); font-size:var(--text-xs); font-weight:600; color:var(--ink); margin-top:var(--s2)">
+                <span>$420</span><span>$2,380</span></div>
+            </div>
+            <div class="filter-block">
+              <h3>Brand</h3>
+              <label><input type="checkbox"> Apple <span class="ct">84</span></label>
+              <label><input type="checkbox" checked> Samsung <span class="ct">72</span></label>
+              <label><input type="checkbox"> Sony <span class="ct">36</span></label>
+              <label><input type="checkbox"> Canon <span class="ct">22</span></label>
+              <label><input type="checkbox"> HP <span class="ct">28</span></label>
+              <label><input type="checkbox"> Huawei <span class="ct">19</span></label>
+              <label><input type="checkbox"> Logitech <span class="ct">31</span></label>
+            </div>
+            <div class="filter-block">
+              <h3>Rating</h3>
+              <label><input type="checkbox"> ★★★★★ &amp; up <span class="ct">186</span></label>
+              <label><input type="checkbox"> ★★★★☆ &amp; up <span class="ct">242</span></label>
+              <label><input type="checkbox"> ★★★☆☆ &amp; up <span class="ct">296</span></label>
+            </div>
+            <div class="filter-block">
+              <h3>Availability</h3>
+              <label><input type="checkbox" checked> In stock <span class="ct">298</span></label>
+              <label><input type="checkbox"> On sale <span class="ct">64</span></label>
+              <label><input type="checkbox"> New arrivals <span class="ct">28</span></label>
+            </div>
+            <a href="#" class="btn btn--indigo btn--block">Apply filters</a>
+          </aside>
+
+          <div>
+            <div class="shop-toolbar">
+              <span class="count">Showing 1 – 12 of 314 products</span>
+              <div style="display:flex; gap:var(--s3); align-items:center">
+                <span style="font-size:var(--text-xs); color:var(--fg-mute); font-family:var(--ff-mono)">SORT</span>
+                <select>
+                  <option>Most popular</option>
+                  <option>Price: low to high</option>
+                  <option>Price: high to low</option>
+                  <option>Newest first</option>
+                  <option>Highest rated</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="shop-grid" id="shop-grid">
+              <article class="product-card">
+                <div class="img-wrap"><span class="badge">New</span><button class="wishlist">♡</button><img
+                    src="https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=500&q=80&auto=format&fit=crop"
+                    alt="" /></div>
+                <div class="stock"><span class="dot"></span>In stock · 52 items</div>
+                <a href="product.html" class="name">Galaxy Note 20 Ultra 5G</a>
+                <div class="price"><span class="now">$2,780</span></div>
+                <div class="stars">★★★★★ <span class="count">(56)</span></div>
+                <a href="cart.html" class="btn">Order now →</a>
+              </article>
+              <article class="product-card">
+                <div class="img-wrap"><span class="badge badge--sale">Sale</span><button class="wishlist">♡</button><img
+                    src="https://images.unsplash.com/photo-1561154464-82e9adf32764?w=500&q=80&auto=format&fit=crop"
+                    alt="" /></div>
+                <div class="stock"><span class="dot"></span>In stock · 32 items</div>
+                <a href="product.html" class="name">iPad 10th Generation</a>
+                <div class="price"><span class="now">$1,780</span><span class="was">$1,980</span></div>
+                <div class="stars">★★★★★ <span class="count">(124)</span></div>
+                <a href="cart.html" class="btn">Order now →</a>
+              </article>
+              <article class="product-card">
+                <div class="img-wrap"><button class="wishlist">♡</button><img
+                    src="https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=500&q=80&auto=format&fit=crop"
+                    alt="" /></div>
+                <div class="stock"><span class="dot"></span>In stock · 18 items</div>
+                <a href="product.html" class="name">Apple MacBook Pro M3</a>
+                <div class="price"><span class="now">$2,480</span></div>
+                <div class="stars">★★★★★ <span class="count">(89)</span></div>
+                <a href="cart.html" class="btn">Order now →</a>
+              </article>
+              <article class="product-card">
+                <div class="img-wrap"><button class="wishlist">♡</button><img
+                    src="https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=500&q=80&auto=format&fit=crop"
+                    alt="" /></div>
+                <div class="stock"><span class="dot"></span>In stock · 24 items</div>
+                <a href="product.html" class="name">Canon EOS R7 DSLR</a>
+                <div class="price"><span class="now">$1,920</span></div>
+                <div class="stars">★★★★☆ <span class="count">(67)</span></div>
+                <a href="cart.html" class="btn">Order now →</a>
+              </article>
+              <article class="product-card">
+                <div class="img-wrap"><span class="badge">New</span><button class="wishlist">♡</button><img
+                    src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&q=80&auto=format&fit=crop"
+                    alt="" /></div>
+                <div class="stock"><span class="dot"></span>In stock · 41 items</div>
+                <a href="product.html" class="name">Apple Watch Series 9</a>
+                <div class="price"><span class="now">$680</span></div>
+                <div class="stars">★★★★★ <span class="count">(245)</span></div>
+                <a href="cart.html" class="btn">Order now →</a>
+              </article>
+              <article class="product-card">
+                <div class="img-wrap"><button class="wishlist">♡</button><img
+                    src="https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=500&q=80&auto=format&fit=crop"
+                    alt="" /></div>
+                <div class="stock"><span class="dot"></span>In stock · 67 items</div>
+                <a href="product.html" class="name">Beats Studio Buds Pro</a>
+                <div class="price"><span class="now">$280</span></div>
+                <div class="stars">★★★★☆ <span class="count">(312)</span></div>
+                <a href="cart.html" class="btn">Order now →</a>
+              </article>
+              <article class="product-card">
+                <div class="img-wrap"><span class="badge badge--sale">Sale</span><button class="wishlist">♡</button><img
+                    src="https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=500&q=80&auto=format&fit=crop"
+                    alt="" /></div>
+                <div class="stock"><span class="dot"></span>In stock · 22 items</div>
+                <a href="product.html" class="name">Apple HomePod 2nd Gen</a>
+                <div class="price"><span class="now">$280</span><span class="was">$320</span></div>
+                <div class="stars">★★★★★ <span class="count">(98)</span></div>
+                <a href="cart.html" class="btn">Order now →</a>
+              </article>
+              <article class="product-card">
+                <div class="img-wrap"><button class="wishlist">♡</button><img
+                    src="https://images.unsplash.com/photo-1592840496694-26d035b52b48?w=500&q=80&auto=format&fit=crop"
+                    alt="" /></div>
+                <div class="stock"><span class="dot"></span>In stock · 34 items</div>
+                <a href="product.html" class="name">Power Wired Controller</a>
+                <div class="price"><span class="now">$190</span></div>
+                <div class="stars">★★★★★ <span class="count">(78)</span></div>
+                <a href="cart.html" class="btn">Order now →</a>
+              </article>
+              <article class="product-card">
+                <div class="img-wrap"><button class="wishlist">♡</button><img
+                    src="https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=500&q=80&auto=format&fit=crop"
+                    alt="" /></div>
+                <div class="stock"><span class="dot"></span>In stock · 19 items</div>
+                <a href="product.html" class="name">Galaxy S24 Ultra Mint</a>
+                <div class="price"><span class="now">$1,420</span></div>
+                <div class="stars">★★★★☆ <span class="count">(56)</span></div>
+                <a href="cart.html" class="btn">Order now →</a>
+              </article>
+            </div>
+
+            <div class="pagination">
+              <a href="#" class="pg">‹</a>
+              <a href="#" class="pg is-active">1</a>
+              <a href="#" class="pg">2</a>
+              <a href="#" class="pg">3</a>
+              <a href="#" class="pg">…</a>
+              <a href="#" class="pg">26</a>
+              <a href="#" class="pg">›</a>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <section class="brands">
+      <div class="container">
+        <div class="brand-row">
+          <a href="#" class="brand-logo">HP</a><a href="#" class="brand-logo">Huawei</a>
+          <a href="#" class="brand-logo">Nokia</a><a href="#" class="brand-logo">Samsung</a>
+          <a href="#" class="brand-logo">Canon</a><a href="#" class="brand-logo">Sony</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <div class="mark"><span class="brand-mark">S</span> Sprylo</div>
+          <p>Modern tech &amp; gadgets — straight from the makers, shipped fast, supported well. Since 2018, we've moved
+            over 400,000 boxes.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Popular Categories</h4>
+          <ul>
+            <li><a href="shop.html">Laptops &amp; Desktops</a></li>
+            <li><a href="shop.html">Smart Home</a></li>
+            <li><a href="shop.html">Smart Watches</a></li>
+            <li><a href="shop.html">Headphones</a></li>
+            <li><a href="shop.html">Internal Components</a></li>
+            <li><a href="shop.html">VR Headsets</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Let us help you</h4>
+          <ul>
+            <li><a href="#">My account</a></li>
+            <li><a href="#">My order</a></li>
+            <li><a href="#">Shipping policy</a></li>
+            <li><a href="#">Help centre</a></li>
+            <li><a href="#">Events</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Resources</h4>
+          <ul>
+            <li><a href="#">Blog</a></li>
+            <li><a href="#">Newsletter</a></li>
+            <li><a href="#">Help centre</a></li>
+            <li><a href="#">Support</a></li>
+            <li><a href="#">Reviews</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Get to know us</h4>
+          <ul>
+            <li><a href="#">About us</a></li>
+            <li><a href="contact.html">Contact</a></li>
+            <li><a href="#">Login / Register</a></li>
+            <li><a href="#">Terms &amp; conditions</a></li>
+            <li><a href="#">Privacy policy</a></li>
+            <li><a href="#">FAQs</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Sprylo · All rights reserved</span>
+        <span>Free HTML template · No framework · No build step. Distributed by <a href="https://themewagon.com/"
+            target="_blank">ThemeWagon</a></span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/js/kicksoft-nav.js" defer></script>
+  <script src="assets/js/store.js" defer></script>
+  <script src="assets/js/main.js" defer></script>
+</body>
+
+</html>
