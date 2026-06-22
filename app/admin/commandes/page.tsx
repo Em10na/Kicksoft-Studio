@@ -69,6 +69,18 @@ export default function CommandesPage() {
     setTimeout(() => setAlert({ message: "", type: "" }), 3000);
   }
 
+  async function supprimerCommande(id: string) {
+    if (!confirm("Confirmer la suppression de cette commande ?")) return;
+    const { error } = await supabase.from("orders").delete().eq("id", id);
+    if (error) {
+      setAlert({ message: "Erreur : " + error.message, type: "danger" });
+    } else {
+      setAlert({ message: "Commande supprimee.", type: "success" });
+      chargerCommandes();
+    }
+    setTimeout(() => setAlert({ message: "", type: "" }), 3000);
+  }
+
   async function ouvrirDetail(commande: Commande) {
     setDetailCommande(commande);
     setShowDetail(true);
@@ -206,12 +218,20 @@ export default function CommandesPage() {
                         {new Date(c.created_at).toLocaleDateString("fr-FR")}
                       </td>
                       <td className="text-end">
-                        <button
-                          className="btn btn-sm btn-outline-primary"
-                          onClick={() => ouvrirDetail(c)}
-                        >
-                          <i className="ti ti-eye me-1"></i> Detail
-                        </button>
+                        <div className="d-flex gap-2 justify-content-end">
+                          <button
+                            className="btn btn-sm btn-outline-primary"
+                            onClick={() => ouvrirDetail(c)}
+                          >
+                            <i className="ti ti-eye me-1"></i> Detail
+                          </button>
+                          <button
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => supprimerCommande(c.id)}
+                          >
+                            <i className="ti ti-trash"></i>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))

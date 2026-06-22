@@ -51,6 +51,18 @@ export default function NewsletterPage() {
     setTimeout(() => setAlert({ message: "", type: "" }), 3000);
   }
 
+  async function supprimerAbonne(id: string) {
+    if (!confirm("Confirmer la suppression de cet abonne ?")) return;
+    const { error } = await supabase.from("newsletter_subscribers").delete().eq("id", id);
+    if (error) {
+      setAlert({ message: "Erreur : " + error.message, type: "danger" });
+    } else {
+      setAlert({ message: "Abonne supprime.", type: "success" });
+      chargerAbonnes();
+    }
+    setTimeout(() => setAlert({ message: "", type: "" }), 3000);
+  }
+
   function exporterCSV() {
     const lignes = [
       ["Email", "Actif", "Date inscription"],
@@ -200,15 +212,23 @@ export default function NewsletterPage() {
                         {new Date(a.subscribed_at).toLocaleDateString("fr-FR")}
                       </td>
                       <td className="text-end">
-                        <button
-                          className={`btn btn-sm ${a.active ? "btn-outline-danger" : "btn-outline-success"}`}
-                          onClick={() => toggleActif(a)}
-                        >
-                          <i
-                            className={`ti ${a.active ? "ti-ban" : "ti-check"} me-1`}
-                          ></i>
-                          {a.active ? "Desactiver" : "Reactiver"}
-                        </button>
+                        <div className="d-flex gap-2 justify-content-end">
+                          <button
+                            className={`btn btn-sm ${a.active ? "btn-outline-warning" : "btn-outline-success"}`}
+                            onClick={() => toggleActif(a)}
+                          >
+                            <i
+                              className={`ti ${a.active ? "ti-ban" : "ti-check"} me-1`}
+                            ></i>
+                            {a.active ? "Desactiver" : "Reactiver"}
+                          </button>
+                          <button
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => supprimerAbonne(a.id)}
+                          >
+                            <i className="ti ti-trash"></i>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))

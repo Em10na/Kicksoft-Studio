@@ -56,6 +56,18 @@ export default function SupportPage() {
     setTimeout(() => setAlert({ message: "", type: "" }), 3000);
   }
 
+  async function supprimerTicket(id: string) {
+    if (!confirm("Confirmer la suppression de ce ticket ?")) return;
+    const { error } = await supabase.from("tickets_support").delete().eq("id", id);
+    if (error) {
+      setAlert({ message: "Erreur : " + error.message, type: "danger" });
+    } else {
+      setAlert({ message: "Ticket supprime.", type: "success" });
+      chargerTickets();
+    }
+    setTimeout(() => setAlert({ message: "", type: "" }), 3000);
+  }
+
   function ouvrirDetail(ticket: Ticket) {
     setDetailTicket(ticket);
     setShowDetail(true);
@@ -195,12 +207,20 @@ export default function SupportPage() {
                         {new Date(t.created_at).toLocaleDateString("fr-FR")}
                       </td>
                       <td className="text-end">
-                        <button
-                          className="btn btn-sm btn-outline-primary"
-                          onClick={() => ouvrirDetail(t)}
-                        >
-                          <i className="ti ti-eye me-1"></i> Voir
-                        </button>
+                        <div className="d-flex gap-2 justify-content-end">
+                          <button
+                            className="btn btn-sm btn-outline-primary"
+                            onClick={() => ouvrirDetail(t)}
+                          >
+                            <i className="ti ti-eye me-1"></i> Voir
+                          </button>
+                          <button
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => supprimerTicket(t.id)}
+                          >
+                            <i className="ti ti-trash"></i>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))

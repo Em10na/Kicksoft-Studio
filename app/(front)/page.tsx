@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import ProductCard from "./components/ProductCard";
+import NewsletterForm from "./components/NewsletterForm";
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -241,10 +242,7 @@ export default async function HomePage() {
                 <h2>Recevez <strong>10% de reduction</strong> sur votre premiere commande</h2>
                 <p>Inscrivez-vous a notre newsletter pour recevoir nos offres exclusives, lancements de produits et conseils tech.</p>
               </div>
-              <form className="newsletter-form" action="#" method="POST">
-                <input type="email" required placeholder="Votre adresse email" aria-label="Adresse email" />
-                <button className="btn" type="submit">S&apos;inscrire &rarr;</button>
-              </form>
+              <NewsletterForm />
             </div>
           </div>
         </div>

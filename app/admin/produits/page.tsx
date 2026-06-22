@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+
+const BUCKET = "products";
 
 type Produit = {
   id: string;
@@ -11,6 +13,7 @@ type Produit = {
   stock: number;
   status: string;
   short_description: string | null;
+  image_url: string | null;
   category_id: string | null;
   categories?: { name: string } | null;
 };
@@ -26,10 +29,19 @@ export default function ProduitsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [erreurs, setErreurs] = useState<Record<string, string>>({});
+  const [uploading, setUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     title: "", category_id: "", price: "", compare_price: "",
-    stock: "0", short_description: "", status: "draft",
+    stock: "0", short_description: "", status: "draft", image_url: "",
   });
+
+  function getPublicUrl(path: string): string {
+    const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+    return data.publicUrl;
+  }
 
   async function chargerProduits() {
     setLoading(true);
@@ -48,19 +60,56 @@ export default function ProduitsPage() {
   function ouvrirAjout() {
     setEditId(null);
     setErreurs({});
-    setForm({ title: "", category_id: "", price: "", compare_price: "", stock: "0", short_description: "", status: "draft" });
+    setImagePreview(null);
+    setImageFile(null);
+    setForm({ title: "", category_id: "", price: "", compare_price: "", stock: "0", short_description: "", status: "draft", image_url: "" });
     setShowModal(true);
   }
 
   function ouvrirEdition(p: Produit) {
     setEditId(p.id);
     setErreurs({});
+    setImageFile(null);
+    setImagePreview(p.image_url || null);
     setForm({
       title: p.title, category_id: p.category_id ?? "",
       price: String(p.price), compare_price: String(p.compare_price ?? ""),
-      stock: String(p.stock), short_description: p.short_description ?? "", status: p.status,
+      stock: String(p.stock), short_description: p.short_description ?? "",
+      status: p.status, image_url: p.image_url ?? "",
     });
     setShowModal(true);
+  }
+
+  function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setErreurs({ ...erreurs, image: "Le fichier doit etre une image." });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setErreurs({ ...erreurs, image: "L'image ne doit pas depasser 5 Mo." });
+      return;
+    }
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+    setErreurs((prev) => { const { image, ...rest } = prev; return rest; });
+  }
+
+  function supprimerImage() {
+    setImageFile(null);
+    setImagePreview(null);
+    setForm({ ...form, image_url: "" });
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  async function uploaderImage(): Promise<string | null> {
+    if (!imageFile) return form.image_url || null;
+    const ext = imageFile.name.split(".").pop();
+    const fileName = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await supabase.storage.from(BUCKET).upload(fileName, imageFile, { upsert: false });
+    if (error) throw new Error("Erreur upload image : " + error.message);
+    return getPublicUrl(fileName);
   }
 
   function valider(): boolean {
@@ -79,22 +128,36 @@ export default function ProduitsPage() {
 
   async function sauvegarder() {
     if (!valider()) return;
+    setUploading(true);
+
+    let imageUrl: string | null;
+    try {
+      imageUrl = await uploaderImage();
+    } catch (err) {
+      setAlert({ message: (err as Error).message, type: "danger" });
+      setUploading(false);
+      return;
+    }
+
     const slug = form.title.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
     const payload = {
       title: form.title.trim(), slug,
       category_id: form.category_id || null,
       price: parseFloat(form.price), compare_price: form.compare_price ? parseFloat(form.compare_price) : null,
-      stock: parseInt(form.stock), short_description: form.short_description.trim(), status: form.status,
+      stock: parseInt(form.stock), short_description: form.short_description.trim(),
+      status: form.status, image_url: imageUrl,
     };
+
     if (editId) {
       const { error } = await supabase.from("products").update(payload).eq("id", editId);
-      if (error) { setAlert({ message: "Erreur : " + error.message, type: "danger" }); return; }
+      if (error) { setAlert({ message: "Erreur : " + error.message, type: "danger" }); setUploading(false); return; }
       setAlert({ message: "Produit mis a jour avec succes !", type: "success" });
     } else {
       const { error } = await supabase.from("products").insert(payload);
-      if (error) { setAlert({ message: "Erreur : " + error.message, type: "danger" }); return; }
+      if (error) { setAlert({ message: "Erreur : " + error.message, type: "danger" }); setUploading(false); return; }
       setAlert({ message: "Produit ajoute avec succes !", type: "success" });
     }
+    setUploading(false);
     setShowModal(false);
     chargerProduits();
     setTimeout(() => setAlert({ message: "", type: "" }), 3000);
@@ -130,17 +193,27 @@ export default function ProduitsPage() {
             <table className="table align-middle">
               <thead>
                 <tr>
+                  <th style={{ width: "60px" }}>Image</th>
                   <th>Nom</th><th>Prix</th><th>Stock</th><th>Categorie</th><th>Statut</th><th className="text-end">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={6} className="text-center text-muted">Chargement...</td></tr>
+                  <tr><td colSpan={7} className="text-center text-muted">Chargement...</td></tr>
                 ) : produits.length === 0 ? (
-                  <tr><td colSpan={6} className="text-center text-muted py-4">Aucun produit — <button className="btn btn-link p-0" onClick={ouvrirAjout}>Ajouter le premier</button></td></tr>
+                  <tr><td colSpan={7} className="text-center text-muted py-4">Aucun produit — <button className="btn btn-link p-0" onClick={ouvrirAjout}>Ajouter le premier</button></td></tr>
                 ) : (
                   produits.map((p) => (
                     <tr key={p.id}>
+                      <td>
+                        {p.image_url ? (
+                          <img src={p.image_url} alt={p.title} style={{ width: 44, height: 44, objectFit: "cover", borderRadius: "8px" }} />
+                        ) : (
+                          <div style={{ width: 44, height: 44, borderRadius: "8px", background: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <i className="ti ti-photo text-muted"></i>
+                          </div>
+                        )}
+                      </td>
                       <td><h6 className="fw-semibold mb-0">{p.title}</h6></td>
                       <td>{p.price} DT{p.compare_price && <del className="text-muted ms-2">{p.compare_price} DT</del>}</td>
                       <td>
@@ -179,6 +252,47 @@ export default function ProduitsPage() {
               </div>
               <div className="modal-body">
                 <div className="row g-3">
+                  {/* Image upload */}
+                  <div className="col-12">
+                    <label className="form-label">Image du produit</label>
+                    <div className="d-flex align-items-start gap-3">
+                      <div
+                        onClick={() => fileRef.current?.click()}
+                        style={{
+                          width: "120px", height: "120px", borderRadius: "12px", flexShrink: 0, cursor: "pointer",
+                          border: `2px dashed ${erreurs.image ? "#dc3545" : "#dee2e6"}`,
+                          background: imagePreview ? `url(${imagePreview}) center/cover no-repeat` : "#f8f9fa",
+                          display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden",
+                        }}
+                      >
+                        {!imagePreview && (
+                          <div className="text-center text-muted" style={{ fontSize: "12px" }}>
+                            <i className="ti ti-cloud-upload" style={{ fontSize: "24px", display: "block", marginBottom: "4px" }}></i>
+                            Cliquer
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-grow-1">
+                        <input ref={fileRef} type="file" accept="image/*" onChange={handleImageSelect} style={{ display: "none" }} />
+                        <p className="text-muted mb-2" style={{ fontSize: "13px" }}>
+                          Formats : JPG, PNG, WebP. Taille max : 5 Mo.<br />
+                          Bucket Supabase : <code>products</code>
+                        </p>
+                        <div className="d-flex gap-2">
+                          <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => fileRef.current?.click()}>
+                            <i className="ti ti-upload me-1"></i> {imagePreview ? "Changer" : "Choisir une image"}
+                          </button>
+                          {imagePreview && (
+                            <button type="button" className="btn btn-sm btn-outline-danger" onClick={supprimerImage}>
+                              <i className="ti ti-trash me-1"></i> Retirer
+                            </button>
+                          )}
+                        </div>
+                        {erreurs.image && <p className="text-danger mt-1" style={{ fontSize: "12px" }}>{erreurs.image}</p>}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="col-md-8">
                     <label className="form-label">Nom <span className="text-danger">*</span></label>
                     <input type="text" className={`form-control ${erreurs.title ? "is-invalid" : ""}`} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
@@ -221,7 +335,9 @@ export default function ProduitsPage() {
               </div>
               <div className="modal-footer">
                 <button className="btn btn-light" onClick={() => setShowModal(false)}>Annuler</button>
-                <button className="btn btn-primary" onClick={sauvegarder}>Enregistrer</button>
+                <button className="btn btn-primary" onClick={sauvegarder} disabled={uploading}>
+                  {uploading ? "Upload en cours..." : "Enregistrer"}
+                </button>
               </div>
             </div>
           </div>
