@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useCart } from "@/lib/cart";
 import { createClient } from "@/lib/supabase/client";
+import { getUserTier } from "@/lib/loyalty-config";
 
 type ReductionReward = { id: string; name: string; points_required: number; reduction_value: number };
 
@@ -14,6 +15,7 @@ export default function PanierPage() {
   const [erreur, setErreur] = useState("");
   const [succes, setSucces] = useState(false);
   const [pointsBalance, setPointsBalance] = useState(0);
+  const [lifetimePoints, setLifetimePoints] = useState(0);
   const [reductions, setReductions] = useState<ReductionReward[]>([]);
   const [selectedReduction, setSelectedReduction] = useState<string | null>(null);
   const [pointsDiscount, setPointsDiscount] = useState(0);
@@ -28,14 +30,19 @@ export default function PanierPage() {
         supabase.from("loyalty_transactions").select("points").eq("user_id", user.id),
         supabase.from("loyalty_rewards").select("id, name, points_required, reduction_value").eq("reward_type", "reduction").eq("active", true).order("points_required"),
       ]);
-      setPointsBalance((txns ?? []).reduce((s: number, t: { points: number }) => s + t.points, 0));
+      const allTxns = txns ?? [];
+      setPointsBalance(allTxns.reduce((s: number, t: { points: number }) => s + t.points, 0));
+      setLifetimePoints(allTxns.filter((t: { points: number }) => t.points > 0).reduce((s: number, t: { points: number }) => s + t.points, 0));
       setReductions((rw ?? []) as ReductionReward[]);
     }
     loadLoyalty();
   }, []);
 
-  const livraison = total >= 50 ? 0 : 7;
-  const grandTotal = Math.max(0, total + livraison - pointsDiscount);
+  const tier = getUserTier(lifetimePoints);
+  const tierDiscount = tier.discount > 0 ? Math.round(total * tier.discount / 100) : 0;
+  const tierFreeShipping = tier.freeShipping;
+  const livraison = tierFreeShipping || total >= 50 ? 0 : 7;
+  const grandTotal = Math.max(0, total - tierDiscount + livraison - pointsDiscount);
 
   async function passerCommande() {
     setLoading(true);
@@ -226,13 +233,21 @@ export default function PanierPage() {
                   <span>Sous-total ({count} article{count > 1 ? "s" : ""})</span>
                   <span style={{ fontFamily: "var(--ff-display)", fontWeight: 600, color: "var(--ink)" }}>{total.toFixed(2)} DT</span>
                 </div>
+                {tierDiscount > 0 && (
+                  <div className="cart-line">
+                    <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span>{tier.icon}</span> Reduction {tier.name} ({tier.discount}%)
+                    </span>
+                    <span style={{ color: "#16a34a", fontWeight: 600 }}>-{tierDiscount.toFixed(2)} DT</span>
+                  </div>
+                )}
                 <div className="cart-line">
                   <span>Livraison</span>
                   <span style={{ color: livraison === 0 ? "var(--emerald)" : "var(--ink)", fontWeight: 600 }}>
-                    {livraison === 0 ? "Gratuite" : `${livraison} DT`}
+                    {livraison === 0 ? (tierFreeShipping ? `Gratuite (${tier.name})` : "Gratuite") : `${livraison} DT`}
                   </span>
                 </div>
-                {livraison > 0 && (
+                {livraison > 0 && !tierFreeShipping && (
                   <div style={{ fontSize: "var(--text-xs)", color: "var(--fg-mute)", marginBottom: "var(--s3)" }}>
                     Livraison gratuite a partir de 50 DT ({(50 - total).toFixed(2)} DT restants)
                   </div>

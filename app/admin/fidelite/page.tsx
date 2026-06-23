@@ -2,109 +2,129 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { LOYALTY, getUserTier } from "@/lib/loyalty-config";
 
-type Reward = { id: string; name: string; description: string | null; points_required: number; reward_type: string; reduction_value: number | null; active: boolean; created_at: string };
-type Transaction = { id: string; user_id: string; order_id: string | null; points: number; type: string; description: string | null; created_at: string; profiles?: { full_name: string } | null };
-type UserBalance = { user_id: string; full_name: string; balance: number };
+type DeliveredOrder = {
+  id: string;
+  user_id: string;
+  total: number;
+  created_at: string;
+  profiles?: { full_name: string } | null;
+  points_credited: boolean;
+};
+
+type Transaction = {
+  id: string;
+  user_id: string;
+  order_id: string | null;
+  points: number;
+  type: string;
+  description: string | null;
+  created_at: string;
+  expires_at: string | null;
+  profiles?: { full_name: string } | null;
+};
+
+type UserSummary = { user_id: string; full_name: string; balance: number; lifetime: number };
 
 export default function FidelitePage() {
   const supabase = createClient();
-  const [onglet, setOnglet] = useState<"rewards" | "users" | "history">("rewards");
-  const [rewards, setRewards] = useState<Reward[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [balances, setBalances] = useState<UserBalance[]>([]);
+  const [onglet, setOnglet] = useState<"pending" | "history">("pending");
   const [loading, setLoading] = useState(true);
   const [alert, setAlert] = useState({ message: "", type: "" });
-  const [showModal, setShowModal] = useState(false);
-  const [showAdjustModal, setShowAdjustModal] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [erreurs, setErreurs] = useState<Record<string, string>>({});
-  const [form, setForm] = useState({ name: "", description: "", points_required: "", reward_type: "gift", reduction_value: "", active: true });
-  const [adjustForm, setAdjustForm] = useState({ user_id: "", points: "", description: "" });
-  const [profiles, setProfiles] = useState<{ id: string; full_name: string }[]>([]);
 
-  async function chargerRewards() { const { data } = await supabase.from("loyalty_rewards").select("*").order("points_required"); setRewards(data ?? []); }
-  async function chargerTransactions() { const { data } = await supabase.from("loyalty_transactions").select("*, profiles(full_name)").order("created_at", { ascending: false }).limit(100); setTransactions(data ?? []); }
-  async function chargerBalances() {
-    const { data: txns } = await supabase.from("loyalty_transactions").select("user_id, points, profiles(full_name)");
-    const map = new Map<string, UserBalance>();
-    (txns ?? []).forEach((t: Record<string, unknown>) => {
+  const [deliveredOrders, setDeliveredOrders] = useState<DeliveredOrder[]>([]);
+  const [editPoints, setEditPoints] = useState<Record<string, string>>({});
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [userSummaries, setUserSummaries] = useState<UserSummary[]>([]);
+  const [searchUser, setSearchUser] = useState("");
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+
+  async function chargerTout() {
+    const [ordersRes, txRes] = await Promise.all([
+      supabase.from("orders").select("*, profiles(full_name)").eq("status", "delivered").order("created_at", { ascending: false }),
+      supabase.from("loyalty_transactions").select("*, profiles(full_name)").order("created_at", { ascending: false }).limit(500),
+    ]);
+
+    const orders = ordersRes.data ?? [];
+    const txns = txRes.data ?? [];
+
+    const creditedOrderIds = new Set(txns.filter((t: Transaction) => t.type === "earn" && t.order_id).map((t: Transaction) => t.order_id));
+    const ordersWithStatus = orders.map((o) => ({ ...o, points_credited: creditedOrderIds.has(o.id) }));
+    setDeliveredOrders(ordersWithStatus);
+
+    const defaults: Record<string, string> = {};
+    ordersWithStatus.forEach((o) => {
+      if (!o.points_credited) defaults[o.id] = String(Math.floor(o.total * LOYALTY.POINTS_PER_DT));
+    });
+    setEditPoints(defaults);
+    setTransactions(txns);
+
+    const map = new Map<string, UserSummary>();
+    txns.forEach((t: Record<string, unknown>) => {
       const uid = t.user_id as string;
       const pts = t.points as number;
       const prof = t.profiles as { full_name: string } | { full_name: string }[] | null;
       const name = Array.isArray(prof) ? prof[0]?.full_name : prof?.full_name;
       const existing = map.get(uid);
-      if (existing) { existing.balance += pts; }
-      else { map.set(uid, { user_id: uid, full_name: name ?? "Inconnu", balance: pts }); }
+      if (existing) {
+        existing.balance += pts;
+        if (pts > 0) existing.lifetime += pts;
+      } else {
+        map.set(uid, { user_id: uid, full_name: name ?? "Inconnu", balance: pts, lifetime: pts > 0 ? pts : 0 });
+      }
     });
-    setBalances(Array.from(map.values()).sort((a, b) => b.balance - a.balance));
-  }
-  async function chargerProfiles() { const { data } = await supabase.from("profiles").select("id, full_name"); setProfiles(data ?? []); }
-
-  useEffect(() => { Promise.all([chargerRewards(), chargerTransactions(), chargerBalances(), chargerProfiles()]).then(() => setLoading(false)); }, []);
-
-  function ouvrirAjoutReward() {
-    setEditId(null); setErreurs({});
-    setForm({ name: "", description: "", points_required: "", reward_type: "gift", reduction_value: "", active: true });
-    setShowModal(true);
-  }
-  function ouvrirEditionReward(r: Reward) {
-    setEditId(r.id); setErreurs({});
-    setForm({ name: r.name, description: r.description ?? "", points_required: String(r.points_required), reward_type: r.reward_type, reduction_value: String(r.reduction_value ?? ""), active: r.active });
-    setShowModal(true);
+    setUserSummaries(Array.from(map.values()).sort((a, b) => b.lifetime - a.lifetime));
+    setLoading(false);
   }
 
-  function validerReward(): boolean {
-    const e: Record<string, string> = {};
-    if (!form.name.trim()) e.name = "Le nom est obligatoire.";
-    if (!form.points_required || isNaN(Number(form.points_required)) || Number(form.points_required) <= 0) e.points_required = "Points requis invalides.";
-    if (form.reward_type === "reduction" && (!form.reduction_value || isNaN(Number(form.reduction_value)) || Number(form.reduction_value) <= 0)) e.reduction_value = "Valeur de reduction invalide.";
-    setErreurs(e);
-    return Object.keys(e).length === 0;
+  useEffect(() => { chargerTout(); }, []);
+
+  function showAlert(message: string, type = "success") {
+    setAlert({ message, type });
+    setTimeout(() => setAlert({ message: "", type: "" }), 4000);
   }
 
-  async function sauvegarderReward() {
-    if (!validerReward()) return;
-    const payload = {
-      name: form.name.trim(), description: form.description.trim() || null,
-      points_required: parseInt(form.points_required), reward_type: form.reward_type,
-      reduction_value: form.reward_type === "reduction" ? parseFloat(form.reduction_value) : null,
-      active: form.active,
-    };
-    if (editId) {
-      const { error } = await supabase.from("loyalty_rewards").update(payload).eq("id", editId);
-      if (error) { setAlert({ message: "Erreur : " + error.message, type: "danger" }); return; }
-      setAlert({ message: "Recompense mise a jour !", type: "success" });
-    } else {
-      const { error } = await supabase.from("loyalty_rewards").insert(payload);
-      if (error) { setAlert({ message: "Erreur : " + error.message, type: "danger" }); return; }
-      setAlert({ message: "Recompense ajoutee !", type: "success" });
-    }
-    setShowModal(false); chargerRewards();
-    setTimeout(() => setAlert({ message: "", type: "" }), 3000);
-  }
+  const pendingOrders = deliveredOrders.filter((o) => !o.points_credited);
+  const creditedOrders = deliveredOrders.filter((o) => o.points_credited);
 
-  async function supprimerReward(id: string) {
-    if (!confirm("Confirmer la suppression ?")) return;
-    await supabase.from("loyalty_rewards").delete().eq("id", id);
-    setAlert({ message: "Recompense supprimee.", type: "success" }); chargerRewards();
-    setTimeout(() => setAlert({ message: "", type: "" }), 3000);
-  }
+  async function validerPoints(orderId: string) {
+    const order = deliveredOrders.find((o) => o.id === orderId);
+    if (!order) return;
+    const pts = parseInt(editPoints[orderId]) || 0;
+    if (pts <= 0) { showAlert("Le nombre de points doit etre positif.", "danger"); return; }
 
-  async function ajusterPoints() {
-    if (!adjustForm.user_id || !adjustForm.points || isNaN(Number(adjustForm.points))) return;
     const { error } = await supabase.from("loyalty_transactions").insert({
-      user_id: adjustForm.user_id,
-      points: parseInt(adjustForm.points),
-      type: "admin_adjust",
-      description: adjustForm.description.trim() || "Ajustement admin",
+      user_id: order.user_id, order_id: orderId, points: pts, type: "earn",
+      description: `Commande #${orderId.slice(0, 8)} — ${order.total} DT (${pts} pts attribues par admin)`,
+      expires_at: new Date(Date.now() + LOYALTY.POINTS_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString(),
     });
-    if (error) { setAlert({ message: "Erreur : " + error.message, type: "danger" }); return; }
-    setAlert({ message: "Points ajustes avec succes !", type: "success" });
-    setShowAdjustModal(false); setAdjustForm({ user_id: "", points: "", description: "" });
-    chargerBalances(); chargerTransactions();
-    setTimeout(() => setAlert({ message: "", type: "" }), 3000);
+    if (error) { showAlert("Erreur : " + error.message, "danger"); return; }
+    showAlert(`${pts} points attribues a ${(order.profiles as { full_name: string } | null)?.full_name ?? "l'utilisateur"} !`);
+    chargerTout();
   }
+
+  async function ignorerAttribution(orderId: string) {
+    if (!confirm("Ignorer l'attribution de points pour cette commande ?")) return;
+    const order = deliveredOrders.find((o) => o.id === orderId);
+    if (!order) return;
+    await supabase.from("loyalty_transactions").insert({
+      user_id: order.user_id, order_id: orderId, points: 0, type: "earn",
+      description: `Commande #${orderId.slice(0, 8)} — attribution ignoree par admin`,
+    });
+    showAlert("Attribution ignoree."); chargerTout();
+  }
+
+  // Filtrage historique
+  const filteredSummaries = searchUser
+    ? userSummaries.filter((u) => u.full_name.toLowerCase().includes(searchUser.toLowerCase()))
+    : userSummaries;
+
+  const userTxns = selectedUser
+    ? transactions.filter((t) => t.user_id === selectedUser)
+    : [];
+
+  const selectedUserInfo = selectedUser ? userSummaries.find((u) => u.user_id === selectedUser) : null;
 
   const TYPE_LABELS: Record<string, { label: string; classe: string }> = {
     earn: { label: "Gagne", classe: "bg-success" },
@@ -118,193 +138,186 @@ export default function FidelitePage() {
       <div className="d-flex align-items-center justify-content-between mb-4">
         <div>
           <h5 className="fw-semibold mb-1"><i className="ti ti-star text-warning me-2"></i>Programme de fidelite</h5>
-          <p className="mb-0 text-muted">Gerez les recompenses, soldes et transactions</p>
+          <p className="mb-0 text-muted">Attribution des points et historique</p>
         </div>
-        {onglet === "rewards" && (
-          <button className="btn btn-primary" onClick={ouvrirAjoutReward}><i className="ti ti-plus me-1"></i> Ajouter une recompense</button>
-        )}
-        {onglet === "users" && (
-          <button className="btn btn-primary" onClick={() => { setAdjustForm({ user_id: "", points: "", description: "" }); setShowAdjustModal(true); }}><i className="ti ti-plus me-1"></i> Ajuster des points</button>
-        )}
       </div>
 
       {alert.message && <div className={`alert alert-${alert.type} mb-4`}>{alert.message}</div>}
 
       <ul className="nav nav-tabs mb-0">
-        <li className="nav-item"><button className={`nav-link ${onglet === "rewards" ? "active" : ""}`} onClick={() => setOnglet("rewards")}><i className="ti ti-gift me-1"></i> Recompenses <span className="badge bg-light-primary text-primary ms-1">{rewards.length}</span></button></li>
-        <li className="nav-item"><button className={`nav-link ${onglet === "users" ? "active" : ""}`} onClick={() => setOnglet("users")}><i className="ti ti-users me-1"></i> Soldes utilisateurs <span className="badge bg-light-primary text-primary ms-1">{balances.length}</span></button></li>
-        <li className="nav-item"><button className={`nav-link ${onglet === "history" ? "active" : ""}`} onClick={() => setOnglet("history")}><i className="ti ti-list me-1"></i> Historique <span className="badge bg-light-primary text-primary ms-1">{transactions.length}</span></button></li>
+        <li className="nav-item">
+          <button className={`nav-link ${onglet === "pending" ? "active" : ""}`} onClick={() => setOnglet("pending")}>
+            <i className="ti ti-clock me-1"></i> A attribuer {pendingOrders.length > 0 && <span className="badge bg-warning text-dark ms-1">{pendingOrders.length}</span>}
+          </button>
+        </li>
+        <li className="nav-item">
+          <button className={`nav-link ${onglet === "history" ? "active" : ""}`} onClick={() => setOnglet("history")}>
+            <i className="ti ti-list me-1"></i> Historique
+          </button>
+        </li>
       </ul>
 
       <div className="card" style={{ borderTopLeftRadius: 0 }}>
         <div className="card-body">
           {loading ? <p className="text-center text-muted">Chargement...</p> : (
             <>
-              {/* ONGLET RECOMPENSES */}
-              {onglet === "rewards" && (
-                <div className="table-responsive">
-                  <table className="table align-middle">
-                    <thead><tr><th>Nom</th><th>Type</th><th>Points requis</th><th>Valeur</th><th>Statut</th><th className="text-end">Actions</th></tr></thead>
-                    <tbody>
-                      {rewards.length === 0 ? <tr><td colSpan={6} className="text-center text-muted py-4">Aucune recompense — <button className="btn btn-link p-0" onClick={ouvrirAjoutReward}>Ajouter</button></td></tr> : rewards.map((r) => (
-                        <tr key={r.id}>
-                          <td><h6 className="fw-semibold mb-0">{r.name}</h6><small className="text-muted">{r.description}</small></td>
-                          <td><span className={`badge ${r.reward_type === "reduction" ? "bg-warning text-dark" : "bg-info text-white"}`}>{r.reward_type === "reduction" ? "Reduction" : "Cadeau"}</span></td>
-                          <td className="fw-semibold">{r.points_required} pts</td>
-                          <td>{r.reward_type === "reduction" ? `${r.reduction_value} DT` : "—"}</td>
-                          <td><span className={`badge ${r.active ? "bg-success" : "bg-secondary"}`}>{r.active ? "Actif" : "Inactif"}</span></td>
-                          <td className="text-end">
-                            <div className="d-flex gap-2 justify-content-end">
-                              <button className="btn btn-sm btn-outline-primary" onClick={() => ouvrirEditionReward(r)}><i className="ti ti-edit"></i></button>
-                              <button className="btn btn-sm btn-outline-danger" onClick={() => supprimerReward(r.id)}><i className="ti ti-trash"></i></button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+              {/* ========== A ATTRIBUER ========== */}
+              {onglet === "pending" && (
+                <>
+                  {pendingOrders.length > 0 && (
+                    <>
+                      <h6 className="fw-semibold mb-3">Commandes livrees — en attente d&apos;attribution</h6>
+                      <div className="table-responsive mb-4">
+                        <table className="table align-middle">
+                          <thead><tr><th>Client</th><th>Commande</th><th>Montant</th><th>Date</th><th>Points proposes</th><th className="text-end">Actions</th></tr></thead>
+                          <tbody>
+                            {pendingOrders.map((o) => {
+                              const prof = o.profiles as { full_name: string } | null;
+                              return (
+                                <tr key={o.id}>
+                                  <td><h6 className="fw-semibold mb-0">{prof?.full_name ?? "Inconnu"}</h6></td>
+                                  <td><code>#{o.id.slice(0, 8)}</code></td>
+                                  <td className="fw-semibold">{o.total} DT</td>
+                                  <td className="text-muted">{new Date(o.created_at).toLocaleDateString("fr-FR")}</td>
+                                  <td>
+                                    <input type="number" className="form-control form-control-sm" style={{ width: "100px" }}
+                                      value={editPoints[o.id] ?? ""} onChange={(e) => setEditPoints({ ...editPoints, [o.id]: e.target.value })} />
+                                  </td>
+                                  <td className="text-end">
+                                    <div className="d-flex gap-2 justify-content-end">
+                                      <button className="btn btn-sm btn-success" onClick={() => validerPoints(o.id)}>
+                                        <i className="ti ti-check me-1"></i> Valider
+                                      </button>
+                                      <button className="btn btn-sm btn-outline-danger" onClick={() => ignorerAttribution(o.id)}>
+                                        <i className="ti ti-x"></i>
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+                  {pendingOrders.length === 0 && (
+                    <p className="text-center text-muted py-4">Aucune commande en attente d&apos;attribution de points.</p>
+                  )}
+                  {creditedOrders.length > 0 && (
+                    <>
+                      <h6 className="fw-semibold mb-3 text-muted">Commandes deja traitees</h6>
+                      <div className="table-responsive">
+                        <table className="table align-middle table-sm">
+                          <thead><tr><th>Client</th><th>Commande</th><th>Montant</th><th>Date</th><th>Statut</th></tr></thead>
+                          <tbody>
+                            {creditedOrders.slice(0, 20).map((o) => {
+                              const prof = o.profiles as { full_name: string } | null;
+                              return (
+                                <tr key={o.id} className="opacity-75">
+                                  <td>{prof?.full_name ?? "Inconnu"}</td>
+                                  <td><code>#{o.id.slice(0, 8)}</code></td>
+                                  <td>{o.total} DT</td>
+                                  <td className="text-muted">{new Date(o.created_at).toLocaleDateString("fr-FR")}</td>
+                                  <td><span className="badge bg-success">Points attribues</span></td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+                </>
               )}
 
-              {/* ONGLET SOLDES UTILISATEURS */}
-              {onglet === "users" && (
-                <div className="table-responsive">
-                  <table className="table align-middle">
-                    <thead><tr><th>Utilisateur</th><th>Solde</th><th className="text-end">Actions</th></tr></thead>
-                    <tbody>
-                      {balances.length === 0 ? <tr><td colSpan={3} className="text-center text-muted py-4">Aucun point attribue pour le moment.</td></tr> : balances.map((b) => (
-                        <tr key={b.user_id}>
-                          <td><h6 className="fw-semibold mb-0">{b.full_name}</h6></td>
-                          <td><span className={`fw-semibold ${b.balance > 0 ? "text-success" : b.balance < 0 ? "text-danger" : ""}`}>{b.balance} pts</span></td>
-                          <td className="text-end">
-                            <button className="btn btn-sm btn-outline-primary" onClick={() => { setAdjustForm({ user_id: b.user_id, points: "", description: "" }); setShowAdjustModal(true); }}>
-                              <i className="ti ti-adjustments me-1"></i> Ajuster
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* ONGLET HISTORIQUE */}
+              {/* ========== HISTORIQUE ========== */}
               {onglet === "history" && (
-                <div className="table-responsive">
-                  <table className="table align-middle">
-                    <thead><tr><th>Utilisateur</th><th>Type</th><th>Points</th><th>Description</th><th>Date</th></tr></thead>
-                    <tbody>
-                      {transactions.length === 0 ? <tr><td colSpan={5} className="text-center text-muted py-4">Aucune transaction.</td></tr> : transactions.map((t) => (
-                        <tr key={t.id}>
-                          <td>{t.profiles?.full_name ?? "Inconnu"}</td>
-                          <td><span className={`badge ${TYPE_LABELS[t.type]?.classe ?? "bg-secondary"}`}>{TYPE_LABELS[t.type]?.label ?? t.type}</span></td>
-                          <td><span className={`fw-semibold ${t.points > 0 ? "text-success" : "text-danger"}`}>{t.points > 0 ? "+" : ""}{t.points}</span></td>
-                          <td className="text-muted">{t.description ?? "—"}</td>
-                          <td className="text-muted">{new Date(t.created_at).toLocaleDateString("fr-FR")}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <>
+                  {/* Recherche */}
+                  <div className="mb-4">
+                    <div className="input-group" style={{ maxWidth: "400px" }}>
+                      <span className="input-group-text"><i className="ti ti-search"></i></span>
+                      <input type="text" className="form-control" placeholder="Rechercher par nom d'utilisateur..."
+                        value={searchUser} onChange={(e) => { setSearchUser(e.target.value); setSelectedUser(null); }} />
+                    </div>
+                  </div>
+
+                  {/* Liste des utilisateurs avec total points */}
+                  {!selectedUser && (
+                    <div className="table-responsive">
+                      <table className="table align-middle">
+                        <thead><tr><th>Utilisateur</th><th>Niveau</th><th>Total points cumules</th><th>Solde disponible</th><th className="text-end">Actions</th></tr></thead>
+                        <tbody>
+                          {filteredSummaries.length === 0 ? (
+                            <tr><td colSpan={5} className="text-center text-muted py-4">Aucun utilisateur trouve.</td></tr>
+                          ) : filteredSummaries.map((u) => {
+                            const t = getUserTier(u.lifetime);
+                            return (
+                              <tr key={u.user_id}>
+                                <td><h6 className="fw-semibold mb-0">{u.full_name}</h6></td>
+                                <td><span className="badge" style={{ background: `${t.color}20`, color: t.color, border: `1px solid ${t.color}40` }}>{t.icon} {t.name}</span></td>
+                                <td className="fw-semibold">{u.lifetime} pts</td>
+                                <td><span className={u.balance > 0 ? "text-success fw-semibold" : u.balance < 0 ? "text-danger fw-semibold" : "text-muted"}>{u.balance} pts</span></td>
+                                <td className="text-end">
+                                  <button className="btn btn-sm btn-outline-primary" onClick={() => setSelectedUser(u.user_id)}>
+                                    <i className="ti ti-eye me-1"></i> Voir l&apos;historique
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Detail transactions d'un utilisateur */}
+                  {selectedUser && selectedUserInfo && (
+                    <>
+                      <div className="d-flex align-items-center gap-3 mb-4">
+                        <button className="btn btn-sm btn-outline-secondary" onClick={() => setSelectedUser(null)}>
+                          <i className="ti ti-arrow-left me-1"></i> Retour
+                        </button>
+                        <div>
+                          <h6 className="fw-semibold mb-0">{selectedUserInfo.full_name}</h6>
+                          <div className="d-flex gap-3 mt-1">
+                            <span className="badge" style={{ background: `${getUserTier(selectedUserInfo.lifetime).color}20`, color: getUserTier(selectedUserInfo.lifetime).color, border: `1px solid ${getUserTier(selectedUserInfo.lifetime).color}40` }}>
+                              {getUserTier(selectedUserInfo.lifetime).icon} {getUserTier(selectedUserInfo.lifetime).name}
+                            </span>
+                            <span className="text-muted" style={{ fontSize: "13px" }}>Cumul : <strong>{selectedUserInfo.lifetime} pts</strong></span>
+                            <span className="text-muted" style={{ fontSize: "13px" }}>Solde : <strong className={selectedUserInfo.balance >= 0 ? "text-success" : "text-danger"}>{selectedUserInfo.balance} pts</strong></span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="table-responsive">
+                        <table className="table align-middle">
+                          <thead><tr><th>Date</th><th>Type</th><th>Points</th><th>Description</th><th>Commande</th><th>Expiration</th></tr></thead>
+                          <tbody>
+                            {userTxns.length === 0 ? (
+                              <tr><td colSpan={6} className="text-center text-muted py-4">Aucune transaction.</td></tr>
+                            ) : userTxns.map((t) => (
+                              <tr key={t.id}>
+                                <td className="text-muted">{new Date(t.created_at).toLocaleDateString("fr-FR")}</td>
+                                <td><span className={`badge ${TYPE_LABELS[t.type]?.classe ?? "bg-secondary"}`}>{TYPE_LABELS[t.type]?.label ?? t.type}</span></td>
+                                <td><span className={`fw-semibold ${t.points > 0 ? "text-success" : t.points < 0 ? "text-danger" : "text-muted"}`}>{t.points > 0 ? "+" : ""}{t.points}</span></td>
+                                <td className="text-muted" style={{ maxWidth: "280px" }}>{t.description ?? "—"}</td>
+                                <td>{t.order_id ? <code>#{t.order_id.slice(0, 8)}</code> : "—"}</td>
+                                <td className="text-muted">{t.expires_at ? new Date(t.expires_at).toLocaleDateString("fr-FR") : "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+                </>
               )}
             </>
           )}
         </div>
       </div>
-
-      {/* Modal Recompense */}
-      {showModal && (
-        <div className="modal fade show d-block" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-          <div className="modal-dialog">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title fw-semibold">{editId ? "Modifier la recompense" : "Nouvelle recompense"}</h5>
-                <button className="btn-close" onClick={() => setShowModal(false)}></button>
-              </div>
-              <div className="modal-body">
-                <div className="row g-3">
-                  <div className="col-12">
-                    <label className="form-label">Nom <span className="text-danger">*</span></label>
-                    <input type="text" className={`form-control ${erreurs.name ? "is-invalid" : ""}`} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex: 5 DT de reduction" />
-                    {erreurs.name && <div className="invalid-feedback">{erreurs.name}</div>}
-                  </div>
-                  <div className="col-12">
-                    <label className="form-label">Description</label>
-                    <textarea className="form-control" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Description visible par le client"></textarea>
-                  </div>
-                  <div className="col-md-6">
-                    <label className="form-label">Points requis <span className="text-danger">*</span></label>
-                    <input type="number" className={`form-control ${erreurs.points_required ? "is-invalid" : ""}`} value={form.points_required} onChange={(e) => setForm({ ...form, points_required: e.target.value })} placeholder="100" />
-                    {erreurs.points_required && <div className="invalid-feedback">{erreurs.points_required}</div>}
-                  </div>
-                  <div className="col-md-6">
-                    <label className="form-label">Type</label>
-                    <select className="form-select" value={form.reward_type} onChange={(e) => setForm({ ...form, reward_type: e.target.value })}>
-                      <option value="reduction">Reduction (DT)</option>
-                      <option value="gift">Cadeau</option>
-                    </select>
-                  </div>
-                  {form.reward_type === "reduction" && (
-                    <div className="col-md-6">
-                      <label className="form-label">Valeur reduction (DT) <span className="text-danger">*</span></label>
-                      <input type="number" step="0.01" className={`form-control ${erreurs.reduction_value ? "is-invalid" : ""}`} value={form.reduction_value} onChange={(e) => setForm({ ...form, reduction_value: e.target.value })} placeholder="5.00" />
-                      {erreurs.reduction_value && <div className="invalid-feedback">{erreurs.reduction_value}</div>}
-                    </div>
-                  )}
-                  <div className="col-12">
-                    <div className="form-check form-switch">
-                      <input className="form-check-input" type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
-                      <label className="form-check-label">{form.active ? "Actif" : "Inactif"}</label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-light" onClick={() => setShowModal(false)}>Annuler</button>
-                <button className="btn btn-primary" onClick={sauvegarderReward}>Enregistrer</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Ajustement */}
-      {showAdjustModal && (
-        <div className="modal fade show d-block" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-          <div className="modal-dialog">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title fw-semibold">Ajuster les points</h5>
-                <button className="btn-close" onClick={() => setShowAdjustModal(false)}></button>
-              </div>
-              <div className="modal-body">
-                <div className="row g-3">
-                  <div className="col-12">
-                    <label className="form-label">Utilisateur <span className="text-danger">*</span></label>
-                    <select className="form-select" value={adjustForm.user_id} onChange={(e) => setAdjustForm({ ...adjustForm, user_id: e.target.value })}>
-                      <option value="">Choisir un utilisateur</option>
-                      {profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-                    </select>
-                  </div>
-                  <div className="col-12">
-                    <label className="form-label">Points <span className="text-danger">*</span></label>
-                    <input type="number" className="form-control" value={adjustForm.points} onChange={(e) => setAdjustForm({ ...adjustForm, points: e.target.value })} placeholder="Ex: 50 ou -30" />
-                    <small className="text-muted">Positif = ajouter, Negatif = retirer</small>
-                  </div>
-                  <div className="col-12">
-                    <label className="form-label">Raison</label>
-                    <input type="text" className="form-control" value={adjustForm.description} onChange={(e) => setAdjustForm({ ...adjustForm, description: e.target.value })} placeholder="Ex: Bonus anniversaire" />
-                  </div>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-light" onClick={() => setShowAdjustModal(false)}>Annuler</button>
-                <button className="btn btn-primary" onClick={ajusterPoints} disabled={!adjustForm.user_id || !adjustForm.points}>Confirmer</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

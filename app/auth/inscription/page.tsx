@@ -57,6 +57,14 @@ export default function InscriptionPage() {
         phone: form.telephone.trim() || null,
         role_id: clientRole?.id ?? null,
       });
+
+      await supabase.from("loyalty_transactions").insert({
+        user_id: data.user.id,
+        points: 50,
+        type: "earn",
+        description: "Bonus de bienvenue - creation de compte",
+        expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      });
     }
 
     router.push("/compte");

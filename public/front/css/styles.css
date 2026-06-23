@@ -1439,50 +1439,35 @@ input, select, textarea { font: inherit; color: inherit; }
   transition: none;
 }
 
-/* Enter from LEFT */
-.drone-slider__drone--enter-left {
-  animation: droneEnterLeft 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-/* Enter from RIGHT */
+/* Trajectoire : DROITE → MILIEU → GAUCHE (toujours) */
+
+/* Entre par la droite */
 .drone-slider__drone--enter-right {
-  animation: droneEnterRight 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: droneFromRight 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-/* Stay center — float */
+/* Flotte au milieu */
 .drone-slider__drone--center {
-  animation: droneFloat 4s ease-in-out infinite;
   left: 50%; top: 50%;
   transform: translate(-50%, -50%);
+  animation: droneFloat 4s ease-in-out infinite;
 }
-/* Exit to RIGHT */
-.drone-slider__drone--exit-right {
-  animation: droneExitRight 2s cubic-bezier(0.7, 0, 0.84, 0) forwards;
-}
-/* Exit to LEFT */
+/* Sort par la gauche */
 .drone-slider__drone--exit-left {
-  animation: droneExitLeft 2s cubic-bezier(0.7, 0, 0.84, 0) forwards;
+  animation: droneToLeft 2s cubic-bezier(0.7, 0, 0.84, 0) forwards;
 }
 
-@keyframes droneEnterLeft {
-  0%   { left: -20%; top: 50%; transform: translate(0, -50%) rotate(10deg); opacity: 0; }
-  20%  { opacity: 1; }
+@keyframes droneFromRight {
+  0%   { left: 110%; top: 50%; transform: translate(0, -50%) rotate(-8deg); opacity: 0; }
+  15%  { opacity: 1; }
   100% { left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(0deg); opacity: 1; }
-}
-@keyframes droneEnterRight {
-  0%   { left: 120%; top: 50%; transform: translate(0, -50%) rotate(-10deg) scaleX(-1); opacity: 0; }
-  20%  { opacity: 1; }
-  100% { left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(0deg) scaleX(1); opacity: 1; }
 }
 @keyframes droneFloat {
   0%, 100% { transform: translate(-50%, -50%) translateY(0); }
   50%      { transform: translate(-50%, -50%) translateY(-14px); }
 }
-@keyframes droneExitRight {
+@keyframes droneToLeft {
   0%   { left: 50%; transform: translate(-50%, -50%); opacity: 1; }
-  100% { left: 120%; transform: translate(0, -50%) rotate(-8deg); opacity: 0; }
-}
-@keyframes droneExitLeft {
-  0%   { left: 50%; transform: translate(-50%, -50%); opacity: 1; }
-  100% { left: -20%; transform: translate(0, -50%) rotate(8deg); opacity: 0; }
+  100% { left: -15%; transform: translate(0, -50%) rotate(8deg); opacity: 0; }
 }
 
 /* Text + CTA */

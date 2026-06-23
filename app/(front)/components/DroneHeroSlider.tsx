@@ -6,7 +6,6 @@ import Link from "next/link";
 const SLIDES = [
   {
     bg: "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=1920&q=80&auto=format&fit=crop",
-    direction: "left" as const,
     title: "Des questions ? On a les reponses",
     subtitle: "Consultez notre FAQ complete pour trouver rapidement ce que vous cherchez.",
     cta: { label: "Voir la FAQ", href: "/faq" },
@@ -14,7 +13,6 @@ const SLIDES = [
   },
   {
     bg: "https://images.unsplash.com/photo-1593642632559-0c6d3fc62b89?w=1920&q=80&auto=format&fit=crop",
-    direction: "right" as const,
     title: "Besoin d'aide ? Notre equipe est la",
     subtitle: "Support reactif et personnalise. Contactez-nous a tout moment.",
     cta: { label: "Contacter le support", href: "/support" },
@@ -49,13 +47,12 @@ export default function DroneHeroSlider() {
   }, []);
 
   const slide = SLIDES[current];
-  const fromLeft = slide.direction === "left";
 
   const droneClass = [
     "drone-slider__drone",
-    phase === "enter" ? (fromLeft ? "drone-slider__drone--enter-left" : "drone-slider__drone--enter-right") : "",
+    phase === "enter" ? "drone-slider__drone--enter-right" : "",
     phase === "stay" ? "drone-slider__drone--center" : "",
-    phase === "exit" ? (fromLeft ? "drone-slider__drone--exit-right" : "drone-slider__drone--exit-left") : "",
+    phase === "exit" ? "drone-slider__drone--exit-left" : "",
   ].join(" ");
 
   const bgClass = [
@@ -72,7 +69,6 @@ export default function DroneHeroSlider() {
 
   return (
     <section className="drone-slider">
-      {/* Background */}
       <div
         key={`bg-${current}`}
         className={bgClass}
@@ -81,7 +77,6 @@ export default function DroneHeroSlider() {
         <div className="drone-slider__overlay" style={{ background: slide.overlay }}></div>
       </div>
 
-      {/* Drone */}
       <img
         key={`drone-${current}-${phase}`}
         src="/front/images/drone-hero.png"
@@ -89,7 +84,6 @@ export default function DroneHeroSlider() {
         className={droneClass}
       />
 
-      {/* Text + CTA */}
       <div className={textClass}>
         <h1>{slide.title}</h1>
         <p>{slide.subtitle}</p>
@@ -99,14 +93,12 @@ export default function DroneHeroSlider() {
         </Link>
       </div>
 
-      {/* Dots */}
       <div className="drone-slider__dots">
         {SLIDES.map((_, i) => (
           <span key={i} className={`drone-slider__dot ${i === current ? "drone-slider__dot--active" : ""}`}></span>
         ))}
       </div>
 
-      {/* Scroll indicator */}
       <div className="drone-slider__scroll">
         <span></span>
       </div>

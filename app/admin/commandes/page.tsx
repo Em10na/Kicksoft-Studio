@@ -63,13 +63,10 @@ export default function CommandesPage() {
     if (error) {
       setAlert({ message: "Erreur : " + error.message, type: "danger" });
     } else {
-      if (nouveauStatut === "delivered") {
-        const { data: pts } = await supabase.rpc("credit_order_loyalty_points", { p_order_id: id });
-        const msg = pts && pts > 0 ? `Statut mis a jour ! ${pts} points fidelite credites.` : "Statut mis a jour avec succes !";
-        setAlert({ message: msg, type: "success" });
-      } else {
-        setAlert({ message: "Statut mis a jour avec succes !", type: "success" });
-      }
+      const msg = nouveauStatut === "delivered"
+        ? "Commande livree ! Rendez-vous dans Fidelite pour attribuer les points."
+        : "Statut mis a jour avec succes !";
+      setAlert({ message: msg, type: "success" });
       chargerCommandes();
     }
     setTimeout(() => setAlert({ message: "", type: "" }), 3000);

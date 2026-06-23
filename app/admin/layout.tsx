@@ -61,6 +61,12 @@ export default function AdminLayout({
                   </a>
                 </li>
                 <li className="sidebar-item">
+                  <a className="sidebar-link" href="/admin/devis">
+                    <span><i className="ti ti-file-invoice"></i></span>
+                    <span className="hide-menu">Devis</span>
+                  </a>
+                </li>
+                <li className="sidebar-item">
                   <a className="sidebar-link" href="/admin/fidelite">
                     <span><i className="ti ti-star"></i></span>
                     <span className="hide-menu">Fidelite</span>
@@ -168,12 +174,12 @@ export default function AdminLayout({
         </div>
       </div>
 
-      <Script src="/assets/libs/jquery/dist/jquery.min.js" strategy="beforeInteractive" />
+      <Script src="/assets/libs/jquery/dist/jquery.min.js" strategy="afterInteractive" />
       <Script src="/assets/libs/bootstrap/dist/js/bootstrap.bundle.min.js" strategy="afterInteractive" />
-      <Script src="/assets/js/sidebarmenu.js" strategy="afterInteractive" />
-      <Script src="/assets/js/app.min.js" strategy="afterInteractive" />
+      <Script src="/assets/js/sidebarmenu.js" strategy="lazyOnload" />
+      <Script src="/assets/js/app.min.js" strategy="lazyOnload" />
       <Script src="/assets/libs/apexcharts/dist/apexcharts.min.js" strategy="lazyOnload" />
-      <Script src="/assets/libs/simplebar/dist/simplebar.js" strategy="afterInteractive" />
+      <Script src="/assets/libs/simplebar/dist/simplebar.js" strategy="lazyOnload" />
     </>
   );
 }
