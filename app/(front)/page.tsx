@@ -3,6 +3,7 @@ import Link from "next/link";
 import ProductCard from "./components/ProductCard";
 import NewsletterForm from "./components/NewsletterForm";
 import DroneCurtain from "./components/DroneCurtain";
+import DroneHeroSlider from "./components/DroneHeroSlider";
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -19,54 +20,8 @@ export default async function HomePage() {
     <>
       <DroneCurtain />
 
-      {/* ====== HERO — DRONZA STYLE ====== */}
-      <section className="dronza-hero">
-        {/* Mini drones d'ambiance */}
-        <img src="/front/images/drone-hero.png" alt="" className="real-drone real-drone--1" />
-        <img src="/front/images/drone-hero.png" alt="" className="real-drone real-drone--2" />
-
-        {/* Slider arrows */}
-        <button className="dronza-hero__arrow dronza-hero__arrow--left" aria-label="Precedent">&#x2039;</button>
-        <button className="dronza-hero__arrow dronza-hero__arrow--right" aria-label="Suivant">&#x203A;</button>
-
-        <div className="container dronza-hero__grid">
-          {/* Left column — text */}
-          <div className="dronza-hero__left">
-            <div className="dronza-hero__title-box">
-              <h1>{template?.title || "Equipements Tech pour les meilleures performances"}</h1>
-            </div>
-            <p className="dronza-hero__desc">
-              {template?.subtitle || "Decouvrez notre gamme de drones, gadgets et equipements professionnels. Technologie de pointe, livraison rapide et garantie 2 ans sur tous nos produits."}
-            </p>
-            <Link href="/boutique" className="dronza-hero__cta">
-              Explorer la boutique
-              <svg width="16" height="12" viewBox="0 0 14 10" fill="none"><path d="M1 5h12m0 0L9 1m4 4L9 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            </Link>
-            <div className="dronza-hero__stats">
-              <div className="dronza-hero__stat"><strong>500+</strong><span>Produits</span></div>
-              <div className="dronza-hero__stat"><strong>24h</strong><span>Livraison</span></div>
-              <div className="dronza-hero__stat"><strong>2 ans</strong><span>Garantie</span></div>
-            </div>
-          </div>
-
-          {/* Right column — circle + drone */}
-          <div className="dronza-hero__right">
-            <div className="dronza-hero__circle"></div>
-            <div className="dronza-hero__circle-ring"></div>
-            <img
-              src="/front/images/drone-hero.png"
-              alt="Drone Kicksoft"
-              className="dronza-hero__drone"
-            />
-            <div className="dronza-hero__shadow"></div>
-          </div>
-        </div>
-
-        {/* Gear icon bottom-left */}
-        <div className="dronza-hero__gear">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2m11-11h-2M3 12H1m16.36-7.36l-1.42 1.42M7.05 16.95l-1.42 1.42m12.73 0l-1.42-1.42M7.05 7.05L5.63 5.63"/></svg>
-        </div>
-      </section>
+      {/* ====== HERO — DRONE SLIDER FULLSCREEN ====== */}
+      <DroneHeroSlider />
 
       {/* ====== FEATURES BAR ====== */}
       <section className="features-bar">
@@ -119,28 +74,80 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ====== PROMO BANNERS ====== */}
-      <section className="section" style={{ paddingTop: "0" }}>
+      {/* ====== SOLDES ====== */}
+      <section className="soldes">
         <div className="container">
-          <div className="discount-row">
-            <article className="discount-card discount-card--watch">
-              <span className="meta">CETTE SEMAINE</span>
-              <h3>Mega Remises<br /><span className="pct">Jusqu&apos;a -50%</span></h3>
-              <Link href="/boutique" className="shop-now">
-                Voir les offres
-                <svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5h12m0 0L9 1m4 4L9 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          {/* Banner principal */}
+          <div className="soldes__hero">
+            <div className="soldes__hero-bg">
+              <img src="https://images.unsplash.com/photo-1593642632559-0c6d3fc62b89?w=1200&q=80&auto=format&fit=crop" alt="" />
+            </div>
+            <div className="soldes__hero-overlay"></div>
+            <div className="soldes__hero-particles">
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <div className="soldes__hero-content">
+              <div className="soldes__timer-badge">
+                <span className="soldes__timer-dot"></span>
+                OFFRE LIMITEE
+              </div>
+              <h2>MEGA<br /><span className="soldes__gradient">SOLDES</span></h2>
+              <div className="soldes__pct">-50%</div>
+              <p>Sur une selection de produits tech, peripheriques et accessoires. Jusqu&apos;a epuisement des stocks.</p>
+              <Link href="/boutique" className="soldes__btn">
+                Voir toutes les offres
+                <svg width="16" height="12" viewBox="0 0 14 10" fill="none"><path d="M1 5h12m0 0L9 1m4 4L9 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
               </Link>
-              <img className="product" src="https://images.unsplash.com/photo-1579586337278-3befd40fd17a?w=500&q=80&auto=format&fit=crop" alt="" />
-            </article>
-            <article className="discount-card discount-card--airpods">
-              <span className="meta">EDITION LIMITEE</span>
-              <h3>Accessoires Pro<br /><span className="pct">-30%</span></h3>
-              <Link href="/boutique" className="shop-now">
-                Decouvrir
-                <svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5h12m0 0L9 1m4 4L9 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-              </Link>
-              <img className="product" src="https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=500&q=80&auto=format&fit=crop" alt="" />
-            </article>
+            </div>
+          </div>
+
+          {/* Cartes promo */}
+          <div className="soldes__grid">
+            <div className="soldes__card">
+              <div className="soldes__card-img">
+                <img src="https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=600&q=80&auto=format&fit=crop" alt="Laptops" />
+                <div className="soldes__card-badge">-30%</div>
+              </div>
+              <div className="soldes__card-body">
+                <span className="soldes__card-tag">LAPTOPS</span>
+                <h3>PC Portables Pro</h3>
+                <p>Laptops haute performance pour le travail et la creation.</p>
+                <Link href="/boutique" className="soldes__card-link">
+                  Decouvrir
+                  <svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5h12m0 0L9 1m4 4L9 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </Link>
+              </div>
+            </div>
+            <div className="soldes__card">
+              <div className="soldes__card-img">
+                <img src="https://images.unsplash.com/photo-1583394838336-acd977736f90?w=600&q=80&auto=format&fit=crop" alt="Accessoires" />
+                <div className="soldes__card-badge">-40%</div>
+              </div>
+              <div className="soldes__card-body">
+                <span className="soldes__card-tag">ACCESSOIRES</span>
+                <h3>Casques &amp; Audio</h3>
+                <p>Casques sans fil, ecouteurs et equipements audio premium.</p>
+                <Link href="/boutique" className="soldes__card-link">
+                  Decouvrir
+                  <svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5h12m0 0L9 1m4 4L9 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </Link>
+              </div>
+            </div>
+            <div className="soldes__card">
+              <div className="soldes__card-img">
+                <img src="https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=600&q=80&auto=format&fit=crop" alt="Peripheriques" />
+                <div className="soldes__card-badge">-25%</div>
+              </div>
+              <div className="soldes__card-body">
+                <span className="soldes__card-tag">PERIPHERIQUES</span>
+                <h3>Claviers &amp; Souris</h3>
+                <p>Gaming et bureautique, mecaniques RGB et ergonomiques.</p>
+                <Link href="/boutique" className="soldes__card-link">
+                  Decouvrir
+                  <svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5h12m0 0L9 1m4 4L9 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -220,40 +227,78 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ====== CTA PRO ====== */}
-      <section className="section">
-        <div className="container">
-          <div className="discount-row">
-            <article className="discount-card discount-card--watch" style={{ flex: 1 }}>
-              <span className="meta">PROFESSIONNELS</span>
-              <h3>Solutions sur mesure<br /><span className="pct">pour votre entreprise</span></h3>
-              <Link href="/solutions" className="shop-now">
-                Decouvrir nos solutions
-                <svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5h12m0 0L9 1m4 4L9 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-              </Link>
-            </article>
-            <article className="discount-card discount-card--airpods" style={{ flex: 1 }}>
-              <span className="meta">REVENDEURS</span>
-              <h3>Devenez partenaire<br /><span className="pct">Kicksoft</span></h3>
-              <Link href="/revendeurs" className="shop-now">
-                En savoir plus
-                <svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5h12m0 0L9 1m4 4L9 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-              </Link>
-            </article>
+      {/* ====== DJI SHOWCASE ====== */}
+      <section className="dji-showcase">
+        {/* Video background */}
+        <video className="dji-showcase__video" autoPlay muted loop playsInline poster="https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=1920&q=80&auto=format&fit=crop">
+          <source src="https://videos.pexels.com/video-files/3571264/3571264-uhd_2560_1440_30fps.mp4" type="video/mp4" />
+        </video>
+        <div className="dji-showcase__overlay"></div>
+
+        {/* Floating drone image */}
+        <img src="/front/images/drone-hero.png" alt="" className="dji-showcase__drone" />
+
+        {/* Content */}
+        <div className="container dji-showcase__content">
+          <div className="dji-showcase__badge">NOUVEAU</div>
+          <h2 className="dji-showcase__title">
+            La precision<br />
+            <span className="dji-showcase__gradient">rencontre l&apos;innovation</span>
+          </h2>
+          <p className="dji-showcase__desc">
+            Decouvrez notre gamme de drones professionnels et equipements de pointe.
+            Capture aerienne 4K, stabilisation avancee et autonomie record.
+          </p>
+          <div className="dji-showcase__specs">
+            <div className="dji-showcase__spec">
+              <strong>4K</strong>
+              <span>Ultra HD</span>
+            </div>
+            <div className="dji-showcase__spec-divider"></div>
+            <div className="dji-showcase__spec">
+              <strong>45 min</strong>
+              <span>Autonomie</span>
+            </div>
+            <div className="dji-showcase__spec-divider"></div>
+            <div className="dji-showcase__spec">
+              <strong>15 km</strong>
+              <span>Portee</span>
+            </div>
+            <div className="dji-showcase__spec-divider"></div>
+            <div className="dji-showcase__spec">
+              <strong>GPS</strong>
+              <span>Precision</span>
+            </div>
+          </div>
+          <div className="dji-showcase__ctas">
+            <Link href="/solutions" className="dji-showcase__btn dji-showcase__btn--primary">
+              Decouvrir les solutions
+              <svg width="16" height="12" viewBox="0 0 14 10" fill="none"><path d="M1 5h12m0 0L9 1m4 4L9 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </Link>
+            <Link href="/revendeurs" className="dji-showcase__btn dji-showcase__btn--outline">
+              Devenir partenaire
+            </Link>
           </div>
         </div>
+
+        {/* Scan lines effect */}
+        <div className="dji-showcase__scanlines"></div>
       </section>
 
       {/* ====== NEWSLETTER ====== */}
-      <section style={{ background: "var(--paper)" }}>
+      <section className="newsletter-section">
         <div className="container">
-          <div className="newsletter">
-            <div className="newsletter-grid">
-              <div>
-                <h2>Recevez <strong>10% de reduction</strong> sur votre premiere commande</h2>
-                <p>Inscrivez-vous a notre newsletter pour recevoir nos offres exclusives, lancements de produits et conseils tech.</p>
+          <div className="newsletter-modern">
+            <div className="newsletter-modern__glow"></div>
+            <div className="newsletter-modern__content">
+              <div className="newsletter-modern__left">
+                <span className="newsletter-modern__badge">OFFRE EXCLUSIVE</span>
+                <h2>Recevez <strong>10%</strong> sur votre premiere commande</h2>
+                <p>Inscrivez-vous et recevez nos offres exclusives, lancements de produits et conseils tech directement dans votre boite mail.</p>
               </div>
-              <NewsletterForm />
+              <div className="newsletter-modern__right">
+                <NewsletterForm />
+              </div>
             </div>
           </div>
         </div>
