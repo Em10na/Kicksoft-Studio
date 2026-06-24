@@ -5,9 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useCart } from "@/lib/cart";
 import { createClient } from "@/lib/supabase/client";
-import { getUserTier } from "@/lib/loyalty-config";
-
-type ReductionReward = { id: string; name: string; points_required: number; reduction_value: number };
+import { LOYALTY } from "@/lib/loyalty-config";
 
 export default function PanierPage() {
   const { items, count, total, updateQty, removeItem, clearCart } = useCart();
@@ -15,10 +13,7 @@ export default function PanierPage() {
   const [erreur, setErreur] = useState("");
   const [succes, setSucces] = useState(false);
   const [pointsBalance, setPointsBalance] = useState(0);
-  const [lifetimePoints, setLifetimePoints] = useState(0);
-  const [reductions, setReductions] = useState<ReductionReward[]>([]);
-  const [selectedReduction, setSelectedReduction] = useState<string | null>(null);
-  const [pointsDiscount, setPointsDiscount] = useState(0);
+  const [usePoints, setUsePoints] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -26,23 +21,16 @@ export default function PanierPage() {
     async function loadLoyalty() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const [{ data: txns }, { data: rw }] = await Promise.all([
-        supabase.from("loyalty_transactions").select("points").eq("user_id", user.id),
-        supabase.from("loyalty_rewards").select("id, name, points_required, reduction_value").eq("reward_type", "reduction").eq("active", true).order("points_required"),
-      ]);
-      const allTxns = txns ?? [];
-      setPointsBalance(allTxns.reduce((s: number, t: { points: number }) => s + t.points, 0));
-      setLifetimePoints(allTxns.filter((t: { points: number }) => t.points > 0).reduce((s: number, t: { points: number }) => s + t.points, 0));
-      setReductions((rw ?? []) as ReductionReward[]);
+      const { data: txns } = await supabase.from("loyalty_transactions").select("points").eq("user_id", user.id);
+      setPointsBalance((txns ?? []).reduce((s: number, t: { points: number }) => s + t.points, 0));
     }
     loadLoyalty();
   }, []);
 
-  const tier = getUserTier(lifetimePoints);
-  const tierDiscount = tier.discount > 0 ? Math.round(total * tier.discount / 100) : 0;
-  const tierFreeShipping = tier.freeShipping;
-  const livraison = tierFreeShipping || total >= 50 ? 0 : 7;
-  const grandTotal = Math.max(0, total - tierDiscount + livraison - pointsDiscount);
+  const pointsDiscount = usePoints ? Math.min(pointsBalance * LOYALTY.POINTS_PER_DT, total) : 0;
+  const pointsUsed = usePoints ? Math.min(pointsBalance, Math.floor(total / LOYALTY.POINTS_PER_DT)) : 0;
+  const livraison = total >= 50 ? 0 : 7;
+  const grandTotal = Math.max(0, total - pointsDiscount + livraison);
 
   async function passerCommande() {
     setLoading(true);
@@ -80,18 +68,14 @@ export default function PanierPage() {
       return;
     }
 
-    if (selectedReduction) {
-      const reward = reductions.find((r) => r.id === selectedReduction);
-      if (reward) {
-        await supabase.from("loyalty_transactions").insert({
-          user_id: user.id,
-          order_id: order.id,
-          points: -reward.points_required,
-          type: "redeem_reduction",
-          description: `Reduction ${reward.reduction_value} DT - commande #${order.id.slice(0, 8)}`,
-          reward_id: reward.id,
-        });
-      }
+    if (usePoints && pointsUsed > 0) {
+      await supabase.from("loyalty_transactions").insert({
+        user_id: user.id,
+        order_id: order.id,
+        points: -pointsUsed,
+        type: "redeem_reduction",
+        description: `Reduction ${pointsDiscount.toFixed(2)} DT - commande #${order.id.slice(0, 8)} (${pointsUsed} pts utilises)`,
+      });
     }
 
     clearCart();
@@ -233,49 +217,35 @@ export default function PanierPage() {
                   <span>Sous-total ({count} article{count > 1 ? "s" : ""})</span>
                   <span style={{ fontFamily: "var(--ff-display)", fontWeight: 600, color: "var(--ink)" }}>{total.toFixed(2)} DT</span>
                 </div>
-                {tierDiscount > 0 && (
-                  <div className="cart-line">
-                    <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span>{tier.icon}</span> Reduction {tier.name} ({tier.discount}%)
-                    </span>
-                    <span style={{ color: "#16a34a", fontWeight: 600 }}>-{tierDiscount.toFixed(2)} DT</span>
-                  </div>
-                )}
                 <div className="cart-line">
                   <span>Livraison</span>
                   <span style={{ color: livraison === 0 ? "var(--emerald)" : "var(--ink)", fontWeight: 600 }}>
-                    {livraison === 0 ? (tierFreeShipping ? `Gratuite (${tier.name})` : "Gratuite") : `${livraison} DT`}
+                    {livraison === 0 ? "Gratuite" : `${livraison} DT`}
                   </span>
                 </div>
-                {livraison > 0 && !tierFreeShipping && (
+                {livraison > 0 && (
                   <div style={{ fontSize: "var(--text-xs)", color: "var(--fg-mute)", marginBottom: "var(--s3)" }}>
                     Livraison gratuite a partir de 50 DT ({(50 - total).toFixed(2)} DT restants)
                   </div>
                 )}
                 {/* Points fidelite */}
-                {pointsBalance > 0 && reductions.length > 0 && (
-                  <div style={{ padding: "var(--s4) 0", borderTop: "1px solid var(--rule)" }}>
-                    <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", marginBottom: "var(--s2)", display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span>&#x2B50;</span> Points fidelite : <strong style={{ color: "#d97706" }}>{pointsBalance} pts</strong>
-                    </div>
-                    {reductions.filter((r) => pointsBalance >= r.points_required).map((r) => (
-                      <label key={r.id} style={{ display: "flex", alignItems: "center", gap: "var(--s2)", fontSize: "var(--text-sm)", cursor: "pointer", padding: "4px 0" }}>
-                        <input type="radio" name="loyalty" checked={selectedReduction === r.id}
-                          onChange={() => { setSelectedReduction(r.id); setPointsDiscount(r.reduction_value); }} />
-                        {r.points_required} pts = -{r.reduction_value} DT
-                      </label>
-                    ))}
-                    {selectedReduction && (
-                      <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: "var(--text-xs)", color: "var(--rose)", padding: "4px 0" }}
-                        onClick={() => { setSelectedReduction(null); setPointsDiscount(0); }}>
-                        Annuler la reduction
-                      </button>
-                    )}
+                {pointsBalance > 0 && (
+                  <div style={{ padding: "var(--s4)", marginTop: "var(--s2)", background: usePoints ? "#f0fdf4" : "var(--bg)", border: `1px solid ${usePoints ? "#bbf7d0" : "var(--rule)"}`, borderRadius: "var(--r)" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "var(--s3)", cursor: "pointer", fontSize: "var(--text-sm)" }}>
+                      <input type="checkbox" checked={usePoints} onChange={(e) => setUsePoints(e.target.checked)}
+                        style={{ width: "18px", height: "18px", accentColor: "var(--indigo)" }} />
+                      <div>
+                        <div style={{ fontWeight: 600 }}>Utiliser mes points de fidelite</div>
+                        <div style={{ fontSize: "var(--text-xs)", color: "var(--fg-mute)" }}>
+                          {pointsBalance} pts disponibles = <strong style={{ color: "#16a34a" }}>{Math.min(pointsBalance, Math.floor(total)).toFixed(2)} DT de reduction</strong>
+                        </div>
+                      </div>
+                    </label>
                   </div>
                 )}
                 {pointsDiscount > 0 && (
-                  <div className="cart-line">
-                    <span>Reduction fidelite</span>
+                  <div className="cart-line" style={{ marginTop: "var(--s2)" }}>
+                    <span>Reduction fidelite ({pointsUsed} pts)</span>
                     <span style={{ color: "#16a34a", fontWeight: 600 }}>-{pointsDiscount.toFixed(2)} DT</span>
                   </div>
                 )}

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { getUserTier } from "@/lib/loyalty-config";
 import Link from "next/link";
 
 export default function CompteDashboard() {
@@ -42,7 +41,7 @@ export default function CompteDashboard() {
           { label: "Commandes", valeur: stats.commandes, lien: "/compte/commandes", couleur: "var(--indigo)" },
           { label: "Favoris", valeur: stats.favoris, lien: "/compte/favoris", couleur: "var(--rose)" },
           { label: "Tickets", valeur: stats.tickets, lien: "/compte/support", couleur: "var(--amber)" },
-          { label: `${getUserTier(stats.points).icon} ${getUserTier(stats.points).name} — ${stats.points} pts`, valeur: stats.points, lien: "/compte/fidelite", couleur: getUserTier(stats.points).color },
+          { label: "Points fidelite", valeur: stats.points, lien: "/compte/fidelite", couleur: "#d97706" },
         ].map((s) => (
           <Link key={s.label} href={s.lien} style={{ textDecoration: "none" }}>
             <div style={{ padding: "var(--s5)", background: "var(--paper)", border: "1px solid var(--rule)", borderRadius: "var(--r)", textAlign: "center" }}>
