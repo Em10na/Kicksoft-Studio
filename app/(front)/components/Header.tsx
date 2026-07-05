@@ -1,50 +1,31 @@
 import Link from "next/link";
 import CartCount from "./CartCount";
 import ThemeToggle from "./ThemeToggle";
-import VisualSearch from "./VisualSearch";
 import LanguageSwitcher from "./LanguageSwitcher";
+import HeaderSearch from "./HeaderSearch";
 
 export default function Header() {
   return (
     <>
       <a className="skip-link" href="#main">Skip to content</a>
 
-      <div className="utility">
-        <div className="container">
-          <span className="promo">
-            <LanguageSwitcher />
-          </span>
-          <span className="links">
-            <Link href="/support">Aide</Link>
-            <Link href="/faq">FAQ</Link>
-            <Link href="/admin">Administration</Link>
-          </span>
-        </div>
-      </div>
-
-      <header className="site-header">
+      <header className="site-header site-header--compact">
         <div className="container">
           <Link href="/" className="brand">
             <span className="brand-mark">K</span> Kicksoft
           </Link>
 
-          <form className="search" role="search" action="/boutique">
-            <input
-              type="text"
-              name="q"
-              placeholder="Rechercher des produits, marques, categories..."
-              aria-label="Rechercher"
-            />
-            <VisualSearch />
-            <button type="submit" aria-label="Rechercher">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                <circle cx="11" cy="11" r="7" />
-                <path d="M21 21l-4.3-4.3" />
-              </svg>
-            </button>
-          </form>
+          <nav className="main-nav" aria-label="Primary">
+            <Link href="/">Accueil</Link>
+            <Link href="/boutique">Boutique</Link>
+            <Link href="/a-propos">A propos</Link>
+            <Link href="/contact">Contact</Link>
+            <Link href="/devis">Devis</Link>
+          </nav>
 
           <div className="icon-row">
+            <LanguageSwitcher />
+            <HeaderSearch />
             <ThemeToggle />
             <Link href="/compte/favoris" className="icon-btn" aria-label="Mes favoris">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -70,26 +51,6 @@ export default function Header() {
         </div>
       </header>
 
-      <nav className="nav-bar" aria-label="Primary">
-        <div className="container">
-          <Link href="/boutique" className="all-cats">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-            Categories
-          </Link>
-          <div className="main-nav">
-            <Link href="/">Accueil</Link>
-            <Link href="/boutique">Boutique</Link>
-            <Link href="/a-propos">A propos</Link>
-            <Link href="/contact">Contact</Link>
-          </div>
-          <span className="nav-cta"><Link href="/devis" style={{ color: "inherit", textDecoration: "none" }}>DEMANDER UN <strong>DEVIS</strong></Link></span>
-        </div>
-      </nav>
-
       <div className="drawer" id="drawer" aria-hidden="true">
         <div className="drawer-head">
           <Link href="/" className="brand"><span className="brand-mark">K</span> Kicksoft</Link>
@@ -102,7 +63,8 @@ export default function Header() {
         <Link href="/faq">FAQ</Link>
         <Link href="/support">Support</Link>
         <Link href="/devis">Demander un devis</Link>
-        <Link href="/panier" className="btn btn--indigo" style={{ marginTop: "var(--s5)", justifyContent: "center" }}>Voir le panier &rarr;</Link>
+        <Link href="/admin">Administration</Link>
+        <Link href="/panier" className="btn btn--ink" style={{ marginTop: "var(--s5)", justifyContent: "center" }}>Voir le panier &rarr;</Link>
       </div>
     </>
   );

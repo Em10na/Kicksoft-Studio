@@ -52,11 +52,24 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // --- Routes compte : authentifie ---
+  // --- Routes compte : authentifie + reserve aux clients ---
+  // (l'admin/manager a son propre espace : le dashboard /admin)
   if (pathname.startsWith("/compte")) {
     if (!user) {
       const url = request.nextUrl.clone();
       url.pathname = "/auth/connexion";
+      return NextResponse.redirect(url);
+    }
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role_id, roles(name)")
+      .eq("id", user.id)
+      .single();
+    const roles = profile?.roles as unknown as { name: string } | null;
+    const roleName = roles?.name;
+    if (roleName === "admin" || roleName === "manager") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin";
       return NextResponse.redirect(url);
     }
   }

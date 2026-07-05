@@ -34,8 +34,7 @@ const NAV: NavGroup[] = [
   {
     section: "Contenu",
     items: [
-      { href: "/admin/contenu", icon: "ti-file-text", label: "Pages & Blog" },
-      { href: "/admin/medias", icon: "ti-photo", label: "Médias" },
+      { href: "/admin/contenu", icon: "ti-file-text", label: "FAQ & Newsletter" },
       { href: "/admin/accueil", icon: "ti-home", label: "Page accueil" },
     ],
   },
@@ -50,12 +49,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/utilisateurs": "Utilisateurs",
   "/admin/fidelite": "Fidélité",
   "/admin/contenu": "Contenu",
-  "/admin/contenu/blog": "Blog",
   "/admin/contenu/faq": "FAQ",
   "/admin/contenu/newsletter": "Newsletter",
-  "/admin/contenu/pages": "Pages",
-  "/admin/contenu/support": "Support",
-  "/admin/medias": "Médias",
   "/admin/accueil": "Page accueil",
 };
 

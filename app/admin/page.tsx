@@ -10,7 +10,15 @@ type Commande = {
   profiles?: { full_name: string } | null;
 };
 type Produit = { id: string; title: string; stock: number };
-type Ticket = { id: string; subject: string; status: string; created_at: string };
+type DevisRecent = { id: string; subject: string; status: string; created_at: string };
+
+// Subject format: "[DEVIS] Societe - Secteur" ou "[DEVIS] Societe - Secteur - Produit: Nom (ref)"
+function parseDevisSubject(subject: string) {
+  const body = subject.replace(/^\[DEVIS\]\s*/, "");
+  const societe = body.split(" - ")[0]?.trim() || "Sans société";
+  const produitMatch = body.match(/Produit:\s*([^(]+)/);
+  return { societe, produit: produitMatch ? produitMatch[1].trim() : null };
+}
 
 const STATUTS: Record<string, { label: string; cls: string }> = {
   pending:   { label: "En attente", cls: "ak-badge--warning" },
@@ -39,35 +47,35 @@ function Counter({ value }: { value: number }) {
 export default function DashboardPage() {
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ ventes: 0, commandes: 0, commandesAttente: 0, produits: 0, produitsPublies: 0, utilisateurs: 0, ticketsOuverts: 0, tickets: 0, stockFaible: 0 });
+  const [stats, setStats] = useState({ ventes: 0, commandes: 0, commandesAttente: 0, produits: 0, produitsPublies: 0, utilisateurs: 0, devisNouveaux: 0, devisTotal: 0, stockFaible: 0 });
   const [commandesRecentes, setCommandesRecentes] = useState<Commande[]>([]);
   const [stockFaible, setStockFaible] = useState<Produit[]>([]);
-  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [devisRecents, setDevisRecents] = useState<DevisRecent[]>([]);
 
   async function load() {
     setLoading(true);
     const [
-      { count: cProd }, { count: cCmd }, { count: cUsers }, { count: cTick },
-      { count: cTickOpen }, { count: cProdPub }, { count: cCmdPend },
-      { data: cmds }, { data: ventes }, { data: stock }, { data: tix },
+      { count: cProd }, { count: cCmd }, { count: cUsers }, { count: cDevis },
+      { count: cDevisOpen }, { count: cProdPub }, { count: cCmdPend },
+      { data: cmds }, { data: ventes }, { data: stock }, { data: devis },
     ] = await Promise.all([
       supabase.from("products").select("*", { count: "exact", head: true }),
       supabase.from("orders").select("*", { count: "exact", head: true }),
       supabase.from("profiles").select("*", { count: "exact", head: true }),
-      supabase.from("tickets_support").select("*", { count: "exact", head: true }),
-      supabase.from("tickets_support").select("*", { count: "exact", head: true }).eq("status", "open"),
+      supabase.from("tickets_support").select("*", { count: "exact", head: true }).ilike("subject", "[DEVIS]%"),
+      supabase.from("tickets_support").select("*", { count: "exact", head: true }).ilike("subject", "[DEVIS]%").eq("status", "open"),
       supabase.from("products").select("*", { count: "exact", head: true }).eq("status", "published"),
       supabase.from("orders").select("*", { count: "exact", head: true }).eq("status", "pending"),
       supabase.from("orders").select("*, profiles(full_name)").order("created_at", { ascending: false }).limit(6),
       supabase.from("orders").select("total").eq("status", "delivered"),
       supabase.from("products").select("id, title, stock").eq("status", "published").lt("stock", 5).order("stock").limit(5),
-      supabase.from("tickets_support").select("*").order("created_at", { ascending: false }).limit(5),
+      supabase.from("tickets_support").select("id, subject, status, created_at").ilike("subject", "[DEVIS]%").order("created_at", { ascending: false }).limit(5),
     ]);
     const totalVentes = (ventes ?? []).reduce((a, o) => a + (o.total || 0), 0);
-    setStats({ ventes: totalVentes, commandes: cCmd ?? 0, commandesAttente: cCmdPend ?? 0, produits: cProd ?? 0, produitsPublies: cProdPub ?? 0, utilisateurs: cUsers ?? 0, ticketsOuverts: cTickOpen ?? 0, tickets: cTick ?? 0, stockFaible: (stock ?? []).length });
+    setStats({ ventes: totalVentes, commandes: cCmd ?? 0, commandesAttente: cCmdPend ?? 0, produits: cProd ?? 0, produitsPublies: cProdPub ?? 0, utilisateurs: cUsers ?? 0, devisNouveaux: cDevisOpen ?? 0, devisTotal: cDevis ?? 0, stockFaible: (stock ?? []).length });
     setCommandesRecentes(cmds ?? []);
     setStockFaible(stock ?? []);
-    setTickets(tix ?? []);
+    setDevisRecents(devis ?? []);
     setLoading(false);
   }
 
@@ -134,7 +142,7 @@ export default function DashboardPage() {
       {/* Mini stats */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         {[
-          { label: "Tickets ouverts", value: stats.ticketsOuverts, total: stats.tickets, icon: "ti-message-circle", color: "#f59e0b", bg: "#fffbeb", href: "/admin/contenu/support" },
+          { label: "Devis à traiter", value: stats.devisNouveaux, total: stats.devisTotal, icon: "ti-file-invoice", color: "#f59e0b", bg: "#fffbeb", href: "/admin/devis" },
           { label: "Stock faible", value: stats.stockFaible, icon: "ti-alert-triangle", color: "#ef4444", bg: "#fef2f2", href: "/admin/produits" },
         ].map((s) => (
           <Link key={s.label} href={s.href} style={{ textDecoration: "none" }}>
@@ -169,8 +177,7 @@ export default function DashboardPage() {
             { href: "/admin/categories", icon: "ti-category", label: "Catégorie" },
             { href: "/admin/commandes", icon: "ti-shopping-cart", label: "Commandes" },
             { href: "/admin/devis", icon: "ti-file-invoice", label: "Devis" },
-            { href: "/admin/contenu/blog", icon: "ti-writing", label: "Article" },
-            { href: "/admin/medias", icon: "ti-photo", label: "Médias" },
+            { href: "/admin/contenu/faq", icon: "ti-help", label: "FAQ" },
             { href: "/admin/accueil", icon: "ti-home", label: "Page accueil" },
           ].map((a) => (
             <Link key={a.label} href={a.href} className={`ak-btn ${a.primary ? "ak-btn--primary" : "ak-btn--ghost"} ak-btn--sm`}>
@@ -267,30 +274,41 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Tickets */}
+          {/* Demandes de devis récentes */}
           <div className="ak-card">
             <div className="ak-card__header">
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <div style={{ width: 30, height: 30, background: "#ede9fe", borderRadius: 8, display: "grid", placeItems: "center" }}>
-                  <i className="ti ti-ticket" style={{ fontSize: 15, color: "#7c3aed" }}></i>
+                  <i className="ti ti-file-invoice" style={{ fontSize: 15, color: "#7c3aed" }}></i>
                 </div>
-                <h2 className="ak-card__title">Tickets récents</h2>
+                <h2 className="ak-card__title">Devis récents</h2>
               </div>
-              <Link href="/admin/contenu/support" className="ak-btn ak-btn--ghost ak-btn--sm">Voir</Link>
+              <Link href="/admin/devis" className="ak-btn ak-btn--ghost ak-btn--sm">Voir tout →</Link>
             </div>
             <div className="ak-card__body">
-              {tickets.length === 0 ? (
-                <p style={{ fontSize: 13, color: "#94a3b8", margin: 0, textAlign: "center" }}>Aucun ticket</p>
+              {devisRecents.length === 0 ? (
+                <p style={{ fontSize: 13, color: "#94a3b8", margin: 0, textAlign: "center" }}>Aucune demande de devis</p>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column" }}>
-                  {tickets.map((t, i) => (
-                    <div key={t.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: i < tickets.length - 1 ? "1px solid #f1f5f9" : "none" }}>
-                      <span style={{ fontSize: 12.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginRight: 8, flex: 1, color: "#334155" }}>{t.subject}</span>
-                      <span className={`ak-badge ${t.status === "open" ? "ak-badge--warning" : "ak-badge--success"}`}>
-                        {t.status === "open" ? "Ouvert" : "Fermé"}
-                      </span>
-                    </div>
-                  ))}
+                  {devisRecents.map((d, i) => {
+                    const { societe, produit } = parseDevisSubject(d.subject);
+                    return (
+                      <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 0", borderBottom: i < devisRecents.length - 1 ? "1px solid #f1f5f9" : "none" }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {societe}
+                          </div>
+                          <div style={{ fontSize: 11, color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {produit ? <><i className="ti ti-package" style={{ fontSize: 11 }}></i> {produit}</> : "Demande générale"}
+                            {" · "}{new Date(d.created_at).toLocaleDateString("fr-FR")}
+                          </div>
+                        </div>
+                        <span className={`ak-badge ${d.status === "open" ? "ak-badge--warning" : "ak-badge--success"}`}>
+                          {d.status === "open" ? "Nouveau" : "Traité"}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
