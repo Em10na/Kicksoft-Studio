@@ -17,6 +17,9 @@ type Produit = {
   price: number;
   featured: boolean;
   status: string;
+  compare_price: number | null;
+  solde_hero: boolean;
+  image_url: string | null;
 };
 
 type SectionMedia = {
@@ -87,7 +90,7 @@ export default function AccueilPage() {
   async function chargerProduits() {
     const { data } = await supabase
       .from("products")
-      .select("id, title, price, featured, status")
+      .select("id, title, price, featured, status, compare_price, solde_hero, image_url")
       .eq("status", "published")
       .order("title", { ascending: true });
     setProduits(data ?? []);
@@ -143,6 +146,19 @@ export default function AccueilPage() {
       notifier("Erreur : " + error.message, "danger");
     } else {
       notifier(!actuel ? "Produit mis en avant !" : "Produit retiré de la mise en avant.");
+      chargerProduits();
+    }
+  }
+
+  // Articles soldés affichés sur l'accueil (bannière solde + slider du haut)
+  async function toggleSoldeAffiche(p: Produit) {
+    const { error } = await supabase.from("products").update({ solde_hero: !p.solde_hero }).eq("id", p.id);
+    if (error) {
+      notifier("Erreur : " + error.message, "danger");
+    } else {
+      notifier(!p.solde_hero
+        ? `« ${p.title} » affiché sur l'accueil (sa vidéo ou son image alimente la bannière et le slider).`
+        : `« ${p.title} » retiré de l'accueil.`);
       chargerProduits();
     }
   }
@@ -355,9 +371,61 @@ export default function AccueilPage() {
                   </div>
                 </div>
 
+                {/* Sélection des articles soldés (section solde uniquement) */}
+                {s.section === "solde" && (() => {
+                  const soldes = produits.filter((p) => p.compare_price && p.compare_price > p.price);
+                  const affiches = soldes.filter((p) => p.solde_hero).length;
+                  return (
+                    <div style={{ marginBottom: 18, padding: "14px 16px", background: "#fff1f2", borderRadius: 12, border: "1px solid #fecdd3" }}>
+                      <label className="ak-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                        <span>
+                          <i className="ti ti-discount-2" style={{ marginRight: 5, color: "#f43f5e" }}></i>
+                          Articles soldés affichés sur l&apos;accueil
+                          <span style={{ color: "#94a3b8", fontWeight: 500 }}> ({affiches} sélectionné{affiches > 1 ? "s" : ""}) — leur vidéo ou image alimente la bannière et le slider du haut</span>
+                        </span>
+                        <a href="/admin/soldes" style={{ color: "#6366f1", fontWeight: 600, fontSize: 12 }}>Gérer les remises & notifications →</a>
+                      </label>
+                      {soldes.length === 0 ? (
+                        <p style={{ color: "#9f1239", fontSize: 13, margin: "6px 0 0" }}>
+                          Aucun article en solde pour le moment — créez une remise depuis{" "}
+                          <a href="/admin/soldes" style={{ color: "#6366f1", fontWeight: 600 }}>la page Soldes</a>.
+                        </p>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+                          {soldes.map((p) => {
+                            const pct = Math.round((1 - p.price / (p.compare_price as number)) * 100);
+                            return (
+                              <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: "#fff", borderRadius: 10, border: `1px solid ${p.solde_hero ? "#f43f5e" : "#e2e8f0"}`, cursor: "pointer" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={p.solde_hero}
+                                  onChange={() => toggleSoldeAffiche(p)}
+                                  style={{ width: 17, height: 17, accentColor: "#f43f5e", cursor: "pointer", flexShrink: 0 }}
+                                />
+                                {p.image_url
+                                  ? <img src={p.image_url} alt="" style={{ width: 34, height: 34, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
+                                  : <span style={{ width: 34, height: 34, borderRadius: 8, background: "#f1f5f9", display: "grid", placeItems: "center", flexShrink: 0 }}><i className="ti ti-photo" style={{ color: "#94a3b8" }}></i></span>}
+                                <span style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 13, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {p.title}
+                                </span>
+                                <span style={{ fontSize: 12.5, fontWeight: 700, color: "#0f172a", flexShrink: 0 }}>{p.price} DT</span>
+                                <span style={{ fontSize: 11.5, color: "#94a3b8", textDecoration: "line-through", flexShrink: 0 }}>{p.compare_price} DT</span>
+                                <span className="ak-badge ak-badge--danger" style={{ flexShrink: 0 }}>-{pct}%</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {/* Médias */}
                 <label className="ak-label">
-                  Médias <span style={{ color: "#94a3b8", fontWeight: 500 }}>({s.home_section_media.length}) — images ou vidéos, affichés en carrousel</span>
+                  Médias <span style={{ color: "#94a3b8", fontWeight: 500 }}>
+                    ({s.home_section_media.length}) — images ou vidéos, affichés en carrousel
+                    {s.section === "solde" && " (utilisés seulement si aucun article soldé n'est sélectionné ci-dessus)"}
+                  </span>
                 </label>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
                   {s.home_section_media.map((m, idx) => (

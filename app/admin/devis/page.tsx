@@ -254,7 +254,7 @@ export default function DevisAdminPage() {
             </div>
             <div className="ak-modal__footer">
               {detail.email && (
-                <a href={`mailto:${detail.email}?subject=Re: Votre demande de devis - Kicksoft`} className="ak-btn ak-btn--primary">
+                <a href={`mailto:${detail.email}?subject=Re: Votre demande de devis - DJI Store TN`} className="ak-btn ak-btn--primary">
                   <i className="ti ti-mail"></i> Répondre par email
                 </a>
               )}

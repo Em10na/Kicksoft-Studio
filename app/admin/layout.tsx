@@ -13,12 +13,15 @@ const NAV: NavGroup[] = [
     section: "Tableau de bord",
     items: [
       { href: "/admin", icon: "ti-layout-dashboard", label: "Dashboard", exact: true },
+      { href: "/admin/rapports", icon: "ti-chart-bar", label: "Rapports" },
     ],
   },
   {
     section: "Boutique",
     items: [
       { href: "/admin/produits", icon: "ti-package", label: "Produits" },
+      { href: "/admin/soldes", icon: "ti-speakerphone", label: "Notifs soldes" },
+      { href: "/admin/stock", icon: "ti-stack-2", label: "Stock" },
       { href: "/admin/categories", icon: "ti-category", label: "Catégories" },
       { href: "/admin/commandes", icon: "ti-shopping-cart", label: "Commandes" },
       { href: "/admin/devis", icon: "ti-file-invoice", label: "Devis" },
@@ -34,7 +37,7 @@ const NAV: NavGroup[] = [
   {
     section: "Contenu",
     items: [
-      { href: "/admin/contenu", icon: "ti-file-text", label: "FAQ & Newsletter" },
+      { href: "/admin/contenu/faq", icon: "ti-help", label: "FAQ" },
       { href: "/admin/accueil", icon: "ti-home", label: "Page accueil" },
     ],
   },
@@ -42,15 +45,16 @@ const NAV: NavGroup[] = [
 
 const PAGE_TITLES: Record<string, string> = {
   "/admin": "Dashboard",
+  "/admin/rapports": "Rapports de ventes",
   "/admin/produits": "Produits",
+  "/admin/soldes": "Notifications des soldes",
+  "/admin/stock": "Gestion du stock",
   "/admin/categories": "Catégories",
   "/admin/commandes": "Commandes",
   "/admin/devis": "Devis",
   "/admin/utilisateurs": "Utilisateurs",
   "/admin/fidelite": "Fidélité",
-  "/admin/contenu": "Contenu",
   "/admin/contenu/faq": "FAQ",
-  "/admin/contenu/newsletter": "Newsletter",
   "/admin/accueil": "Page accueil",
 };
 
@@ -97,8 +101,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {/* Logo */}
           <div className="admin-sidebar__logo">
             <Link href="/admin" style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }}>
-              <div className="admin-sidebar__logo-mark">K</div>
-              <span className="admin-sidebar__logo-text">KICK<span>SOFT</span></span>
+              <img
+                src="/assets/images/logos/logo-store.png"
+                alt="DJI Store TN"
+                style={{ height: 42, width: "auto", filter: "invert(1)" }}
+              />
             </Link>
           </div>
 

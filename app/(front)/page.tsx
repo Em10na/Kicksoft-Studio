@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import ProductCard from "./components/ProductCard";
-import DroneHeroSlider from "./components/DroneHeroSlider";
+import DroneHeroSlider, { type HeroSlide } from "./components/DroneHeroSlider";
 import ScrollReveal from "./components/ScrollReveal";
 import BannerMedia, { type BannerMediaItem } from "./components/BannerMedia";
 
@@ -32,14 +32,19 @@ const CIRCLE_CATS = [
 export default async function HomePage() {
   const supabase = await createClient();
 
-  const [{ data: template }, { data: featured }, { data: categories }, { data: whatsNew }, { data: handheld }, { data: homeSections }, { data: promoPool }] = await Promise.all([
+  const [{ data: template }, { data: featured }, { data: categories }, { data: whatsNew }, { data: handheld }, { data: homeSections }, { data: promoPool }, { data: heroSoldes }] = await Promise.all([
     supabase.from("templates").select("*").eq("page", "home").single(),
     supabase.from("products").select("*").eq("status", "published").eq("featured", true).limit(4),
     supabase.from("categories").select("*").order("name"),
-    supabase.from("products").select("*").eq("status", "published").order("display_order", { ascending: true }).order("created_at", { ascending: false }).limit(8),
+    // Pool trié du plus récent au plus ancien — « Quoi de neuf » garde le
+    // dernier article de chaque catégorie
+    supabase.from("products").select("*").eq("status", "published").order("created_at", { ascending: false }).limit(60),
     supabase.from("products").select("*").eq("status", "published").order("display_order", { ascending: true }).order("created_at", { ascending: false }).range(8, 11),
     supabase.from("home_sections").select("*, home_section_media(*)"),
     supabase.from("products").select("*").eq("status", "published").not("compare_price", "is", null).limit(24),
+    // Articles soldés mis en avant dans le slider (admin → Soldes) ;
+    // renvoie null tant que la migration v10 n'est pas passée → slides démo
+    supabase.from("products").select("id, title, price, compare_price, short_description, image_url, product_media(url, type, position)").eq("status", "published").eq("solde_hero", true).not("compare_price", "is", null).order("display_order", { ascending: true }).limit(5),
   ]);
 
   // Admin-managed media sections; each falls back to the hardcoded
@@ -53,7 +58,56 @@ export default async function HomePage() {
   const suggestion = sectionMap.get("suggestion");
   const recommandation = sectionMap.get("recommandation");
   const solde = sectionMap.get("solde");
+
+  // « Quoi de neuf » : le produit le plus récent de chaque catégorie
+  const vuCategories = new Set<string>();
+  const nouveautes = (whatsNew ?? []).filter((p) => {
+    const cle = p.category_id ?? "sans-categorie";
+    if (vuCategories.has(cle)) return false;
+    vuCategories.add(cle);
+    return true;
+  }).slice(0, 8);
   const soldeProducts = (promoPool ?? []).filter((p) => p.compare_price && p.compare_price > p.price).slice(0, 4);
+
+  // Slides du hero : articles soldés « à la une » avec leur vidéo
+  // (fichier direct) ou image ; sinon le slider garde ses slides démo.
+  type HeroSoldeRow = {
+    id: string; title: string; price: number; compare_price: number;
+    short_description: string | null; image_url: string | null;
+    product_media: { url: string; type: string; position: number }[] | null;
+  };
+  const heroSoldesActifs = ((heroSoldes ?? []) as HeroSoldeRow[]).filter((p) => p.compare_price > p.price);
+
+  // Synchronisation : la bannière de la section « Articles en Solde »
+  // affiche les médias (vidéo ou image) des articles soldés mis en
+  // avant par l'admin ; les médias saisis manuellement dans
+  // Admin → Page accueil ne servent que de repli.
+  const soldeSyncMedia: BannerMediaItem[] = heroSoldesActifs.flatMap((p): BannerMediaItem[] => {
+    const media = [...(p.product_media ?? [])].sort((a, b) => a.position - b.position);
+    const video = media.find((m) => m.type === "video" && /\.(mp4|webm|mov)(\?|$)/i.test(m.url));
+    if (video) return [{ id: `sync-${p.id}`, media_type: "video" as const, url: video.url, poster_url: p.image_url }];
+    const image = p.image_url || media.find((m) => m.type === "image")?.url;
+    return image ? [{ id: `sync-${p.id}`, media_type: "image" as const, url: image, poster_url: null }] : [];
+  });
+
+  const heroSlides: HeroSlide[] = heroSoldesActifs
+    .map((p) => {
+      const media = [...(p.product_media ?? [])].sort((a, b) => a.position - b.position);
+      const video = media.find((m) => m.type === "video" && /\.(mp4|webm|mov)(\?|$)/i.test(m.url));
+      const image = p.image_url || media.find((m) => m.type === "image")?.url;
+      const pct = Math.round((1 - p.price / p.compare_price) * 100);
+      return {
+        bg: image ?? "https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=1920&q=95&auto=format&fit=crop",
+        video: video?.url ?? null,
+        badge: `Soldes — jusqu'à -${pct}%`,
+        name: p.title,
+        tagline: p.short_description ?? "Offre à durée limitée",
+        buy: `/produit/${p.id}`,
+        more: `/produit/${p.id}`,
+        price: p.price,
+        compare_price: p.compare_price,
+      };
+    });
 
   // Bubbles come from the admin categories; fall back to the demo list when empty
   const circleCats =
@@ -71,48 +125,8 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* ====== HERO — BANNER CAROUSEL ====== */}
-      <DroneHeroSlider />
-
-      {/* ====== PROMO TILES (2-col banner grid, djistores style) ====== */}
-      <section className="promo-tiles">
-        <div className="container">
-          <div className="promo-tiles__grid">
-            <Link href="/boutique?q=camera" className="promo-tile">
-              <div className="promo-tile__bg" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=1000&q=85&auto=format&fit=crop)" }} />
-              <div className="promo-tile__content">
-                <p className="promo-tile__tagline">Tout-en-Un</p>
-                <h2 className="promo-tile__name">Caméra 360 Pro</h2>
-                <span className="promo-tile__cta">Acheter</span>
-              </div>
-            </Link>
-            <Link href="/boutique?q=gimbal" className="promo-tile">
-              <div className="promo-tile__bg" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1527977966376-1c8408f9f108?w=1000&q=85&auto=format&fit=crop)" }} />
-              <div className="promo-tile__content">
-                <p className="promo-tile__tagline">Des merveilles dans votre paume</p>
-                <h2 className="promo-tile__name">Gimbal Mobile 8</h2>
-                <span className="promo-tile__cta">Acheter</span>
-              </div>
-            </Link>
-            <Link href="/boutique?q=audio" className="promo-tile">
-              <div className="promo-tile__bg" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1583394838336-acd977736f90?w=1000&q=85&auto=format&fit=crop)" }} />
-              <div className="promo-tile__content">
-                <p className="promo-tile__tagline">Plus qu&apos;un son</p>
-                <h2 className="promo-tile__name">Micro Sans Fil Mini</h2>
-                <span className="promo-tile__cta">Acheter</span>
-              </div>
-            </Link>
-            <Link href="/boutique?q=drone" className="promo-tile">
-              <div className="promo-tile__bg" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=1000&q=85&auto=format&fit=crop)" }} />
-              <div className="promo-tile__content">
-                <p className="promo-tile__tagline">Au-dessus de tout, voyez tout</p>
-                <h2 className="promo-tile__name">Drone Avata 360</h2>
-                <span className="promo-tile__cta">Acheter</span>
-              </div>
-            </Link>
-          </div>
-        </div>
-      </section>
+      {/* ====== HERO — BANNER CAROUSEL (articles soldés ou slides démo) ====== */}
+      <DroneHeroSlider slides={heroSlides.length > 0 ? heroSlides : undefined} />
 
       {/* ====== CIRCLE CATEGORY STRIP (auto-scrolling marquee) ====== */}
       <section className="circle-strip" aria-label="Catégories">
@@ -125,6 +139,26 @@ export default async function HomePage() {
               <span className="circle-item__label">{label}</span>
             </Link>
           ))}
+        </div>
+      </section>
+
+      {/* ====== PROMO TILES — 4 photos plein cadre (sans texte) ====== */}
+      <section className="promo-tiles">
+        <div className="container">
+          <div className="promo-tiles__grid">
+            <Link href="/boutique?q=camera" className="promo-tile" aria-label="Caméras">
+              <div className="promo-tile__bg" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=1000&q=85&auto=format&fit=crop)" }} />
+            </Link>
+            <Link href="/boutique?q=gimbal" className="promo-tile" aria-label="Gimbals">
+              <div className="promo-tile__bg" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1527977966376-1c8408f9f108?w=1000&q=85&auto=format&fit=crop)" }} />
+            </Link>
+            <Link href="/boutique?q=audio" className="promo-tile" aria-label="Audio">
+              <div className="promo-tile__bg" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1583394838336-acd977736f90?w=1000&q=85&auto=format&fit=crop)" }} />
+            </Link>
+            <Link href="/boutique?q=drone" className="promo-tile" aria-label="Drones">
+              <div className="promo-tile__bg" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=1000&q=85&auto=format&fit=crop)" }} />
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -145,8 +179,8 @@ export default async function HomePage() {
           </ScrollReveal>
           <ScrollReveal animation="fade-up" delay={100} className="stagger">
             <div className="products products--4">
-              {whatsNew && whatsNew.length > 0 ? (
-                whatsNew.map((p) => (
+              {nouveautes.length > 0 ? (
+                nouveautes.map((p) => (
                   <ProductCard key={p.id} id={p.id} title={p.title} price={p.price} compare_price={p.compare_price} stock={p.stock} image_url={p.image_url} loyalty_points={p.loyalty_points} badge={p.compare_price && p.compare_price > p.price ? "Promo" : undefined} />
                 ))
               ) : (
@@ -264,7 +298,9 @@ export default async function HomePage() {
             <ScrollReveal animation="fade-up">
               <h2 className="series-section__label">{solde ? "Articles en Solde" : "Prise en Main · Vlogging Quotidien"}</h2>
               <div className="series-banner">
-                {solde ? (
+                {soldeSyncMedia.length > 0 ? (
+                  <BannerMedia items={soldeSyncMedia} />
+                ) : solde ? (
                   <BannerMedia items={solde.media} />
                 ) : (
                   <div className="series-banner__bg" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1508444845599-5c89863b1c44?w=1600&q=85&auto=format&fit=crop)" }} />

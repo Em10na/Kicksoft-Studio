@@ -50,7 +50,7 @@ export default function HeaderSearch() {
             ref={inputRef}
             type="text"
             name="q"
-            placeholder="Rechercher des produits, marques..."
+            placeholder="Produit, catégorie, mot-clé..."
             aria-label="Rechercher"
           />
           <VisualSearch />

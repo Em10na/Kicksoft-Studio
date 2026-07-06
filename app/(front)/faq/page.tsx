@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 
-export const metadata = { title: "FAQ - Kicksoft Studio" };
+export const metadata = { title: "FAQ - DJI Store TN" };
 
 export default async function FaqPublicPage() {
   const supabase = await createClient();

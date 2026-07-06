@@ -30,9 +30,16 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
-  const orFilter = terms
-    .map((t) => `title.ilike.%${t}%,short_description.ilike.%${t}%`)
-    .join(",");
+
+  // Matche aussi les catégories dont le nom contient un des termes détectés
+  const { data: cats } = await supabase.from("categories").select("id, name");
+  const catIds = (cats ?? [])
+    .filter((c) => terms.some((t) => c.name.toLowerCase().includes(t)))
+    .map((c) => c.id);
+
+  const orParts = terms.map((t) => `title.ilike.%${t}%,short_description.ilike.%${t}%`);
+  if (catIds.length > 0) orParts.push(`category_id.in.(${catIds.join(",")})`);
+  const orFilter = orParts.join(",");
 
   const { data: products, error } = await supabase
     .from("products")

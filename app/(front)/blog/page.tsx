@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 
-export const metadata = { title: "Blog - Kicksoft Studio" };
+export const metadata = { title: "Blog - DJI Store TN" };
 
 export default async function BlogPage() {
   const supabase = await createClient();

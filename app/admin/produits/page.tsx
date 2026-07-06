@@ -175,6 +175,26 @@ export default function ProduitsPage() {
       await supabase.from("product_media").insert(mediasToInsert);
     }
 
+    // Notification automatique : nouveau produit publié uniquement.
+    // Les notifications de solde sont envoyées manuellement depuis
+    // Admin → Soldes (statut « Envoyée / Non envoyée »).
+    const avant = editId ? produits.find((p) => p.id === editId) : null;
+    const publie = payload.status === "published";
+    const devientPublic = publie && (avant ? avant.status !== "published" : true);
+    if (devientPublic) {
+      fetch("/api/push/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "🆕 Nouveau produit disponible",
+          body: `${payload.title} — ${payload.price} DT`,
+          tag: "nouveau",
+          url: `/produit/${productId}`,
+          image: mainImageUrl ?? undefined,
+        }),
+      }).catch(() => {});
+    }
+
     showAlert(editId ? "Produit mis à jour !" : "Produit ajouté !", "success");
     setUploading(false);
     setShowModal(false);

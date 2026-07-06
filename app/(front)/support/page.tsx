@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export const metadata = { title: "Support - Kicksoft Studio" };
+export const metadata = { title: "Support - DJI Store TN" };
 
 export default function SupportPage() {
   return (

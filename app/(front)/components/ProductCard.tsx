@@ -2,6 +2,8 @@ import Link from "next/link";
 import WishlistButton from "./WishlistButton";
 import AddToCartButton from "./AddToCartButton";
 
+// Carte volontairement épurée : prix courant uniquement — pas de prix
+// barré, badge promo ni points fidélité ajoutés par défaut.
 type Props = {
   id: string;
   title: string;
@@ -13,15 +15,12 @@ type Props = {
   loyalty_points?: number;
 };
 
-export default function ProductCard({ id, title, price, compare_price, stock, image_url, badge, loyalty_points }: Props) {
-  const onSale = compare_price && compare_price > price;
+export default function ProductCard({ id, title, price, stock, image_url }: Props) {
   const img = image_url || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&q=80&auto=format&fit=crop";
 
   return (
     <article className="product-card">
       <div className="img-wrap">
-        {badge && <span className={`badge ${badge === "Sale" ? "badge--sale" : ""}`}>{badge}</span>}
-        {onSale && !badge && <span className="badge badge--sale">Promo</span>}
         <WishlistButton productId={id} className="wishlist" />
         <img src={img} alt={title} />
       </div>
@@ -32,11 +31,7 @@ export default function ProductCard({ id, title, price, compare_price, stock, im
       <Link href={`/produit/${id}`} className="name">{title}</Link>
       <div className="price">
         <span className="now">{price} DT</span>
-        {onSale && <span className="was">{compare_price} DT</span>}
       </div>
-      {loyalty_points != null && loyalty_points > 0 && (
-        <div className="loyalty-badge">&#x2B50; +{loyalty_points} pts fidelite</div>
-      )}
       <AddToCartButton product={{ id, title, price, image_url: image_url ?? null, stock }} />
     </article>
   );

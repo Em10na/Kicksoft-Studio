@@ -48,7 +48,7 @@ export default function MotDePasseOubliePage() {
             <div style={{ width: "42px", height: "42px", background: "#4F46E5", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <span style={{ color: "white", fontWeight: 800, fontSize: "18px" }}>K</span>
             </div>
-            <span style={{ fontSize: "26px", fontWeight: 800, color: "#111827", letterSpacing: "-0.5px" }}>KICKSOFT</span>
+            <span style={{ fontSize: "26px", fontWeight: 800, color: "#111827", letterSpacing: "-0.5px" }}>DJI STORE TN</span>
           </Link>
         </div>
 

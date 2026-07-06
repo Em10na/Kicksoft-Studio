@@ -6,8 +6,8 @@ export default function Footer() {
       <div className="container">
         <div className="footer-grid">
           <div className="footer-brand">
-            <div className="mark"><span className="brand-mark">K</span> Kicksoft</div>
-            <p>Kicksoft Studio — solutions tech et gadgets, livraison rapide, support reactif. Votre partenaire e-commerce de confiance.</p>
+            <div className="mark"><img src="/assets/images/logos/logo-store.png" alt="DJI Store TN" className="brand-logo brand-logo--footer" /></div>
+            <p>DJI Store TN — solutions tech et gadgets, livraison rapide, support reactif. Votre partenaire e-commerce de confiance.</p>
             <div className="socials" style={{ marginTop: "var(--s4)" }}>
               <a href="#" aria-label="Twitter">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22 5.8a8.5 8.5 0 0 1-2.4.7 4.2 4.2 0 0 0 1.8-2.3 8.4 8.4 0 0 1-2.6 1 4.2 4.2 0 0 0-7.2 3.8A11.9 11.9 0 0 1 3 4.8a4.2 4.2 0 0 0 1.3 5.6 4.2 4.2 0 0 1-1.9-.5v.1a4.2 4.2 0 0 0 3.4 4.1 4.2 4.2 0 0 1-1.9.1 4.2 4.2 0 0 0 3.9 2.9A8.4 8.4 0 0 1 2 18.7 11.9 11.9 0 0 0 8.5 21c7.7 0 11.9-6.4 11.9-11.9v-.5A8.5 8.5 0 0 0 22 5.8z" /></svg>
@@ -25,7 +25,6 @@ export default function Footer() {
             <ul>
               <li><Link href="/boutique">Tous les produits</Link></li>
               <li><Link href="/comparer">Comparer</Link></li>
-              <li><Link href="/devis">Demander un devis</Link></li>
             </ul>
           </div>
           <div className="footer-col">
@@ -53,7 +52,7 @@ export default function Footer() {
           </div>
         </div>
         <div className="footer-bottom">
-          <span>&copy; {new Date().getFullYear()} Kicksoft Studio - Tous droits reserves</span>
+          <span>&copy; {new Date().getFullYear()} DJI Store TN - Tous droits reserves</span>
         </div>
       </div>
     </footer>

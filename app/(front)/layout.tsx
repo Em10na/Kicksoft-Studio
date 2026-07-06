@@ -6,8 +6,8 @@ import { CartProvider } from "@/lib/cart";
 import Script from "next/script";
 
 export const metadata = {
-  title: "Kicksoft Studio",
-  description: "Kicksoft Studio — votre boutique tech et gadgets en ligne.",
+  title: "DJI Store TN",
+  description: "DJI Store TN — votre boutique tech et gadgets en ligne.",
 };
 
 export default function FrontLayout({ children }: { children: React.ReactNode }) {
@@ -20,7 +20,7 @@ export default function FrontLayout({ children }: { children: React.ReactNode })
         href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Outfit:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap"
       />
       {/* v query param busts browser cache after each stylesheet update */}
-      <link rel="stylesheet" href="/front/css/styles.css?v=11" />
+      <link rel="stylesheet" href="/front/css/styles.css?v=19" />
 
       <Header />
       <main id="main">{children}</main>

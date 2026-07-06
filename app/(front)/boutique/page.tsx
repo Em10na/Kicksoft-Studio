@@ -23,7 +23,18 @@ export default async function BoutiquePage({ searchParams }: Props) {
     .eq("status", "published");
 
   if (params.categorie) query = query.eq("category_id", params.categorie);
-  if (params.q) query = query.ilike("title", `%${params.q}%`);
+  if (params.q) {
+    // Recherche élargie : nom du produit, description, slug et nom de catégorie
+    const q = params.q.replace(/[,()]/g, " ").trim();
+    if (q) {
+      const catsCorrespondantes = (categories ?? []).filter((c) => c.name.toLowerCase().includes(q.toLowerCase()));
+      const filtres = [`title.ilike.%${q}%`, `short_description.ilike.%${q}%`, `slug.ilike.%${q}%`];
+      if (catsCorrespondantes.length > 0) {
+        filtres.push(`category_id.in.(${catsCorrespondantes.map((c) => c.id).join(",")})`);
+      }
+      query = query.or(filtres.join(","));
+    }
+  }
 
   switch (params.tri) {
     case "prix-asc": query = query.order("price", { ascending: true }); break;

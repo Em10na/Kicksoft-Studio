@@ -3,6 +3,8 @@ import CartCount from "./CartCount";
 import ThemeToggle from "./ThemeToggle";
 import LanguageSwitcher from "./LanguageSwitcher";
 import HeaderSearch from "./HeaderSearch";
+import NotificationBell from "./NotificationBell";
+import SideMenu from "./SideMenu";
 
 export default function Header() {
   return (
@@ -11,8 +13,8 @@ export default function Header() {
 
       <header className="site-header site-header--compact">
         <div className="container">
-          <Link href="/" className="brand">
-            <span className="brand-mark">K</span> Kicksoft
+          <Link href="/" className="brand" aria-label="DJI Store TN — Accueil">
+            <img src="/assets/images/logos/logo-store.png" alt="DJI Store TN" className="brand-logo" />
           </Link>
 
           <nav className="main-nav" aria-label="Primary">
@@ -20,12 +22,12 @@ export default function Header() {
             <Link href="/boutique">Boutique</Link>
             <Link href="/a-propos">A propos</Link>
             <Link href="/contact">Contact</Link>
-            <Link href="/devis">Devis</Link>
           </nav>
 
           <div className="icon-row">
             <LanguageSwitcher />
             <HeaderSearch />
+            <NotificationBell />
             <ThemeToggle />
             <Link href="/compte/favoris" className="icon-btn" aria-label="Mes favoris">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -46,26 +48,10 @@ export default function Header() {
               </svg>
               <CartCount />
             </Link>
-            <button className="nav-toggle" aria-label="Ouvrir le menu" aria-expanded="false">&#x2261;</button>
+            <SideMenu />
           </div>
         </div>
       </header>
-
-      <div className="drawer" id="drawer" aria-hidden="true">
-        <div className="drawer-head">
-          <Link href="/" className="brand"><span className="brand-mark">K</span> Kicksoft</Link>
-          <button className="drawer-close" aria-label="Fermer">Close &#x2715;</button>
-        </div>
-        <Link href="/">Accueil</Link>
-        <Link href="/boutique">Boutique</Link>
-        <Link href="/a-propos">A propos</Link>
-        <Link href="/contact">Contact</Link>
-        <Link href="/faq">FAQ</Link>
-        <Link href="/support">Support</Link>
-        <Link href="/devis">Demander un devis</Link>
-        <Link href="/admin">Administration</Link>
-        <Link href="/panier" className="btn btn--ink" style={{ marginTop: "var(--s5)", justifyContent: "center" }}>Voir le panier &rarr;</Link>
-      </div>
     </>
   );
 }

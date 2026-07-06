@@ -12,7 +12,7 @@ export default function PanierPage() {
   const [loading, setLoading] = useState(false);
   const [erreur, setErreur] = useState("");
   const [succes, setSucces] = useState(false);
-  const [isGuest, setIsGuest] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [pointsBalance, setPointsBalance] = useState(0);
   const [usePoints, setUsePoints] = useState(false);
   const [pointsPercentage, setPointsPercentage] = useState(100);
@@ -37,87 +37,110 @@ export default function PanierPage() {
   const livraison = total >= 50 ? 0 : 7;
   const grandTotal = Math.max(0, total - pointsDiscount + livraison);
 
-  async function passerCommande() {
-    setLoading(true);
+  // Étape 1 : ouvre le formulaire de livraison (obligatoire pour tous),
+  // prérempli depuis le profil si l'utilisateur est connecté.
+  async function ouvrirFormulaire() {
     setErreur("");
-
-    if (!user) {
-      setIsGuest(true);
-      setLoading(false);
-      return;
+    if (user) {
+      const { data: p } = await supabase
+        .from("profiles")
+        .select("full_name, phone, adresse, ville")
+        .eq("id", user.id)
+        .single();
+      if (p) {
+        const mots = (p.full_name ?? "").trim().split(/\s+/).filter(Boolean);
+        setGuestForm({
+          prenom: mots[0] ?? "",
+          nom: mots.slice(1).join(" "),
+          telephone: p.phone ?? "",
+          adresse: [p.adresse, p.ville].filter(Boolean).join(", "),
+        });
+      }
     }
-
-    const { data: order, error: orderErr } = await supabase
-      .from("orders")
-      .insert({ user_id: user.id, total: grandTotal, status: "pending" })
-      .select("id")
-      .single();
-
-    if (orderErr || !order) {
-      setErreur("Erreur lors de la creation de la commande : " + (orderErr?.message ?? ""));
-      setLoading(false);
-      return;
-    }
-
-    const orderItems = items.map((item) => ({
-      order_id: order.id,
-      product_id: item.id,
-      quantity: item.qty,
-      unit_price: item.price,
-    }));
-
-    const { error: itemsErr } = await supabase.from("order_items").insert(orderItems);
-    if (itemsErr) {
-      setErreur("Erreur lors de l'ajout des articles : " + itemsErr.message);
-      setLoading(false);
-      return;
-    }
-
-    if (usePoints && pointsToUse > 0) {
-      await supabase.from("loyalty_transactions").insert({
-        user_id: user.id,
-        order_id: order.id,
-        points: -pointsToUse,
-        type: "redeem_reduction",
-        description: `Reduction ${pointsDiscount.toFixed(2)} DT - commande #${order.id.slice(0, 8)} (${pointsToUse} pts utilises)`,
-      });
-    }
-
-    clearCart();
-    setSucces(true);
-    setLoading(false);
+    setShowForm(true);
   }
 
-  async function passerCommandeGuest() {
-    setLoading(true);
+  // Étape 2 : validation des champs obligatoires puis création de la commande
+  async function confirmerCommande() {
     setErreur("");
 
-    if (!guestForm.nom.trim() || !guestForm.prenom.trim() || !guestForm.adresse.trim() || !guestForm.telephone.trim()) {
-      setErreur("Veuillez remplir tous les champs.");
-      setLoading(false);
+    if (!guestForm.prenom.trim() || !guestForm.nom.trim() || !guestForm.telephone.trim() || !guestForm.adresse.trim()) {
+      setErreur("Veuillez remplir tous les champs obligatoires (prénom, nom, téléphone, adresse).");
+      return;
+    }
+    if (!/^[+\d][\d\s.-]{7,}$/.test(guestForm.telephone.trim())) {
+      setErreur("Numéro de téléphone invalide.");
       return;
     }
 
-    const res = await fetch("/api/orders/guest", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        guest_name: `${guestForm.prenom.trim()} ${guestForm.nom.trim()}`,
-        guest_phone: guestForm.telephone.trim(),
-        guest_address: guestForm.adresse.trim(),
-        items: items.map((item) => ({
-          product_id: item.id,
-          quantity: item.qty,
-          unit_price: item.price,
-        })),
-      }),
-    });
+    setLoading(true);
+    const fullName = `${guestForm.prenom.trim()} ${guestForm.nom.trim()}`;
 
-    const data = await res.json();
-    if (!res.ok) {
-      setErreur(data.error || "Erreur lors de la commande.");
-      setLoading(false);
-      return;
+    if (user) {
+      const { data: order, error: orderErr } = await supabase
+        .from("orders")
+        .insert({
+          user_id: user.id,
+          total: grandTotal,
+          status: "pending",
+          guest_name: fullName,
+          guest_phone: guestForm.telephone.trim(),
+          guest_address: guestForm.adresse.trim(),
+        })
+        .select("id")
+        .single();
+
+      if (orderErr || !order) {
+        setErreur("Erreur lors de la creation de la commande : " + (orderErr?.message ?? ""));
+        setLoading(false);
+        return;
+      }
+
+      const orderItems = items.map((item) => ({
+        order_id: order.id,
+        product_id: item.id,
+        quantity: item.qty,
+        unit_price: item.price,
+      }));
+
+      const { error: itemsErr } = await supabase.from("order_items").insert(orderItems);
+      if (itemsErr) {
+        setErreur("Erreur lors de l'ajout des articles : " + itemsErr.message);
+        setLoading(false);
+        return;
+      }
+
+      if (usePoints && pointsToUse > 0) {
+        await supabase.from("loyalty_transactions").insert({
+          user_id: user.id,
+          order_id: order.id,
+          points: -pointsToUse,
+          type: "redeem_reduction",
+          description: `Reduction ${pointsDiscount.toFixed(2)} DT - commande #${order.id.slice(0, 8)} (${pointsToUse} pts utilises)`,
+        });
+      }
+    } else {
+      const res = await fetch("/api/orders/guest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guest_name: fullName,
+          guest_phone: guestForm.telephone.trim(),
+          guest_address: guestForm.adresse.trim(),
+          items: items.map((item) => ({
+            product_id: item.id,
+            quantity: item.qty,
+            unit_price: item.price,
+          })),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setErreur(data.error || "Erreur lors de la commande.");
+        setLoading(false);
+        return;
+      }
     }
 
     clearCart();
@@ -325,8 +348,8 @@ export default function PanierPage() {
                   <span>{grandTotal.toFixed(2)} DT</span>
                 </div>
 
-                {/* Formulaire invite */}
-                {isGuest && !user && (
+                {/* Formulaire de livraison — obligatoire pour toute commande */}
+                {showForm && (
                   <div style={{ marginTop: "var(--s4)", padding: "var(--s4)", background: "var(--bg)", borderRadius: "var(--r)", border: "1px solid var(--rule)" }}>
                     <h4 style={{ fontSize: "var(--text-sm)", fontWeight: 700, marginBottom: "var(--s3)" }}>Vos informations de livraison</h4>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--s3)" }}>
@@ -334,6 +357,7 @@ export default function PanierPage() {
                         <label style={{ fontSize: "var(--text-xs)", color: "var(--fg-mute)", display: "block", marginBottom: "4px" }}>Prenom *</label>
                         <input
                           type="text"
+                          required
                           placeholder="Prenom"
                           value={guestForm.prenom}
                           onChange={(e) => setGuestForm({ ...guestForm, prenom: e.target.value })}
@@ -344,6 +368,7 @@ export default function PanierPage() {
                         <label style={{ fontSize: "var(--text-xs)", color: "var(--fg-mute)", display: "block", marginBottom: "4px" }}>Nom *</label>
                         <input
                           type="text"
+                          required
                           placeholder="Nom"
                           value={guestForm.nom}
                           onChange={(e) => setGuestForm({ ...guestForm, nom: e.target.value })}
@@ -355,6 +380,7 @@ export default function PanierPage() {
                       <label style={{ fontSize: "var(--text-xs)", color: "var(--fg-mute)", display: "block", marginBottom: "4px" }}>Adresse *</label>
                       <input
                         type="text"
+                        required
                         placeholder="Adresse complete"
                         value={guestForm.adresse}
                         onChange={(e) => setGuestForm({ ...guestForm, adresse: e.target.value })}
@@ -365,6 +391,7 @@ export default function PanierPage() {
                       <label style={{ fontSize: "var(--text-xs)", color: "var(--fg-mute)", display: "block", marginBottom: "4px" }}>Telephone *</label>
                       <input
                         type="tel"
+                        required
                         placeholder="+216 XX XXX XXX"
                         value={guestForm.telephone}
                         onChange={(e) => setGuestForm({ ...guestForm, telephone: e.target.value })}
@@ -373,27 +400,29 @@ export default function PanierPage() {
                     </div>
                     <button
                       className="btn btn--indigo btn--block"
-                      onClick={passerCommandeGuest}
+                      onClick={confirmerCommande}
                       disabled={loading}
                       style={{ marginTop: "var(--s4)" }}
                     >
                       {loading ? "Traitement..." : "Confirmer la commande"} &rarr;
                     </button>
-                    <p style={{ fontSize: "var(--text-xs)", color: "var(--fg-mute)", marginTop: "var(--s3)", textAlign: "center" }}>
-                      Vous avez un compte ?{" "}
-                      <Link href="/auth/connexion" style={{ color: "var(--indigo)" }}>Se connecter</Link>
-                    </p>
+                    {!user && (
+                      <p style={{ fontSize: "var(--text-xs)", color: "var(--fg-mute)", marginTop: "var(--s3)", textAlign: "center" }}>
+                        Vous avez un compte ?{" "}
+                        <Link href="/auth/connexion" style={{ color: "var(--indigo)" }}>Se connecter</Link>
+                      </p>
+                    )}
                   </div>
                 )}
 
-                {!isGuest && (
+                {!showForm && (
                   <button
                     className="btn btn--indigo btn--block"
-                    onClick={passerCommande}
+                    onClick={ouvrirFormulaire}
                     disabled={loading || items.length === 0}
                     style={{ marginTop: "var(--s3)" }}
                   >
-                    {loading ? "Traitement..." : "Passer la commande"} &rarr;
+                    Passer la commande &rarr;
                   </button>
                 )}
 

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export const metadata = { title: "Solutions professionnelles - Kicksoft Studio" };
+export const metadata = { title: "Solutions professionnelles - DJI Store TN" };
 
 const SOLUTIONS = [
   {

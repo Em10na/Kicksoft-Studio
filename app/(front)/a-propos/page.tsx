@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export const metadata = { title: "A propos - Kicksoft Studio" };
+export const metadata = { title: "A propos - DJI Store TN" };
 
 export default function AProposPage() {
   return (
@@ -10,7 +10,7 @@ export default function AProposPage() {
           <div className="crumbs">
             <Link href="/">Accueil</Link> <span className="sep">&rsaquo;</span> <span>A propos</span>
           </div>
-          <h1>A propos de Kicksoft Studio</h1>
+          <h1>A propos de DJI Store TN</h1>
           <p>Votre partenaire technologique de confiance, depuis la Tunisie vers le monde.</p>
         </div>
       </section>
@@ -19,7 +19,7 @@ export default function AProposPage() {
         <div className="container" style={{ maxWidth: "760px" }}>
           <h2 style={{ fontSize: "var(--text-2xl)", marginBottom: "var(--s4)" }}>Notre mission</h2>
           <p style={{ color: "var(--fg-soft)", fontSize: "var(--text-base)", lineHeight: "1.8", marginBottom: "var(--s6)" }}>
-            Kicksoft Studio a ete fonde avec une vision simple : rendre la technologie de qualite accessible a tous — particuliers comme professionnels. Nous selectionnons rigoureusement chaque produit pour garantir qualite, fiabilite et rapport qualite-prix.
+            DJI Store TN a ete fonde avec une vision simple : rendre la technologie de qualite accessible a tous — particuliers comme professionnels. Nous selectionnons rigoureusement chaque produit pour garantir qualite, fiabilite et rapport qualite-prix.
           </p>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--s5)", marginBottom: "var(--s8)" }}>

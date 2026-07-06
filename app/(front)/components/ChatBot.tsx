@@ -14,7 +14,7 @@ type SuggestedProduct = {
 type Msg = { from: "bot" | "user"; text: string; products?: SuggestedProduct[] };
 
 const GREETING =
-  "Bonjour ! 👋 Je suis l'assistant Kicksoft.\nDécrivez-moi votre projet (voyage, vlogging, podcast, mariage...) et je vous suggère les outils adaptés ! Je réponds aussi à vos questions : livraison, retours, garantie, paiement...";
+  "Bonjour ! 👋 Je suis l'assistant DJI Store TN.\nDécrivez-moi votre projet (voyage, vlogging, podcast, mariage...) et je vous suggère les outils adaptés ! Je réponds aussi à vos questions : livraison, retours, garantie, paiement...";
 
 const QUICK_QUESTIONS = [
   "Conseillez-moi un produit",
@@ -110,7 +110,7 @@ const KNOWLEDGE: { keywords: string[]; answer: string }[] = [
   },
   {
     keywords: ["au revoir", "bye", "aurevoir", "a bientot"],
-    answer: "Au revoir ! 👋 Merci de votre visite et à très bientôt sur Kicksoft !",
+    answer: "Au revoir ! 👋 Merci de votre visite et à très bientôt sur DJI Store TN !",
   },
 ];
 
@@ -193,11 +193,11 @@ export default function ChatBot() {
   return (
     <>
       {open && (
-        <div className="chatbot-panel" role="dialog" aria-label="Assistant Kicksoft">
+        <div className="chatbot-panel" role="dialog" aria-label="Assistant DJI Store TN">
           <div className="chatbot-head">
             <div className="chatbot-head__avatar">🤖</div>
             <div className="chatbot-head__info">
-              <strong>Assistant Kicksoft</strong>
+              <strong>Assistant DJI Store TN</strong>
               <span>En ligne</span>
             </div>
             <button className="chatbot-head__close" onClick={() => setOpen(false)} aria-label="Fermer">

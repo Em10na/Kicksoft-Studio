@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export const metadata = { title: "Revendeurs - Kicksoft Studio" };
+export const metadata = { title: "Revendeurs - DJI Store TN" };
 
 export default function RevendeursPage() {
   return (
@@ -11,7 +11,7 @@ export default function RevendeursPage() {
             <Link href="/">Accueil</Link> <span className="sep">&rsaquo;</span> <span>Revendeurs</span>
           </div>
           <h1>Programme Revendeurs &amp; Partenaires</h1>
-          <p>Rejoignez le reseau Kicksoft et beneficiez de tarifs preferentiels, d&apos;un support dedie et d&apos;outils marketing.</p>
+          <p>Rejoignez le reseau DJI Store TN et beneficiez de tarifs preferentiels, d&apos;un support dedie et d&apos;outils marketing.</p>
         </div>
       </section>
 

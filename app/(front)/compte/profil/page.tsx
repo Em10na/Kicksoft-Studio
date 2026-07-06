@@ -143,7 +143,7 @@ export default function ProfilPage() {
             <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={changerAvatar} />
           </div>
           <div className="profile-side__name">{form.full_name || "Mon profil"}</div>
-          <div className="profile-side__role">Client Kicksoft</div>
+          <div className="profile-side__role">Client DJI Store TN</div>
 
           <nav className="profile-side__nav">
             <span className="account-nav__link is-active">

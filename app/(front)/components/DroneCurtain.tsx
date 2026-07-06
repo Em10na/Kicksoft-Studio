@@ -81,7 +81,7 @@ export default function DroneCurtain() {
             color: "#fff", fontWeight: 800, fontSize: "26px",
             boxShadow: "0 12px 40px rgba(79,70,229,0.4)",
           }}>K</div>
-          <span style={{ fontWeight: 800, fontSize: "36px", letterSpacing: "-0.02em", color: "#fff" }}>KICKSOFT</span>
+          <span style={{ fontWeight: 800, fontSize: "36px", letterSpacing: "-0.02em", color: "#fff" }}>DJI STORE TN</span>
         </div>
         <div style={{ fontSize: "13px", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(255,255,255,0.5)", marginBottom: "28px" }}>
           Technology Takes Flight

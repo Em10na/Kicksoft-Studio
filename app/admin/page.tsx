@@ -68,7 +68,7 @@ export default function DashboardPage() {
       supabase.from("orders").select("*", { count: "exact", head: true }).eq("status", "pending"),
       supabase.from("orders").select("*, profiles(full_name)").order("created_at", { ascending: false }).limit(6),
       supabase.from("orders").select("total").eq("status", "delivered"),
-      supabase.from("products").select("id, title, stock").eq("status", "published").lt("stock", 5).order("stock").limit(5),
+      supabase.from("products").select("id, title, stock").eq("status", "published").lte("stock", 5).order("stock").limit(5),
       supabase.from("tickets_support").select("id, subject, status, created_at").ilike("subject", "[DEVIS]%").order("created_at", { ascending: false }).limit(5),
     ]);
     const totalVentes = (ventes ?? []).reduce((a, o) => a + (o.total || 0), 0);
@@ -106,7 +106,7 @@ export default function DashboardPage() {
         <div style={{ position: "absolute", bottom: -60, right: 100, width: 140, height: 140, background: "rgba(99,102,241,0.05)", borderRadius: "50%" }} />
         <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <div>
-            <h2 style={{ color: "#fff", fontWeight: 800, fontSize: 20, margin: "0 0 6px" }}>Bienvenue sur KickSoft Admin 👋</h2>
+            <h2 style={{ color: "#fff", fontWeight: 800, fontSize: 20, margin: "0 0 6px" }}>Bienvenue sur DJI Store TN Admin 👋</h2>
             <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, margin: 0 }}>Voici un résumé de votre activité.</p>
           </div>
           <button onClick={load} className="ak-btn ak-btn--ghost ak-btn--sm" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff" }}>
@@ -143,7 +143,7 @@ export default function DashboardPage() {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         {[
           { label: "Devis à traiter", value: stats.devisNouveaux, total: stats.devisTotal, icon: "ti-file-invoice", color: "#f59e0b", bg: "#fffbeb", href: "/admin/devis" },
-          { label: "Stock faible", value: stats.stockFaible, icon: "ti-alert-triangle", color: "#ef4444", bg: "#fef2f2", href: "/admin/produits" },
+          { label: "Stock faible (≤ 5)", value: stats.stockFaible, icon: "ti-alert-triangle", color: "#ef4444", bg: "#fef2f2", href: "/admin/stock" },
         ].map((s) => (
           <Link key={s.label} href={s.href} style={{ textDecoration: "none" }}>
             <div className="ak-card ak-card--lift" style={{ padding: "18px 20px", display: "flex", alignItems: "center", gap: 14 }}>
