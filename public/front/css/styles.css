@@ -3201,16 +3201,18 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 
 /* Mode carrousel : scroll natif (tactile / molette), piloté par JS pour
-   l'auto-défilement — remplace l'animation CSS */
-.circle-strip__track--scroll {
+   l'auto-défilement — remplace l'animation CSS. Le sélecteur doublé
+   doit battre la règle de base .circle-strip__track (définie plus bas). */
+.circle-strip__track.circle-strip__track--scroll {
   animation: none;
   width: 100%;
+  max-width: 100%;
   overflow-x: auto;
   padding: 0 var(--container-pad);
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-.circle-strip__track--scroll::-webkit-scrollbar { display: none; }
+.circle-strip__track.circle-strip__track--scroll::-webkit-scrollbar { display: none; }
 
 /* Flèches gauche / droite */
 .circle-strip__arrow {
