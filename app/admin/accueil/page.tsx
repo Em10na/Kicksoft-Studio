@@ -45,9 +45,9 @@ type HomeSection = {
 type SectionForm = { title: string; tagline: string; cta_label: string; cta_href: string };
 
 const SECTION_META: Record<HomeSection["section"], { label: string; desc: string; icon: string }> = {
-  suggestion: { label: "Suggestions", desc: "Grand slider du haut de l'accueil — chaque média (image ou vidéo) devient un slide", icon: "ti-bulb" },
+  suggestion: { label: "Suggestions", desc: "Bannière au-dessus des produits vedettes", icon: "ti-bulb" },
   recommandation: { label: "Recommandation", desc: "Grande vidéo pleine largeur", icon: "ti-thumb-up" },
-  solde: { label: "Articles en solde", desc: "Les 4 photos sous les bulles de catégories — cochez les articles à afficher", icon: "ti-discount-2" },
+  solde: { label: "Articles en solde", desc: "Bannière + produits en promotion", icon: "ti-discount-2" },
 };
 const SECTION_ORDER: HomeSection["section"][] = ["suggestion", "recommandation", "solde"];
 
@@ -381,7 +381,7 @@ export default function AccueilPage() {
                         <span>
                           <i className="ti ti-discount-2" style={{ marginRight: 5, color: "#f43f5e" }}></i>
                           Articles soldés affichés sur l&apos;accueil
-                          <span style={{ color: "#94a3b8", fontWeight: 500 }}> ({affiches} sélectionné{affiches > 1 ? "s" : ""}) — leurs photos remplissent les 4 tuiles sous les catégories (4 max)</span>
+                          <span style={{ color: "#94a3b8", fontWeight: 500 }}> ({affiches} sélectionné{affiches > 1 ? "s" : ""}) — leur vidéo ou image alimente la bannière et le slider du haut</span>
                         </span>
                         <a href="/admin/soldes" style={{ color: "#6366f1", fontWeight: 600, fontSize: 12 }}>Gérer les remises & notifications →</a>
                       </label>
@@ -424,8 +424,7 @@ export default function AccueilPage() {
                 <label className="ak-label">
                   Médias <span style={{ color: "#94a3b8", fontWeight: 500 }}>
                     ({s.home_section_media.length}) — images ou vidéos, affichés en carrousel
-                    {s.section === "suggestion" && " — chaque média = un slide du grand slider d'accueil"}
-                    {s.section === "solde" && " (plus utilisés sur l'accueil — ce sont les photos des articles cochés ci-dessus qui s'affichent)"}
+                    {s.section === "solde" && " (utilisés seulement si aucun article soldé n'est sélectionné ci-dessus)"}
                   </span>
                 </label>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>

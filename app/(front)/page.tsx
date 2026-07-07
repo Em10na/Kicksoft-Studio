@@ -33,17 +33,19 @@ const CIRCLE_CATS = [
 export default async function HomePage() {
   const supabase = await createClient();
 
-  const [{ data: template }, { data: featured }, { data: categories }, { data: whatsNew }, { data: homeSections }, { data: heroSoldes }] = await Promise.all([
+  const [{ data: template }, { data: featured }, { data: categories }, { data: whatsNew }, { data: handheld }, { data: homeSections }, { data: promoPool }, { data: heroSoldes }] = await Promise.all([
     supabase.from("templates").select("*").eq("page", "home").single(),
     supabase.from("products").select("*").eq("status", "published").eq("featured", true).limit(4),
     supabase.from("categories").select("*").order("name"),
     // Pool trié du plus récent au plus ancien — « Quoi de neuf » garde le
     // dernier article de chaque catégorie
     supabase.from("products").select("*").eq("status", "published").order("created_at", { ascending: false }).limit(60),
+    supabase.from("products").select("*").eq("status", "published").order("display_order", { ascending: true }).order("created_at", { ascending: false }).range(8, 11),
     supabase.from("home_sections").select("*, home_section_media(*)"),
-    // Articles soldés cochés dans l'admin → affichés dans les 4 tuiles
-    // photos sous les bulles de catégories
-    supabase.from("products").select("id, title, price, compare_price, short_description, image_url, product_media(url, type, position)").eq("status", "published").eq("solde_hero", true).not("compare_price", "is", null).order("display_order", { ascending: true }).limit(4),
+    supabase.from("products").select("*").eq("status", "published").not("compare_price", "is", null).limit(24),
+    // Articles soldés mis en avant dans le slider (admin → Soldes) ;
+    // renvoie null tant que la migration v10 n'est pas passée → slides démo
+    supabase.from("products").select("id, title, price, compare_price, short_description, image_url, product_media(url, type, position)").eq("status", "published").eq("solde_hero", true).not("compare_price", "is", null).order("display_order", { ascending: true }).limit(5),
   ]);
 
   // Admin-managed media sections; each falls back to the hardcoded
@@ -56,6 +58,7 @@ export default async function HomePage() {
   );
   const suggestion = sectionMap.get("suggestion");
   const recommandation = sectionMap.get("recommandation");
+  const solde = sectionMap.get("solde");
 
   // « Quoi de neuf » : le produit le plus récent de chaque catégorie
   const vuCategories = new Set<string>();
@@ -65,29 +68,47 @@ export default async function HomePage() {
     vuCategories.add(cle);
     return true;
   }).slice(0, 8);
+  const soldeProducts = (promoPool ?? []).filter((p) => p.compare_price && p.compare_price > p.price).slice(0, 4);
 
-  // Les 4 tuiles photos sous les catégories = articles soldés cochés
-  // dans Admin → Page accueil (section Articles en solde)
+  // Slides du hero : articles soldés « à la une » avec leur vidéo
+  // (fichier direct) ou image ; sinon le slider garde ses slides démo.
   type HeroSoldeRow = {
     id: string; title: string; price: number; compare_price: number;
     short_description: string | null; image_url: string | null;
     product_media: { url: string; type: string; position: number }[] | null;
   };
-  const tuilesSoldes = ((heroSoldes ?? []) as HeroSoldeRow[]).filter((p) => p.compare_price > p.price).slice(0, 4);
+  const heroSoldesActifs = ((heroSoldes ?? []) as HeroSoldeRow[]).filter((p) => p.compare_price > p.price);
 
-  // Grand slider du haut (images avec durée) = médias de la section
-  // « Suggestions » gérée dans Admin → Page accueil ; slides démo sinon.
-  const heroSlides: HeroSlide[] = suggestion && suggestion.visible
-    ? suggestion.media.map((m) => ({
-        bg: m.media_type === "image" ? m.url : (m.poster_url ?? "https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=1920&q=95&auto=format&fit=crop"),
-        video: m.media_type === "video" ? m.url : null,
-        badge: "Nos Suggestions",
-        name: suggestion.title || "DJI Store TN",
-        tagline: suggestion.tagline ?? "",
-        buy: suggestion.cta_href || "/boutique",
-        more: suggestion.cta_href || "/boutique",
-      }))
-    : [];
+  // Synchronisation : la bannière de la section « Articles en Solde »
+  // affiche les médias (vidéo ou image) des articles soldés mis en
+  // avant par l'admin ; les médias saisis manuellement dans
+  // Admin → Page accueil ne servent que de repli.
+  const soldeSyncMedia: BannerMediaItem[] = heroSoldesActifs.flatMap((p): BannerMediaItem[] => {
+    const media = [...(p.product_media ?? [])].sort((a, b) => a.position - b.position);
+    const video = media.find((m) => m.type === "video" && /\.(mp4|webm|mov)(\?|$)/i.test(m.url));
+    if (video) return [{ id: `sync-${p.id}`, media_type: "video" as const, url: video.url, poster_url: p.image_url }];
+    const image = p.image_url || media.find((m) => m.type === "image")?.url;
+    return image ? [{ id: `sync-${p.id}`, media_type: "image" as const, url: image, poster_url: null }] : [];
+  });
+
+  const heroSlides: HeroSlide[] = heroSoldesActifs
+    .map((p) => {
+      const media = [...(p.product_media ?? [])].sort((a, b) => a.position - b.position);
+      const video = media.find((m) => m.type === "video" && /\.(mp4|webm|mov)(\?|$)/i.test(m.url));
+      const image = p.image_url || media.find((m) => m.type === "image")?.url;
+      const pct = Math.round((1 - p.price / p.compare_price) * 100);
+      return {
+        bg: image ?? "https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=1920&q=95&auto=format&fit=crop",
+        video: video?.url ?? null,
+        badge: `Soldes — jusqu'à -${pct}%`,
+        name: p.title,
+        tagline: p.short_description ?? "Offre à durée limitée",
+        buy: `/produit/${p.id}`,
+        more: `/produit/${p.id}`,
+        price: p.price,
+        compare_price: p.compare_price,
+      };
+    });
 
   // Bubbles come from the admin categories; fall back to the demo list when empty
   const circleCats =
@@ -111,32 +132,22 @@ export default async function HomePage() {
       {/* ====== CIRCLE CATEGORY STRIP (auto + flèches + glissement) ====== */}
       <CategoryStrip items={circleCats} marquee={marquee} />
 
-      {/* ====== PROMO TILES — les articles soldés (photos cliquables) ====== */}
+      {/* ====== PROMO TILES — 4 photos plein cadre (sans texte) ====== */}
       <section className="promo-tiles">
         <div className="container">
           <div className="promo-tiles__grid">
-            {tuilesSoldes.length > 0 ? (
-              tuilesSoldes.map((p) => (
-                <Link key={p.id} href={`/produit/${p.id}`} className="promo-tile" aria-label={p.title}>
-                  <div className="promo-tile__bg" style={{ backgroundImage: `url(${p.image_url ?? "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1000&q=85&auto=format&fit=crop"})` }} />
-                </Link>
-              ))
-            ) : (
-              <>
-                <Link href="/boutique?q=camera" className="promo-tile" aria-label="Caméras">
-                  <div className="promo-tile__bg" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=1000&q=85&auto=format&fit=crop)" }} />
-                </Link>
-                <Link href="/boutique?q=gimbal" className="promo-tile" aria-label="Gimbals">
-                  <div className="promo-tile__bg" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1527977966376-1c8408f9f108?w=1000&q=85&auto=format&fit=crop)" }} />
-                </Link>
-                <Link href="/boutique?q=audio" className="promo-tile" aria-label="Audio">
-                  <div className="promo-tile__bg" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1583394838336-acd977736f90?w=1000&q=85&auto=format&fit=crop)" }} />
-                </Link>
-                <Link href="/boutique?q=drone" className="promo-tile" aria-label="Drones">
-                  <div className="promo-tile__bg" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=1000&q=85&auto=format&fit=crop)" }} />
-                </Link>
-              </>
-            )}
+            <Link href="/boutique?q=camera" className="promo-tile" aria-label="Caméras">
+              <div className="promo-tile__bg" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=1000&q=85&auto=format&fit=crop)" }} />
+            </Link>
+            <Link href="/boutique?q=gimbal" className="promo-tile" aria-label="Gimbals">
+              <div className="promo-tile__bg" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1527977966376-1c8408f9f108?w=1000&q=85&auto=format&fit=crop)" }} />
+            </Link>
+            <Link href="/boutique?q=audio" className="promo-tile" aria-label="Audio">
+              <div className="promo-tile__bg" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1583394838336-acd977736f90?w=1000&q=85&auto=format&fit=crop)" }} />
+            </Link>
+            <Link href="/boutique?q=drone" className="promo-tile" aria-label="Drones">
+              <div className="promo-tile__bg" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=1000&q=85&auto=format&fit=crop)" }} />
+            </Link>
           </div>
         </div>
       </section>
@@ -266,6 +277,55 @@ export default async function HomePage() {
                 </div>
               </div>
             </div>
+          </div>
+        </section>
+      )}
+
+      {/* ====== SERIES: ARTICLES EN SOLDE (admin-managed media, hideable) ====== */}
+      {(!solde || solde.visible) && (
+        <section className="series-section">
+          <div className="container">
+            <ScrollReveal animation="fade-up">
+              <h2 className="series-section__label">{solde ? "Articles en Solde" : "Prise en Main · Vlogging Quotidien"}</h2>
+              <div className="series-banner">
+                {soldeSyncMedia.length > 0 ? (
+                  <BannerMedia items={soldeSyncMedia} />
+                ) : solde ? (
+                  <BannerMedia items={solde.media} />
+                ) : (
+                  <div className="series-banner__bg" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1508444845599-5c89863b1c44?w=1600&q=85&auto=format&fit=crop)" }} />
+                )}
+                <div className="series-banner__content">
+                  <h3 className="series-banner__name">{solde?.title || "Caméra d'Action 6 Pro"}</h3>
+                  <p className="series-banner__tagline">{solde?.tagline || "La caméra d'action à la qualité d'image révolutionnaire"}</p>
+                  <Link href={solde?.cta_href || "/boutique?q=action"} className="series-banner__btn">
+                    {solde?.cta_label || "Acheter"}
+                    <svg width="12" height="9" viewBox="0 0 14 10" fill="none"><path d="M1 5h12m0 0L9 1m4 4L9 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </Link>
+                </div>
+              </div>
+            </ScrollReveal>
+            {solde ? (
+              soldeProducts.length > 0 && (
+                <ScrollReveal animation="fade-up" delay={100} className="stagger">
+                  <div className="series-products">
+                    {soldeProducts.map((p) => (
+                      <ProductCard key={p.id} id={p.id} title={p.title} price={p.price} compare_price={p.compare_price} stock={p.stock} image_url={p.image_url} loyalty_points={p.loyalty_points} badge="Promo" />
+                    ))}
+                  </div>
+                </ScrollReveal>
+              )
+            ) : (
+              handheld && handheld.length > 0 && (
+                <ScrollReveal animation="fade-up" delay={100} className="stagger">
+                  <div className="series-products">
+                    {handheld.map((p) => (
+                      <ProductCard key={p.id} id={p.id} title={p.title} price={p.price} compare_price={p.compare_price} stock={p.stock} image_url={p.image_url} loyalty_points={p.loyalty_points} badge={p.compare_price && p.compare_price > p.price ? "Promo" : undefined} />
+                    ))}
+                  </div>
+                </ScrollReveal>
+              )
+            )}
           </div>
         </section>
       )}
