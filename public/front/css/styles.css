@@ -4732,68 +4732,61 @@ form.search input { padding-right: 100px; }
 [data-theme="dark"] .smenu__user-menu-item--danger:hover { background: rgba(239,68,68,0.12); color: #f87171; }
 
 /* ================================================================
-   SIDE RAIL — floating icon column for quick mobile navigation
+   BOTTOM BAR — barre de navigation fixe en bas (mobile uniquement)
+   Header (haut) : menu / profil / panier — ici (bas) : le reste.
    ================================================================ */
-.smenu-rail { display: none; }
+.bottom-bar { display: none; }
 
 @media (max-width: 768px) {
-  .smenu-rail {
+  .bottom-bar {
     position: fixed;
-    left: 8px;
-    top: 50%;
-    transform: translateY(-50%);
+    left: 0; right: 0; bottom: 0;
     z-index: 900;
+    display: flex;
+    justify-content: space-around;
+    align-items: stretch;
+    background: var(--paper);
+    border-top: 1px solid var(--rule);
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+  .bottom-bar__item {
+    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    padding: 8px 6px;
-    background: var(--paper);
-    border: 1px solid var(--rule);
-    border-radius: 999px;
-    box-shadow: var(--shadow-lg);
-  }
-  .smenu-rail__item {
-    position: relative;
-    width: 40px; height: 40px;
-    border-radius: 50%;
-    display: grid;
-    place-items: center;
+    gap: 3px;
+    padding: 5px 2px;
+    border-radius: 10px;
     color: var(--ink-mute);
     text-decoration: none;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s;
+    font-size: 10.5px;
+    font-weight: 600;
+    transition: color 0.15s, background 0.15s;
   }
-  .smenu-rail__item:hover { background: var(--bg-soft); color: var(--ink); }
-  .smenu-rail__item.is-active {
-    background: #0A0A0A;
-    color: #fff;
+  .bottom-bar__item.is-active { color: var(--ink); }
+  .bottom-bar__item.is-active svg { stroke-width: 2.4; }
+  .bottom-bar__item--wa { color: #25d366; }
+  .bottom-bar__item--wa:active { background: rgba(37,211,102,0.12); }
+
+  /* Le contenu ne doit pas finir caché derrière la barre */
+  body { padding-bottom: 64px; }
+
+  /* Le bouton du chatbot remonte au-dessus de la barre */
+  .chatbot-fab { bottom: 80px !important; }
+  .chatbot-panel { bottom: 140px !important; }
+
+  /* Panneau de notifications : pleine largeur du menu latéral,
+     pour qu'il s'affiche entièrement sur petit écran */
+  .smenu .notif-center__panel {
+    position: fixed; /* relatif au .smenu (qui a un transform) */
+    left: 10px;
+    right: 10px;
+    top: 118px;
+    width: auto;
+    max-width: none;
   }
-  [data-theme="dark"] .smenu-rail__item.is-active { background: #fff; color: #0A0A0A; }
-  .smenu-rail__sep {
-    width: 22px;
-    height: 1px;
-    background: var(--rule);
-    margin: 2px 0;
-  }
-  .smenu-rail__badge {
-    position: absolute;
-    top: 2px; right: 0;
-    min-width: 16px;
-    height: 16px;
-    padding: 0 4px;
-    border-radius: 999px;
-    background: #ef4444;
-    color: #fff;
-    font-size: 9.5px;
-    font-weight: 700;
-    display: grid;
-    place-items: center;
-    line-height: 1;
-    border: 2px solid var(--paper);
-  }
+  .smenu .notif-center__list { max-height: 55vh; }
 }
 
 /* Hide all Google Translate UI artifacts */

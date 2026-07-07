@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useCart } from "@/lib/cart";
+import { WHATSAPP_URL } from "@/lib/site-config";
 import NotificationBell from "./NotificationBell";
 import ThemeToggle from "./ThemeToggle";
 import LanguageSwitcher from "./LanguageSwitcher";
@@ -74,6 +75,7 @@ export default function SideMenu() {
     {
       section: "Aide",
       items: [
+        { href: WHATSAPP_URL, label: "Appel WhatsApp", icon: <Icon d="M12.04 2a9.9 9.9 0 0 0-8.51 14.93L2 22l5.2-1.49A9.9 9.9 0 1 0 12.04 2z" extra={<path d="M16.54 13.96c-.25-.12-1.46-.72-1.68-.8-.23-.08-.4-.12-.56.12-.17.25-.64.8-.79.97-.14.16-.29.18-.53.06-.94-.42-1.98-1.22-2.71-2.42-.14-.24-.01-.38.11-.5.34-.34.5-.56.62-.84.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84" />} /> },
         { href: "/faq", label: "FAQ", icon: <Icon d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" extra={<><circle cx="12" cy="12" r="10" /><path d="M12 17h.01" /></>} /> },
         { href: "/support", label: "Support", icon: <Icon d="M18 8a6 6 0 0 0-12 0v7h12z" extra={<path d="M3 15a2 2 0 0 0 2 2h1v-4H5a2 2 0 0 0-2 2zm18 0a2 2 0 0 1-2 2h-1v-4h1a2 2 0 0 1 2 2z" />} /> },
         { href: "/contact", label: "Contact", icon: <Icon d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" extra={<path d="M22 6l-10 7L2 6" />} /> },
@@ -95,15 +97,6 @@ export default function SideMenu() {
 
   const initials = (user?.name ?? "?").split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
 
-  // Icônes du rail mobile (navigation rapide, colonne flottante)
-  const RAIL: { href: string; label: string; icon: React.ReactNode; badge?: number; exact?: boolean }[] = [
-    { href: "/", label: "Accueil", exact: true, icon: <Icon d="M3 10.5L12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1z" /> },
-    { href: "/boutique", label: "Boutique", icon: <Icon d="M6 2l-2 5v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7l-2-5z" extra={<><path d="M4 7h16" /><path d="M16 11a4 4 0 0 1-8 0" /></>} /> },
-    { href: "/panier", label: "Panier", badge: cartCount, icon: <Icon d="M6 2l-2 5v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7l-2-5z" extra={<path d="M4 7h16" />} /> },
-    { href: "/compte/favoris", label: "Favoris", icon: <Icon d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /> },
-    { href: "/compte", label: "Compte", icon: <Icon d="M4 21c0-4 4-7 8-7s8 3 8 7" extra={<circle cx="12" cy="8" r="4" />} /> },
-  ];
-
   return (
     <>
       <button className="icon-btn" aria-label="Ouvrir le menu" aria-expanded={open} onClick={() => setOpen(true)}>
@@ -111,28 +104,6 @@ export default function SideMenu() {
           <path d="M4 6h16M4 12h16M4 18h16" />
         </svg>
       </button>
-
-      {/* Rail d'icônes — mobile uniquement */}
-      <div className="smenu-rail" aria-label="Navigation rapide">
-        <button className="smenu-rail__item" aria-label="Ouvrir le menu" onClick={() => setOpen(true)}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
-        <span className="smenu-rail__sep" />
-        {RAIL.map((r) => (
-          <Link
-            key={r.href}
-            href={r.href}
-            className={`smenu-rail__item${isActive(r.href, r.exact) ? " is-active" : ""}`}
-            aria-label={r.label}
-            title={r.label}
-          >
-            {r.icon}
-            {(r.badge ?? 0) > 0 && <span className="smenu-rail__badge">{r.badge! > 9 ? "9+" : r.badge}</span>}
-          </Link>
-        ))}
-      </div>
 
       {open && <div className="smenu-backdrop" onClick={() => setOpen(false)} />}
 
@@ -170,13 +141,20 @@ export default function SideMenu() {
           {groupes.map((g) => (
             <div key={g.section} className="smenu__section">
               <div className="smenu__section-label">{g.section}</div>
-              {g.items.map((it) => (
-                <Link key={it.href} href={it.href} className={`smenu__item${isActive(it.href, it.exact) ? " is-active" : ""}`}>
-                  {it.icon}
-                  <span>{it.label}</span>
-                  {(it.badge ?? 0) > 0 && <span className="smenu__badge">{it.badge}</span>}
-                </Link>
-              ))}
+              {g.items.map((it) =>
+                it.href.startsWith("http") ? (
+                  <a key={it.href} href={it.href} target="_blank" rel="noopener noreferrer" className="smenu__item">
+                    {it.icon}
+                    <span>{it.label}</span>
+                  </a>
+                ) : (
+                  <Link key={it.href} href={it.href} className={`smenu__item${isActive(it.href, it.exact) ? " is-active" : ""}`}>
+                    {it.icon}
+                    <span>{it.label}</span>
+                    {(it.badge ?? 0) > 0 && <span className="smenu__badge">{it.badge}</span>}
+                  </Link>
+                )
+              )}
             </div>
           ))}
           {groupes.length === 0 && <p className="smenu__empty">Aucun résultat — <Link href={`/boutique?q=${encodeURIComponent(recherche)}`}>chercher « {recherche} » dans la boutique</Link></p>}
