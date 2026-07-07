@@ -5,6 +5,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useCart } from "@/lib/cart";
+import NotificationBell from "./NotificationBell";
+import ThemeToggle from "./ThemeToggle";
+import LanguageSwitcher from "./LanguageSwitcher";
+import VisualSearch from "./VisualSearch";
 
 // Menu latéral du site — carte blanche flottante (style app moderne) :
 // recherche, sections avec badges, bloc utilisateur avec menu en bas.
@@ -145,13 +149,21 @@ export default function SideMenu() {
           <button className="smenu__close" aria-label="Fermer le menu" onClick={() => setOpen(false)}>✕</button>
         </div>
 
-        {/* Recherche */}
+        {/* Recherche (texte + visuelle 📷) */}
         <form className="smenu__search" action="/boutique">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" />
           </svg>
           <input name="q" placeholder="Rechercher un produit..." value={recherche} onChange={(e) => setRecherche(e.target.value)} />
+          <VisualSearch />
         </form>
+
+        {/* Outils : notifications, thème, langue */}
+        <div className="smenu__tools">
+          <NotificationBell />
+          <ThemeToggle />
+          <LanguageSwitcher />
+        </div>
 
         {/* Navigation */}
         <nav className="smenu__nav">

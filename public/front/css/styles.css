@@ -4416,9 +4416,53 @@ form.search input { padding-right: 100px; }
   flex-direction: column;
   transform: translateX(calc(-100% - 24px));
   transition: transform 0.32s var(--ease);
-  overflow: hidden;
+  /* visible : les menus déroulants (notifications, langue) dépassent du panneau */
+  overflow: visible;
 }
 .smenu.is-open { transform: translateX(0); }
+
+/* Rangée d'outils : notifications, thème, langue */
+.smenu__tools {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 14px 12px;
+  padding: 8px;
+  background: var(--bg-soft);
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+/* Les menus déroulants s'ouvrent vers la droite du panneau (bord gauche de l'écran) */
+.smenu .notif-center__panel {
+  left: 0;
+  right: auto;
+}
+.smenu .lang-switcher__menu {
+  left: 0;
+  right: auto;
+}
+
+/* Caméra (recherche visuelle) dans le champ de recherche du menu */
+.smenu__search input { padding-right: 44px; }
+.smenu__search button.vs-btn {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--ink-mute);
+  background: transparent;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.smenu__search button.vs-btn:hover {
+  background: var(--indigo-soft);
+  color: var(--indigo);
+}
 
 /* En-tête */
 .smenu__head {
