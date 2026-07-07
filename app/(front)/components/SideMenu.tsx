@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useCart } from "@/lib/cart";
 import { WHATSAPP_URL } from "@/lib/site-config";
-import NotificationBell from "./NotificationBell";
 import ThemeToggle from "./ThemeToggle";
 import LanguageSwitcher from "./LanguageSwitcher";
 import VisualSearch from "./VisualSearch";
@@ -129,9 +128,8 @@ export default function SideMenu() {
           <VisualSearch />
         </form>
 
-        {/* Outils : notifications, thème, langue */}
+        {/* Outils : thème, langue (les notifications sont dans le header) */}
         <div className="smenu__tools">
-          <NotificationBell />
           <ThemeToggle />
           <LanguageSwitcher />
         </div>

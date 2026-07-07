@@ -1,5 +1,6 @@
 import Link from "next/link";
 import CartCount from "./CartCount";
+import NotificationBell from "./NotificationBell";
 import SideMenu from "./SideMenu";
 
 export default function Header() {
@@ -21,6 +22,7 @@ export default function Header() {
           </nav>
 
           <div className="icon-row">
+            <NotificationBell />
             <Link href="/compte" className="icon-btn" aria-label="Mon compte">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <circle cx="12" cy="8" r="4" />
