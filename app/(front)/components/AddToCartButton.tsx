@@ -58,6 +58,12 @@ export default function AddToCartButton({ product, showQty = false }: Props) {
   const btnRef = useRef<HTMLButtonElement>(null);
 
   function handleAdd() {
+    if (!showQty) {
+      // On product cards: open the quick-add drawer instead of adding directly
+      window.dispatchEvent(new CustomEvent("quickadd", { detail: product }));
+      return;
+    }
+    // On the product detail page (showQty=true): add directly + animation
     addItem(product, qty);
     setAdded(true);
     flyToCart(btnRef.current);
