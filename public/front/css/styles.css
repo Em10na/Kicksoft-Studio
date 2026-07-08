@@ -4764,10 +4764,20 @@ form.search input { padding-right: 100px; }
     font-weight: 600;
     transition: color 0.15s, background 0.15s;
   }
-  .bottom-bar__item.is-active { color: var(--ink); }
+  .bottom-bar__item.is-active { color: var(--accent); }
   .bottom-bar__item.is-active svg { stroke-width: 2.4; }
-  .bottom-bar__item--wa { color: #25d366; }
-  .bottom-bar__item--wa:active { background: rgba(37,211,102,0.12); }
+  /* Soldes item: accent orange-red */
+  .bottom-bar__item--soldes { color: var(--rose); }
+  .bottom-bar__item--soldes:active { background: rgba(225,29,72,0.1); }
+  /* Cart badge inside bottom bar */
+  .bottom-bar__item--cart .count {
+    position: absolute;
+    top: -5px; right: -5px;
+    font-size: 9px;
+    min-width: 16px; height: 16px;
+    padding: 0 3px;
+    line-height: 16px;
+  }
 
   /* Le contenu ne doit pas finir caché derrière la barre */
   body { padding-bottom: 64px; }
@@ -5226,14 +5236,15 @@ font { background: transparent !important; box-shadow: none !important; }
 .has-hero .nav-cta:hover strong { color: #0A0A0A; }
 
 /* ================================================================
-   COMPACT ONE-ROW HEADER — DJI style
-   logo | centered nav links | icons (search opens a dropdown)
+   COMPACT HEADER — noon-style
+   ☰ | logo | search (1fr) | icons   +   sub-nav row on desktop
    ================================================================ */
 
 .site-header--compact .container {
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto auto 1fr auto;
   height: 64px;
-  gap: var(--s6);
+  gap: var(--s3);
+  align-items: center;
 }
 .site-header--compact .brand { font-size: 21px; }
 .site-header--compact .brand-mark {
@@ -5242,14 +5253,34 @@ font { background: transparent !important; box-shadow: none !important; }
   border-radius: 8px;
 }
 
-/* Nav links centered inside the single row */
-.site-header--compact .main-nav {
+/* Sub-nav row (desktop only, below the main bar) */
+.main-nav--header {
   display: flex;
   justify-content: center;
   gap: var(--s6);
-  margin: 0;
-  min-width: 0;
+  border-top: 1px solid var(--rule);
+  padding: 0 var(--container-pad);
+  height: 38px;
+  align-items: center;
 }
+.main-nav--header a {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--fg-soft);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.main-nav--header a:hover { color: var(--accent); }
+
+/* Hero transparent: tint the sub-nav */
+.has-hero .main-nav--header {
+  border-top-color: rgba(255,255,255,0.08);
+}
+.has-hero .main-nav--header a { color: rgba(255,255,255,0.65); }
+.has-hero .main-nav--header a:hover { color: #fff; }
+
+/* Desktop-only header icons (profile / cart) — hidden on mobile */
+.header-icon--desktop { display: inline-flex; }
 
 /* Icons: plain glyphs, no outline, subtle hover */
 .icon-btn {
@@ -5338,11 +5369,18 @@ font { background: transparent !important; box-shadow: none !important; }
 
 /* --- Responsive --- */
 @media (max-width: 1024px) {
-  .site-header--compact .main-nav { display: none; }
-  .site-header--compact .container { height: 60px; gap: var(--s4); }
+  .main-nav--header { display: none; }
+  .site-header--compact .container { height: 60px; gap: var(--s3); }
 }
-@media (max-width: 640px) {
-  /* Compact globe icon now fits on mobile — keep it visible */
+@media (max-width: 768px) {
+  /* Profile + cart move to bottom bar on mobile */
+  .header-icon--desktop { display: none !important; }
+  /* Compact search input on small screens */
+  .header-search .search input {
+    font-size: var(--text-sm);
+    padding: 10px 96px 10px 14px;
+  }
+  .site-header--compact .container { height: 56px; gap: var(--s2); }
 }
 
 /* ================================================================
