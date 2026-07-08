@@ -11,6 +11,8 @@ type Template = {
   page: string;
 };
 
+type Categorie = { id: string; name: string };
+
 type Produit = {
   id: string;
   title: string;
@@ -62,6 +64,9 @@ export default function AccueilPage() {
   const supabase = createClient();
   const [template, setTemplate] = useState<Template | null>(null);
   const [produits, setProduits] = useState<Produit[]>([]);
+  const [categories, setCategories] = useState<Categorie[]>([]);
+  const [whatsnewIds, setWhatsnewIds] = useState<Set<string>>(new Set());
+  const [whatsnewDispo, setWhatsnewDispo] = useState(true);
   const [loading, setLoading] = useState(true);
   const [alert, setAlert] = useState({ message: "", type: "" });
   const [form, setForm] = useState({ title: "", subtitle: "", body: "" });
@@ -126,8 +131,32 @@ export default function AccueilPage() {
     });
   }
 
+  async function chargerCategories() {
+    const { data } = await supabase.from("categories").select("id, name").order("name");
+    setCategories(data ?? []);
+  }
+
+  async function chargerWhatsNew() {
+    const { data, error } = await supabase
+      .from("products")
+      .select("id")
+      .eq("status", "published")
+      .eq("whats_new", true);
+    if (error) { setWhatsnewDispo(false); return; }
+    setWhatsnewDispo(true);
+    setWhatsnewIds(new Set((data ?? []).map((p: { id: string }) => p.id)));
+  }
+
+  async function toggleWhatsNew(produitId: string) {
+    const actuel = whatsnewIds.has(produitId);
+    const { error } = await supabase.from("products").update({ whats_new: !actuel }).eq("id", produitId);
+    if (error) { notifier("Erreur : " + error.message, "danger"); return; }
+    notifier(!actuel ? `Produit épinglé dans « Quoi de neuf » !` : `Produit retiré de « Quoi de neuf ».`);
+    chargerWhatsNew();
+  }
+
   useEffect(() => {
-    Promise.all([chargerTemplate(), chargerProduits(), chargerSections()]).then(() => setLoading(false));
+    Promise.all([chargerTemplate(), chargerProduits(), chargerSections(), chargerCategories(), chargerWhatsNew()]).then(() => setLoading(false));
   }, []);
 
   async function sauvegarderHero() {
@@ -273,7 +302,7 @@ export default function AccueilPage() {
       <div className="ak-page-header">
         <div>
           <h1 className="ak-page-title">Page d&apos;accueil</h1>
-          <p className="ak-page-sub">Personnalisez le hero, les sections média et les produits mis en avant</p>
+          <p className="ak-page-sub">Personnalisez le hero, les sections média, « Quoi de neuf » et les produits vedettes</p>
         </div>
       </div>
 
@@ -366,8 +395,23 @@ export default function AccueilPage() {
                     <input className="ak-input" value={f.cta_label} onChange={(e) => setSectionForms({ ...sectionForms, [s.id]: { ...f, cta_label: e.target.value } })} />
                   </div>
                   <div className="ak-field">
-                    <label className="ak-label">Lien du bouton</label>
-                    <input className="ak-input" placeholder="/boutique" value={f.cta_href} onChange={(e) => setSectionForms({ ...sectionForms, [s.id]: { ...f, cta_href: e.target.value } })} />
+                    <label className="ak-label">Lien du bouton (catégorie cible)</label>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <input className="ak-input" placeholder="/boutique" value={f.cta_href} onChange={(e) => setSectionForms({ ...sectionForms, [s.id]: { ...f, cta_href: e.target.value } })} />
+                      {categories.length > 0 && (
+                        <select
+                          className="ak-input"
+                          style={{ maxWidth: 170, flexShrink: 0, cursor: "pointer" }}
+                          value=""
+                          onChange={(e) => {
+                            if (e.target.value) setSectionForms({ ...sectionForms, [s.id]: { ...f, cta_href: `/boutique?categorie=${e.target.value}` } });
+                          }}
+                        >
+                          <option value="">Catégorie…</option>
+                          {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -557,6 +601,80 @@ export default function AccueilPage() {
                         checked={p.featured}
                         onChange={() => toggleFeatured(p.id, p.featured)}
                         style={{ width: 17, height: 17, accentColor: "#6366f1", cursor: "pointer" }}
+                      />
+                    </td>
+                    <td><span className="ak-cell-bold">{p.title}</span></td>
+                    <td><span className="ak-cell-mono">{p.price} DT</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ---------- Quoi de neuf ---------- */}
+      <div className="ak-card" style={{ marginTop: 20 }}>
+        <div className="ak-card__header">
+          <div>
+            <h3 className="ak-card__title">
+              <i className="ti ti-sparkles" style={{ marginRight: 6, color: "#10b981" }}></i>
+              Quoi de neuf{" "}
+              <span className="ak-count-badge" style={{ marginLeft: 6 }}>
+                {whatsnewIds.size > 0 ? `${whatsnewIds.size} épinglé${whatsnewIds.size > 1 ? "s" : ""}` : "auto"}
+              </span>
+            </h3>
+            <p className="ak-card__subtitle">
+              Cochez les produits à afficher en priorité. Si aucun n&apos;est coché, le dernier article de chaque catégorie s&apos;affiche automatiquement.
+            </p>
+          </div>
+          {whatsnewIds.size > 0 && (
+            <button
+              className="ak-btn ak-btn--ghost ak-btn--sm"
+              onClick={async () => {
+                for (const id of Array.from(whatsnewIds)) {
+                  await supabase.from("products").update({ whats_new: false }).eq("id", id);
+                }
+                notifier("Sélection effacée — mode automatique activé.");
+                chargerWhatsNew();
+              }}
+            >
+              <i className="ti ti-refresh"></i> Réinitialiser (auto)
+            </button>
+          )}
+        </div>
+        {!whatsnewDispo ? (
+          <div className="ak-card__body">
+            <div className="ak-alert ak-alert--warning" style={{ margin: 0 }}>
+              <i className="ti ti-alert-circle"></i> La colonne <code>whats_new</code> n&apos;existe pas encore —
+              exécutez <code>supabase/migration-v12-whats-new.sql</code> dans le SQL Editor de Supabase puis rechargez.
+            </div>
+          </div>
+        ) : produits.length === 0 ? (
+          <div className="ak-card__body">
+            <p style={{ color: "#94a3b8", margin: 0 }}>
+              Aucun produit publié. <a href="/admin/produits" style={{ color: "#6366f1", fontWeight: 600 }}>Ajouter des produits</a>
+            </p>
+          </div>
+        ) : (
+          <div className="ak-table-wrap">
+            <table className="ak-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 70 }}>Épingler</th>
+                  <th>Produit</th>
+                  <th style={{ width: 110 }}>Prix</th>
+                </tr>
+              </thead>
+              <tbody>
+                {produits.map((p) => (
+                  <tr key={`wn-${p.id}`} style={whatsnewIds.has(p.id) ? { background: "rgba(16,185,129,0.05)" } : undefined}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={whatsnewIds.has(p.id)}
+                        onChange={() => toggleWhatsNew(p.id)}
+                        style={{ width: 17, height: 17, accentColor: "#10b981", cursor: "pointer" }}
                       />
                     </td>
                     <td><span className="ak-cell-bold">{p.title}</span></td>

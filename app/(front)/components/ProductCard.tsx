@@ -1,6 +1,5 @@
 import Link from "next/link";
 import WishlistButton from "./WishlistButton";
-import AddToCartButton from "./AddToCartButton";
 
 // Carte volontairement épurée : prix courant uniquement — pas de prix
 // barré, badge promo ni points fidélité ajoutés par défaut.
@@ -32,7 +31,6 @@ export default function ProductCard({ id, title, price, stock, image_url }: Prop
       <div className="price">
         <span className="now">{price} DT</span>
       </div>
-      <AddToCartButton product={{ id, title, price, image_url: image_url ?? null, stock }} />
     </article>
   );
 }

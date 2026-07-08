@@ -33,7 +33,7 @@ const CIRCLE_CATS = [
 export default async function HomePage() {
   const supabase = await createClient();
 
-  const [{ data: template }, { data: featured }, { data: categories }, { data: whatsNew }, { data: handheld }, { data: homeSections }, { data: promoPool }, { data: heroSoldes }] = await Promise.all([
+  const [{ data: template }, { data: featured }, { data: categories }, { data: whatsNew }, { data: handheld }, { data: homeSections }, { data: promoPool }, { data: heroSoldes }, { data: pinnedNew }] = await Promise.all([
     supabase.from("templates").select("*").eq("page", "home").single(),
     supabase.from("products").select("*").eq("status", "published").eq("featured", true).limit(4),
     supabase.from("categories").select("*").order("name"),
@@ -46,6 +46,8 @@ export default async function HomePage() {
     // Articles soldés mis en avant dans le slider (admin → Soldes) ;
     // renvoie null tant que la migration v10 n'est pas passée → slides démo
     supabase.from("products").select("id, title, price, compare_price, short_description, image_url, product_media(url, type, position)").eq("status", "published").eq("solde_hero", true).not("compare_price", "is", null).order("display_order", { ascending: true }).limit(5),
+    // Produits épinglés manuellement dans « Quoi de neuf » (admin → Accueil)
+    supabase.from("products").select("*").eq("status", "published").eq("whats_new", true).order("created_at", { ascending: false }).limit(8),
   ]);
 
   // Admin-managed media sections; each falls back to the hardcoded
@@ -60,14 +62,18 @@ export default async function HomePage() {
   const recommandation = sectionMap.get("recommandation");
   const solde = sectionMap.get("solde");
 
-  // « Quoi de neuf » : le produit le plus récent de chaque catégorie
-  const vuCategories = new Set<string>();
-  const nouveautes = (whatsNew ?? []).filter((p) => {
-    const cle = p.category_id ?? "sans-categorie";
-    if (vuCategories.has(cle)) return false;
-    vuCategories.add(cle);
-    return true;
-  }).slice(0, 8);
+  // « Quoi de neuf » : épinglés par l'admin ou (si aucun) dernier article par catégorie
+  const nouveautes = (pinnedNew && pinnedNew.length > 0)
+    ? pinnedNew.slice(0, 8)
+    : (() => {
+        const vuCategories = new Set<string>();
+        return (whatsNew ?? []).filter((p) => {
+          const cle = p.category_id ?? "sans-categorie";
+          if (vuCategories.has(cle)) return false;
+          vuCategories.add(cle);
+          return true;
+        }).slice(0, 8);
+      })();
   const soldeProducts = (promoPool ?? []).filter((p) => p.compare_price && p.compare_price > p.price).slice(0, 4);
 
   // Slides du hero : articles soldés « à la une » avec leur vidéo
