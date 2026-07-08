@@ -3901,20 +3901,15 @@ input, select, textarea { font: inherit; color: inherit; }
    FLY-TO-CART ANIMATION
    ================================================================ */
 
-/* Product thumbnail that flies + rotates toward the cart icon */
-.cart-fly {
+/* Confetti particles that burst and fly to the cart icon */
+.cart-particle {
   position: fixed;
   left: 0;
   top: 0;
-  width: 64px;
-  height: 64px;
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--bg, #f8fafc);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.22);
   pointer-events: none;
   z-index: 9999;
   will-change: transform, opacity;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35);
 }
 
 /* Cart icon bounce when the dot arrives */

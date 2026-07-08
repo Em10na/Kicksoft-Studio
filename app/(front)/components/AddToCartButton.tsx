@@ -8,7 +8,9 @@ type Props = {
   showQty?: boolean;
 };
 
-function flyToCart(source: HTMLElement | null, imageUrl: string | null) {
+const PARTICLE_COLORS = ["#4f46e5", "#818cf8", "#6366f1", "#a5b4fc", "#7c3aed", "#c4b5fd"];
+
+function flyToCart(source: HTMLElement | null, _imageUrl: string | null) {
   if (typeof window === "undefined" || !source) return;
 
   const cartIcon = [
@@ -21,51 +23,58 @@ function flyToCart(source: HTMLElement | null, imageUrl: string | null) {
   });
   if (!cartIcon) return;
 
-  // Start from the product image if possible, otherwise from the button
-  const card = source.closest<HTMLElement>(".product-card");
-  const imgEl = card?.querySelector<HTMLImageElement>(".img-wrap img");
-  const origin = imgEl ?? source;
-
-  const sr = origin.getBoundingClientRect();
+  const sr = source.getBoundingClientRect();
   const tr = cartIcon.getBoundingClientRect();
 
-  const SIZE = 64;
-  const sx = sr.left + sr.width  / 2 - SIZE / 2;
-  const sy = sr.top  + sr.height / 2 - SIZE / 2;
-  const ex = tr.left + tr.width  / 2 - SIZE / 2;
-  const ey = tr.top  + tr.height / 2 - SIZE / 2;
+  const ox = sr.left + sr.width  / 2;
+  const oy = sr.top  + sr.height / 2;
+  const ex = tr.left + tr.width  / 2;
+  const ey = tr.top  + tr.height / 2;
 
-  // Arc apex — 160px above the highest of the two points
-  const mx = (sx + ex) / 2;
-  const my = Math.min(sy, ey) - 160;
+  const COUNT = 8;
+  let done = 0;
 
-  const fly = document.createElement("div");
-  fly.className = "cart-fly";
+  for (let i = 0; i < COUNT; i++) {
+    const size = 7 + Math.random() * 7;           // 7–14 px
+    const color = PARTICLE_COLORS[i % PARTICLE_COLORS.length];
 
-  if (imageUrl) {
-    const img = document.createElement("img");
-    img.src = imageUrl;
-    img.style.cssText = "width:100%;height:100%;object-fit:cover;display:block;";
-    fly.appendChild(img);
+    // Each particle bursts outward slightly before arcing to the cart
+    const burstAngle = (i / COUNT) * Math.PI * 2;
+    const burstR     = 24 + Math.random() * 20;
+    const bx = ox + Math.cos(burstAngle) * burstR - size / 2;
+    const by = oy + Math.sin(burstAngle) * burstR - size / 2;
+
+    // Arc apex: each particle takes a slightly different path
+    const spread = (Math.random() - 0.5) * 120;
+    const mx = (bx + ex) / 2 + spread;
+    const my = Math.min(by, ey) - 100 - Math.random() * 80;
+
+    const p = document.createElement("div");
+    p.className = "cart-particle";
+    p.style.cssText = `width:${size}px;height:${size}px;background:${color};border-radius:50%;`;
+    document.body.appendChild(p);
+
+    const delay = i * 40; // stagger 40ms per particle
+
+    const anim = p.animate(
+      [
+        { transform: `translate(${ox - size/2}px, ${oy - size/2}px) scale(0)`, opacity: "0",   offset: 0     },
+        { transform: `translate(${bx}px,          ${by}px)          scale(1)`, opacity: "1",   offset: 0.18  },
+        { transform: `translate(${mx}px,          ${my}px)          scale(0.85)`, opacity: "0.85", offset: 0.55 },
+        { transform: `translate(${ex - size/2}px, ${ey - size/2}px) scale(0.2)`, opacity: "0"                 },
+      ],
+      { duration: 900 + Math.random() * 200, delay, easing: "ease-in", fill: "forwards" }
+    );
+
+    anim.onfinish = () => {
+      p.remove();
+      done++;
+      if (done === COUNT) {
+        cartIcon.classList.add("cart-bounce");
+        setTimeout(() => cartIcon.classList.remove("cart-bounce"), 750);
+      }
+    };
   }
-
-  document.body.appendChild(fly);
-
-  // 3-keyframe arc with continuous rotation
-  const anim = fly.animate(
-    [
-      { transform: `translate(${sx}px, ${sy}px) scale(1)    rotate(0deg)`,   opacity: "0.72" },
-      { transform: `translate(${mx}px, ${my}px) scale(0.72) rotate(210deg)`, opacity: "0.60", offset: 0.45 },
-      { transform: `translate(${ex}px, ${ey}px) scale(0.18) rotate(400deg)`, opacity: "0"    },
-    ],
-    { duration: 1500, easing: "ease-in-out", fill: "forwards" }
-  );
-
-  anim.onfinish = () => {
-    fly.remove();
-    cartIcon.classList.add("cart-bounce");
-    setTimeout(() => cartIcon.classList.remove("cart-bounce"), 750);
-  };
 }
 
 export default function AddToCartButton({ product, showQty = false }: Props) {
