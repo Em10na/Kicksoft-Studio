@@ -11,7 +11,6 @@ type Props = {
 function flyToCart(source: HTMLElement | null) {
   if (typeof window === "undefined" || !source) return;
 
-  // Pick whichever cart icon is currently visible in the DOM
   const cartIcon = [
     document.querySelector<HTMLElement>(".icon-btn--cart"),
     document.querySelector<HTMLElement>(".bottom-bar__item--cart"),
@@ -25,27 +24,36 @@ function flyToCart(source: HTMLElement | null) {
   const sr = source.getBoundingClientRect();
   const tr = cartIcon.getBoundingClientRect();
 
+  // Start / end centers
+  const sx = sr.left + sr.width / 2;
+  const sy = sr.top  + sr.height / 2;
+  const ex = tr.left + tr.width / 2;
+  const ey = tr.top  + tr.height / 2;
+
+  // Arc apex: midpoint horizontally, 160px above the highest of the two points
+  const mx = (sx + ex) / 2;
+  const my = Math.min(sy, ey) - 160;
+
+  // The dot starts positioned at 0,0 and moves via transform
   const fly = document.createElement("div");
   fly.className = "cart-fly";
-  fly.style.left = `${sr.left + sr.width / 2 - 7}px`;
-  fly.style.top = `${sr.top + sr.height / 2 - 7}px`;
   document.body.appendChild(fly);
 
-  // Force reflow so the browser registers the start position before transition
-  void fly.getBoundingClientRect();
+  // Web Animations API — three keyframes define the parabolic arc
+  const anim = fly.animate(
+    [
+      { transform: `translate(${sx - 8}px, ${sy - 8}px) scale(1)`,   opacity: "1"   },
+      { transform: `translate(${mx - 8}px, ${my - 8}px) scale(0.85)`, opacity: "1", offset: 0.42 },
+      { transform: `translate(${ex - 8}px, ${ey - 8}px) scale(0.25)`, opacity: "0"  },
+    ],
+    { duration: 1400, easing: "cubic-bezier(0.33, 0, 0.66, 1)", fill: "forwards" }
+  );
 
-  fly.classList.add("cart-fly--go");
-  fly.style.left = `${tr.left + tr.width / 2 - 7}px`;
-  fly.style.top = `${tr.top + tr.height / 2 - 7}px`;
-  fly.style.opacity = "0";
-  fly.style.width = "4px";
-  fly.style.height = "4px";
-
-  setTimeout(() => {
+  anim.onfinish = () => {
     fly.remove();
     cartIcon.classList.add("cart-bounce");
-    setTimeout(() => cartIcon.classList.remove("cart-bounce"), 600);
-  }, 780);
+    setTimeout(() => cartIcon.classList.remove("cart-bounce"), 750);
+  };
 }
 
 export default function AddToCartButton({ product, showQty = false }: Props) {
