@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import ProductCard from "../components/ProductCard";
+import BoutiqueFilters from "./BoutiqueFilters";
 
 type Props = {
   searchParams: Promise<{ q?: string; categorie?: string; tri?: string; page?: string }>;
@@ -146,6 +147,13 @@ export default async function BoutiquePage({ searchParams }: Props) {
             </aside>
 
             <div>
+              {/* Filtres compacts — visibles sur mobile uniquement (sidebar masquée) */}
+              <BoutiqueFilters
+                categories={categories ?? []}
+                active={{ categorie: params.categorie, tri: params.tri, q: params.q }}
+                total={total}
+              />
+
               <div className="shop-toolbar">
                 <span className="count">
                   {total > 0
