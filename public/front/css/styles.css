@@ -1223,6 +1223,37 @@ input, select, textarea { font: inherit; color: inherit; }
 .promo-input input { flex: 1; padding: 10px 14px; border: 1px solid var(--rule-strong); border-radius: var(--r-sm); background: var(--paper); font-size: var(--text-sm); }
 .promo-input button { padding: 10px 16px; background: var(--ink); color: var(--paper); border-radius: var(--r-sm); font-weight: 600; font-size: var(--text-sm); }
 
+/* ---------- Swipe-to-delete (mobile) ---------- */
+.swipe-wrapper {
+  position: relative;
+  overflow: hidden;
+}
+.swipe-delete-btn {
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 82px;
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  z-index: 1;
+}
+.swipe-content {
+  position: relative;
+  background: var(--paper);
+  will-change: transform;
+  touch-action: pan-y;
+  z-index: 2;
+}
+
 /* ---------- Cart v2 : articles groupés par catégorie ---------- */
 .cart-cat-group {
   background: var(--paper);

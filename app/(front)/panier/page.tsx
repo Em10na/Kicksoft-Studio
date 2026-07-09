@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { useCart } from "@/lib/cart";
 import { createClient } from "@/lib/supabase/client";
 import { LOYALTY } from "@/lib/loyalty-config";
+import SwipeCartItem from "../components/SwipeCartItem";
 
 export default function PanierPage() {
   const { items, count, total, updateQty, removeItem, clearCart } = useCart();
@@ -239,7 +240,8 @@ export default function PanierPage() {
                         {catName}
                       </div>
                       {catItems.map((item) => (
-                        <div key={item.id} className="cart-item-v2">
+                        <SwipeCartItem key={item.id} onDelete={() => removeItem(item.id)}>
+                        <div className="cart-item-v2">
                           <div className="cart-item-v2__img">
                             <img
                               src={item.image_url || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200&q=80"}
@@ -271,6 +273,7 @@ export default function PanierPage() {
                             </div>
                           </div>
                         </div>
+                        </SwipeCartItem>
                       ))}
                     </div>
                 ))}
