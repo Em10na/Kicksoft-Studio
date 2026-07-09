@@ -166,9 +166,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </button>
             <div className="admin-header__title">{currentTitle}</div>
             <div className="admin-header__actions">
-              <Link href="/" className="admin-header__btn" target="_blank">
-                <i className="ti ti-external-link"></i>
-                Boutique
+              <Link
+                href="/"
+                target="_blank"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "7px 14px", borderRadius: 8,
+                  background: "var(--a-indigo, #4f46e5)", color: "#fff",
+                  fontWeight: 700, fontSize: 13, textDecoration: "none",
+                  boxShadow: "0 2px 8px rgba(79,70,229,0.3)",
+                  transition: "opacity 0.15s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
+                onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+              >
+                <i className="ti ti-world"></i>
+                Voir le site
               </Link>
             </div>
           </header>

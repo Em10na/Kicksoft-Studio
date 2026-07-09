@@ -283,25 +283,6 @@ export default function PanierPage() {
                   <button className="btn btn--ghost" onClick={clearCart} style={{ color: "var(--rose)" }}>Vider le panier</button>
                 </div>
 
-                {/* Reassurance */}
-                <div style={{
-                  marginTop: "var(--s7)", display: "grid", gridTemplateColumns: "repeat(3, 1fr)",
-                  gap: "var(--s4)", padding: "var(--s5)", background: "var(--bg)", borderRadius: "var(--r)",
-                }}>
-                  {[
-                    { icon: "⚡", title: "Livraison rapide", desc: "2-3 jours ouvrables" },
-                    { icon: "↺", title: "Retours gratuits", desc: "Sous 30 jours" },
-                    { icon: "★", title: "Garantie 2 ans", desc: "Sur chaque commande" },
-                  ].map((f) => (
-                    <div key={f.title} style={{ display: "flex", alignItems: "center", gap: "var(--s3)" }}>
-                      <div style={{ width: 40, height: 40, background: "var(--indigo-soft)", color: "var(--indigo)", borderRadius: "999px", display: "grid", placeItems: "center", fontSize: 18 }}>{f.icon}</div>
-                      <div>
-                        <div style={{ fontFamily: "var(--ff-display)", fontWeight: 700, fontSize: "var(--text-sm)" }}>{f.title}</div>
-                        <div style={{ fontFamily: "var(--ff-mono)", fontSize: 11, color: "var(--fg-mute)" }}>{f.desc}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
               </div>
 
               {/* Recapitulatif */}
