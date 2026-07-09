@@ -42,8 +42,9 @@ export default function PanierPage() {
       .then(({ data }) => {
         if (!data) return;
         const map: Record<string, string> = {};
-        for (const p of data as { id: string; categories?: { name: string } | null }[]) {
-          map[p.id] = p.categories?.name ?? "Général";
+        for (const p of data as any[]) {
+          const cats = p.categories;
+          map[p.id] = (Array.isArray(cats) ? cats[0]?.name : cats?.name) ?? "Général";
         }
         setCategoryMap(map);
       });
