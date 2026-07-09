@@ -641,8 +641,36 @@ body {
 
 /* ---------- Responsive ---------- */
 @media (max-width: 768px) {
+  /* Sidebar */
   .admin-sidebar { transform: translateX(-100%); }
   .admin-sidebar.open { transform: none; }
   .admin-main { margin-left: 0; }
+
+  /* Contenu */
+  .admin-content { padding: 12px; }
+
+  /* Dashboard — grilles responsive */
+  .dash-welcome { padding: 18px 18px !important; }
+  .dash-welcome h2 { font-size: 16px !important; }
+  .dash-welcome p  { font-size: 12px !important; }
+  .dash-grid-4 { grid-template-columns: repeat(2,1fr) !important; gap: 12px !important; }
+  .dash-grid-4 .ak-card--lift { padding: 16px 14px 14px !important; }
+  .dash-grid-4 [style*="font-size: 30"] { font-size: 22px !important; }
+  .dash-bottom-row { grid-template-columns: 1fr !important; }
+
+  /* Cards */
+  .ak-card__header { padding: 12px 14px; flex-wrap: wrap; gap: 8px; }
+  .ak-card__body   { padding: 12px 14px; }
+  .ak-card__title  { font-size: 13px; }
+
+  /* Formulaires */
   .ak-form-row { grid-template-columns: 1fr; }
+
+  /* Table — scroll horizontal sur mobile */
+  .ak-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .ak-table th, .ak-table td { padding: 10px 10px; font-size: 12px; }
+}
+
+@media (max-width: 420px) {
+  .dash-grid-4 { grid-template-columns: 1fr !important; }
 }

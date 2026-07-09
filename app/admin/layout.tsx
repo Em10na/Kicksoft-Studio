@@ -189,6 +189,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <style>{`
             @media (max-width: 768px) {
               .admin-mobile-toggle { display: flex !important; }
+              .admin-header { padding: 0 14px; gap: 10px; }
+              .admin-header__title { font-size: 13px; }
             }
           `}</style>
 
