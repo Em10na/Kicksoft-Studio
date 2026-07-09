@@ -101,7 +101,7 @@ export default function DashboardPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       {/* Welcome */}
-      <div className="ak-animate" style={{ background: "linear-gradient(135deg,#0f172a 0%,#1e293b 60%,#0f172a 100%)", borderRadius: 16, padding: "28px 32px", position: "relative", overflow: "hidden" }}>
+      <div className="ak-animate dash-welcome" style={{ background: "linear-gradient(135deg,#0f172a 0%,#1e293b 60%,#0f172a 100%)", borderRadius: 16, padding: "28px 32px", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: -50, right: -50, width: 200, height: 200, background: "rgba(99,102,241,0.08)", borderRadius: "50%" }} />
         <div style={{ position: "absolute", bottom: -60, right: 100, width: 140, height: 140, background: "rgba(99,102,241,0.05)", borderRadius: "50%" }} />
         <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
@@ -116,7 +116,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Big stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
+      <div className="dash-grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
         {bigStats.map((s, i) => (
           <Link key={s.label} href={s.href} className={`ak-animate ak-animate-${i + 1}`} style={{ textDecoration: "none" }}>
             <div className="ak-card ak-card--lift" style={{ background: s.grad, border: "none", color: "#fff", padding: "22px 22px 18px", position: "relative", overflow: "hidden" }}>
@@ -137,7 +137,6 @@ export default function DashboardPage() {
           </Link>
         ))}
       </div>
-      <style>{`@media(max-width:900px){.dash-grid-4{grid-template-columns:repeat(2,1fr)!important}}`}</style>
 
       {/* Mini stats */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
@@ -188,7 +187,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Bottom row */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 20 }}>
+      <div className="dash-bottom-row" style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 20 }}>
         {/* Commandes récentes */}
         <div className="ak-card">
           <div className="ak-card__header">
