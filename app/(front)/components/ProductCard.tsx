@@ -28,8 +28,8 @@ export default function ProductCard({ id, title, price, compare_price, stock, im
 
   return (
     <article className="product-card">
+      {/* Image flush — pas de padding sur la carte */}
       <div className="img-wrap" onClick={openDrawer}>
-        {/* stopper la propagation pour que le clic wishlist n'ouvre pas le drawer */}
         <span onClick={(e) => e.stopPropagation()}>
           <WishlistButton productId={id} className="wishlist" />
         </span>
@@ -42,13 +42,16 @@ export default function ProductCard({ id, title, price, compare_price, stock, im
           Aperçu rapide
         </div>
       </div>
-      <div className="stock">
-        <span className="dot"></span>
-        {stock > 0 ? `En stock - ${stock} articles` : "Rupture de stock"}
-      </div>
-      <Link href={`/produit/${id}`} className="name">{title}</Link>
-      <div className="price">
-        <span className="now">{price} DT</span>
+      {/* Infos sous l'image */}
+      <div className="card-info">
+        <div className="stock">
+          <span className="dot"></span>
+          {stock > 0 ? `En stock - ${stock} articles` : "Rupture de stock"}
+        </div>
+        <Link href={`/produit/${id}`} className="name">{title}</Link>
+        <div className="price">
+          <span className="now">{price} DT</span>
+        </div>
       </div>
     </article>
   );
