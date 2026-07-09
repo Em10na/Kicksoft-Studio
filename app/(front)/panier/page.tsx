@@ -229,8 +229,7 @@ export default function PanierPage() {
             <div className="cart-layout">
               <div>
                 {/* Articles groupés par catégorie */}
-                <div>
-                  {Object.entries(grouped).map(([catName, catItems]) => (
+                {Object.entries(grouped).map(([catName, catItems]) => (
                     <div key={catName} className="cart-cat-group">
                       <div className="cart-cat-header">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -274,8 +273,7 @@ export default function PanierPage() {
                         </div>
                       ))}
                     </div>
-                  ))}
-                </div>
+                ))}
 
                 <div style={{ marginTop: "var(--s5)", display: "flex", gap: "var(--s3)", flexWrap: "wrap" }}>
                   <Link href="/boutique" className="btn btn--ghost">&larr; Continuer les achats</Link>
