@@ -640,6 +640,72 @@ body {
 .ak-animate-4 { animation-delay: 0.20s; }
 
 /* ---------- Responsive ---------- */
+/* ---------- Onglets pill ---------- */
+.ak-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--a-bg);
+  border-radius: 10px;
+  padding: 4px;
+  margin-bottom: 20px;
+}
+.ak-tab-btn {
+  flex: 1;
+  padding: 8px 16px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--a-ink-soft);
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s var(--a-ease);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+}
+.ak-tab-btn--active {
+  background: var(--a-paper);
+  color: var(--a-ink);
+  box-shadow: var(--a-shadow-sm);
+}
+.ak-tab-btn:not(.ak-tab-btn--active):hover { background: rgba(0,0,0,0.04); }
+
+/* ---------- Boutons couleurs supplémentaires ---------- */
+.ak-btn--success { background: #10b981; border-color: #10b981; color: #fff; }
+.ak-btn--success:hover { background: #059669; border-color: #059669; }
+.ak-btn--danger-ghost { background: transparent; border: 1.5px solid #fca5a5; color: #ef4444; }
+.ak-btn--danger-ghost:hover { background: #fef2f2; }
+
+/* ---------- Input admin ---------- */
+.ak-input {
+  padding: 8px 12px;
+  border: 1.5px solid var(--a-rule);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--a-ink);
+  background: var(--a-paper);
+  transition: border-color 0.18s;
+  outline: none;
+}
+.ak-input:focus { border-color: var(--a-accent); box-shadow: 0 0 0 3px var(--a-accent-soft); }
+.ak-input--sm { padding: 6px 10px; font-size: 12.5px; }
+.ak-input-group { display: flex; align-items: center; gap: 0; }
+.ak-input-group .ak-input-prefix {
+  padding: 8px 12px;
+  border: 1.5px solid var(--a-rule);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  background: var(--a-bg);
+  color: var(--a-ink-mute);
+  font-size: 14px;
+  display: flex; align-items: center;
+}
+.ak-input-group .ak-input { border-radius: 0 8px 8px 0; }
+
 @media (max-width: 768px) {
   /* Sidebar */
   .admin-sidebar { transform: translateX(-100%); }
