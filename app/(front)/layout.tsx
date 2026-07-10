@@ -24,7 +24,7 @@ export default function FrontLayout({ children }: { children: React.ReactNode })
         href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Outfit:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap"
       />
       {/* v query param busts browser cache after each stylesheet update */}
-      <link rel="stylesheet" href="/front/css/styles.css?v=41" />
+      <link rel="stylesheet" href="/front/css/styles.css?v=42" />
 
       <Header />
       <main id="main">{children}</main>

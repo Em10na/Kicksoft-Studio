@@ -4289,6 +4289,10 @@ input, select, textarea { font: inherit; color: inherit; }
   gap: var(--s2);
 }
 @media (min-width: 600px) { .qa-footer { padding: 12px 22px 16px; } }
+/* Sur mobile (drawer = bottom sheet), laisser la place à la bottom-bar */
+@media (max-width: 599px) {
+  .qa-footer { padding-bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
+}
 .qa-add-btn {
   width: 100%;
   padding: 14px;
@@ -5287,7 +5291,7 @@ form.search input { padding-right: 100px; }
   .bottom-bar {
     position: fixed;
     left: 0; right: 0; bottom: 0;
-    z-index: 900;
+    z-index: 1200;
     display: flex;
     justify-content: space-around;
     align-items: stretch;
@@ -5322,11 +5326,16 @@ form.search input { padding-right: 100px; }
   /* Cart badge inside bottom bar */
   .bottom-bar__item--cart .count {
     position: absolute;
-    top: -5px; right: -5px;
-    font-size: 9px;
-    min-width: 16px; height: 16px;
-    padding: 0 3px;
-    line-height: 16px;
+    top: -6px; right: -8px;
+    font-size: 9px; font-weight: 700;
+    min-width: 17px; height: 17px;
+    padding: 0 4px;
+    line-height: 17px; text-align: center;
+    background: #3b82f6;
+    color: #fff;
+    border-radius: 999px;
+    border: 2px solid var(--paper);
+    display: grid; place-items: center;
   }
 
   /* Le contenu ne doit pas finir caché derrière la barre (+ safe area iPhone) */
