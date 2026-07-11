@@ -5,6 +5,23 @@ import { createClient } from "@/lib/supabase/client";
 
 type Categorie = { id: string; name: string };
 
+type HeroSlideRow = {
+  id: string;
+  title: string;
+  tagline: string | null;
+  badge: string | null;
+  image_url: string | null;
+  video_url: string | null;
+  buy_href: string;
+  more_href: string;
+  display_order: number;
+  visible: boolean;
+};
+
+const HERO_FORM_EMPTY: Omit<HeroSlideRow, "id" | "display_order" | "visible"> = {
+  title: "", tagline: "", badge: "", image_url: "", video_url: "", buy_href: "/boutique", more_href: "/boutique",
+};
+
 type Produit = {
   id: string;
   title: string;
@@ -62,6 +79,15 @@ export default function AccueilPage() {
   const [whatsnewDispo, setWhatsnewDispo] = useState(true);
   const [loading, setLoading] = useState(true);
   const [alert, setAlert] = useState({ message: "", type: "" });
+  // Hero slides
+  const [heroSlides, setHeroSlides] = useState<HeroSlideRow[]>([]);
+  const [heroSlidesDispo, setHeroSlidesDispo] = useState(true);
+  const [heroForm, setHeroForm] = useState<typeof HERO_FORM_EMPTY>({ ...HERO_FORM_EMPTY });
+  const [editingSlideId, setEditingSlideId] = useState<string | null>(null);
+  const [showHeroForm, setShowHeroForm] = useState(false);
+  const [heroUploading, setHeroUploading] = useState(false);
+  const heroFileRef = useRef<HTMLInputElement | null>(null);
+
   const [featuredOrderDispo, setFeaturedOrderDispo] = useState(true);
   const [searchFeatured, setSearchFeatured] = useState("");
   const [showDropFeatured, setShowDropFeatured] = useState(false);
@@ -81,6 +107,67 @@ export default function AccueilPage() {
   function notifier(message: string, type: "success" | "danger" | "warning" = "success") {
     setAlert({ message, type });
     setTimeout(() => setAlert({ message: "", type: "" }), 3000);
+  }
+
+  async function chargerHeroSlides() {
+    const { data, error } = await supabase.from("hero_slides").select("*").order("display_order", { ascending: true });
+    if (error) { setHeroSlidesDispo(false); return; }
+    setHeroSlidesDispo(true);
+    setHeroSlides(data ?? []);
+  }
+
+  async function sauvegarderSlide() {
+    if (!heroForm.title.trim()) { notifier("Le titre est obligatoire.", "danger"); return; }
+    if (editingSlideId) {
+      const { error } = await supabase.from("hero_slides").update({ ...heroForm }).eq("id", editingSlideId);
+      if (error) { notifier("Erreur : " + error.message, "danger"); return; }
+      notifier("Slide mis à jour !");
+    } else {
+      const maxOrder = Math.max(0, ...heroSlides.map((s) => s.display_order));
+      const { error } = await supabase.from("hero_slides").insert({ ...heroForm, display_order: maxOrder + 1, visible: true });
+      if (error) { notifier("Erreur : " + error.message, "danger"); return; }
+      notifier("Slide ajouté !");
+    }
+    setHeroForm({ ...HERO_FORM_EMPTY });
+    setEditingSlideId(null);
+    setShowHeroForm(false);
+    chargerHeroSlides();
+  }
+
+  async function supprimerSlide(id: string) {
+    if (!confirm("Supprimer ce slide ?")) return;
+    await supabase.from("hero_slides").delete().eq("id", id);
+    notifier("Slide supprimé.");
+    chargerHeroSlides();
+  }
+
+  async function toggleSlideVisible(s: HeroSlideRow) {
+    await supabase.from("hero_slides").update({ visible: !s.visible }).eq("id", s.id);
+    chargerHeroSlides();
+  }
+
+  async function moveSlide(id: string, dir: -1 | 1) {
+    const idx = heroSlides.findIndex((s) => s.id === id);
+    const voisin = heroSlides[idx + dir];
+    if (!voisin) return;
+    await Promise.all([
+      supabase.from("hero_slides").update({ display_order: voisin.display_order }).eq("id", id),
+      supabase.from("hero_slides").update({ display_order: heroSlides[idx].display_order }).eq("id", voisin.id),
+    ]);
+    chargerHeroSlides();
+  }
+
+  async function uploaderImageHero(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setHeroUploading(true);
+    const nom = `hero/${Date.now()}_${file.name.replace(/\s+/g, "_")}`;
+    const { error } = await supabase.storage.from(BUCKET).upload(nom, file, { upsert: false });
+    if (error) { notifier("Upload échoué : " + error.message, "danger"); setHeroUploading(false); return; }
+    const { data } = supabase.storage.from(BUCKET).getPublicUrl(nom);
+    setHeroForm((f) => ({ ...f, image_url: data.publicUrl }));
+    setHeroUploading(false);
+    if (heroFileRef.current) heroFileRef.current.value = "";
   }
 
   async function chargerProduits() {
@@ -148,7 +235,7 @@ export default function AccueilPage() {
   }
 
   useEffect(() => {
-    Promise.all([chargerProduits(), chargerSections(), chargerCategories(), chargerWhatsNew()]).then(() => setLoading(false));
+    Promise.all([chargerHeroSlides(), chargerProduits(), chargerSections(), chargerCategories(), chargerWhatsNew()]).then(() => setLoading(false));
   }, []);
 
   async function toggleFeatured(produitId: string, actuel: boolean) {
@@ -303,6 +390,123 @@ export default function AccueilPage() {
         <div>
           <h1 className="ak-page-title">Page d&apos;accueil</h1>
           <p className="ak-page-sub">Personnalisez le hero, les sections média, « Quoi de neuf » et les produits vedettes</p>
+        </div>
+      </div>
+
+      {/* ---------- Slides Hero ---------- */}
+      <div className="ak-card" style={{ marginBottom: 20 }}>
+        <div className="ak-card__header">
+          <div>
+            <h3 className="ak-card__title"><i className="ti ti-photo-film" style={{ marginRight: 6, color: "#6366f1" }}></i>Slides du Hero</h3>
+            <p className="ak-card__subtitle">Carrousel principal affiché en haut de la boutique — image ou vidéo par slide</p>
+          </div>
+          {heroSlidesDispo && (
+            <button className="ak-btn ak-btn--primary ak-btn--sm" onClick={() => { setHeroForm({ ...HERO_FORM_EMPTY }); setEditingSlideId(null); setShowHeroForm((v) => !v); }}>
+              <i className="ti ti-plus"></i> Ajouter un slide
+            </button>
+          )}
+        </div>
+        <div className="ak-card__body">
+          {!heroSlidesDispo ? (
+            <div className="ak-alert ak-alert--warning" style={{ margin: 0 }}>
+              <i className="ti ti-alert-circle"></i> Exécutez <code>supabase/migration-v15-hero-slides.sql</code> dans le SQL Editor de Supabase puis rechargez.
+            </div>
+          ) : (
+            <>
+              {/* Liste des slides */}
+              {heroSlides.length === 0 && !showHeroForm && (
+                <p style={{ color: "var(--a-ink-mute)", fontSize: 13, marginBottom: 0 }}>
+                  Aucun slide — le carrousel affiche les slides de démonstration. Ajoutez-en un pour les remplacer.
+                </p>
+              )}
+              {heroSlides.map((s, idx) => (
+                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: s.visible ? "var(--a-paper)" : "var(--a-bg)", border: `1.5px solid ${s.visible ? "var(--a-rule)" : "#e2e8f0"}`, borderRadius: 12, marginBottom: 8, opacity: s.visible ? 1 : 0.6 }}>
+                  {/* Miniature */}
+                  {s.image_url
+                    ? <img src={s.image_url} alt="" style={{ width: 72, height: 46, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
+                    : <span style={{ width: 72, height: 46, borderRadius: 8, background: "var(--a-bg)", display: "grid", placeItems: "center", flexShrink: 0, border: "1px dashed var(--a-rule)" }}><i className="ti ti-photo" style={{ color: "#94a3b8", fontSize: 18 }}></i></span>}
+                  {/* Infos */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</span>
+                      {s.badge && <span className="ak-badge ak-badge--accent" style={{ fontSize: 10, flexShrink: 0 }}>{s.badge}</span>}
+                      {s.video_url && <span className="ak-badge ak-badge--muted" style={{ fontSize: 10, flexShrink: 0 }}><i className="ti ti-video"></i> Vidéo</span>}
+                    </div>
+                    {s.tagline && <div style={{ fontSize: 12, color: "var(--a-ink-mute)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.tagline}</div>}
+                  </div>
+                  {/* Actions */}
+                  <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
+                    <button className={`ak-btn ak-btn--sm ${s.visible ? "ak-btn--ghost" : "ak-btn--muted"}`} onClick={() => toggleSlideVisible(s)} title={s.visible ? "Masquer" : "Afficher"}>
+                      <i className={`ti ${s.visible ? "ti-eye" : "ti-eye-off"}`}></i>
+                    </button>
+                    <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" disabled={idx === 0} style={idx === 0 ? { opacity: 0.3 } : undefined} onClick={() => moveSlide(s.id, -1)} title="Monter"><i className="ti ti-chevron-up"></i></button>
+                    <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" disabled={idx === heroSlides.length - 1} style={idx === heroSlides.length - 1 ? { opacity: 0.3 } : undefined} onClick={() => moveSlide(s.id, 1)} title="Descendre"><i className="ti ti-chevron-down"></i></button>
+                    <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" onClick={() => { setHeroForm({ title: s.title, tagline: s.tagline ?? "", badge: s.badge ?? "", image_url: s.image_url ?? "", video_url: s.video_url ?? "", buy_href: s.buy_href, more_href: s.more_href }); setEditingSlideId(s.id); setShowHeroForm(true); }} title="Modifier"><i className="ti ti-pencil"></i></button>
+                    <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => supprimerSlide(s.id)} title="Supprimer"><i className="ti ti-trash"></i></button>
+                  </div>
+                </div>
+              ))}
+
+              {/* Formulaire ajout / édition */}
+              {showHeroForm && (
+                <div style={{ marginTop: heroSlides.length > 0 ? 16 : 0, padding: "18px 20px", background: "var(--a-bg)", border: "1.5px solid var(--a-rule)", borderRadius: 14 }}>
+                  <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 16 }}>
+                    {editingSlideId ? "Modifier le slide" : "Nouveau slide"}
+                  </h4>
+                  <div className="ak-form-row" style={{ marginBottom: 12 }}>
+                    <div className="ak-field">
+                      <label className="ak-label">Titre <span style={{ color: "#f43f5e" }}>*</span></label>
+                      <input className="ak-input" placeholder="ex : DJI Mini 4 Pro" value={heroForm.title} onChange={(e) => setHeroForm((f) => ({ ...f, title: e.target.value }))} />
+                    </div>
+                    <div className="ak-field">
+                      <label className="ak-label">Badge</label>
+                      <input className="ak-input" placeholder="ex : Nouveau 2025, Soldes" value={heroForm.badge ?? ""} onChange={(e) => setHeroForm((f) => ({ ...f, badge: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div className="ak-field" style={{ marginBottom: 12 }}>
+                    <label className="ak-label">Accroche (sous le titre)</label>
+                    <input className="ak-input" placeholder="ex : Capturez l'instant depuis les airs" value={heroForm.tagline ?? ""} onChange={(e) => setHeroForm((f) => ({ ...f, tagline: e.target.value }))} />
+                  </div>
+                  <div className="ak-form-row" style={{ marginBottom: 12 }}>
+                    <div className="ak-field">
+                      <label className="ak-label">Image de fond (URL)</label>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <input className="ak-input" placeholder="https://..." value={heroForm.image_url ?? ""} onChange={(e) => setHeroForm((f) => ({ ...f, image_url: e.target.value }))} />
+                        <input ref={heroFileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={uploaderImageHero} />
+                        <button className="ak-btn ak-btn--ghost ak-btn--sm" style={{ flexShrink: 0 }} disabled={heroUploading} onClick={() => heroFileRef.current?.click()}>
+                          <i className="ti ti-upload"></i> {heroUploading ? "…" : "Upload"}
+                        </button>
+                      </div>
+                      {heroForm.image_url && <img src={heroForm.image_url} alt="" style={{ marginTop: 6, height: 60, borderRadius: 8, objectFit: "cover", width: "100%" }} />}
+                    </div>
+                    <div className="ak-field">
+                      <label className="ak-label">Vidéo (URL mp4/webm — optionnel)</label>
+                      <input className="ak-input" placeholder="https://...video.mp4" value={heroForm.video_url ?? ""} onChange={(e) => setHeroForm((f) => ({ ...f, video_url: e.target.value }))} />
+                      <p style={{ fontSize: 11.5, color: "var(--a-ink-mute)", marginTop: 4 }}>La vidéo se joue sur l'image. L'image reste visible si la vidéo n'est pas supportée.</p>
+                    </div>
+                  </div>
+                  <div className="ak-form-row" style={{ marginBottom: 16 }}>
+                    <div className="ak-field">
+                      <label className="ak-label">Lien bouton "Acheter"</label>
+                      <input className="ak-input" placeholder="/boutique ou /produit/..." value={heroForm.buy_href} onChange={(e) => setHeroForm((f) => ({ ...f, buy_href: e.target.value }))} />
+                    </div>
+                    <div className="ak-field">
+                      <label className="ak-label">Lien bouton "En savoir plus"</label>
+                      <input className="ak-input" placeholder="/boutique ou /produit/..." value={heroForm.more_href} onChange={(e) => setHeroForm((f) => ({ ...f, more_href: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button className="ak-btn ak-btn--primary" onClick={sauvegarderSlide}>
+                      <i className="ti ti-device-floppy"></i> {editingSlideId ? "Enregistrer" : "Ajouter"}
+                    </button>
+                    <button className="ak-btn ak-btn--ghost" onClick={() => { setShowHeroForm(false); setEditingSlideId(null); setHeroForm({ ...HERO_FORM_EMPTY }); }}>
+                      Annuler
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 
