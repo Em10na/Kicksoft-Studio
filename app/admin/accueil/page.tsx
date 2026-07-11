@@ -60,6 +60,10 @@ export default function AccueilPage() {
   const [whatsnewDispo, setWhatsnewDispo] = useState(true);
   const [loading, setLoading] = useState(true);
   const [alert, setAlert] = useState({ message: "", type: "" });
+  const [searchFeatured, setSearchFeatured] = useState("");
+  const [showDropFeatured, setShowDropFeatured] = useState(false);
+  const [searchWhatsNew, setSearchWhatsNew] = useState("");
+  const [showDropWhatsNew, setShowDropWhatsNew] = useState(false);
 
   // Sections média (suggestion / recommandation / solde)
   const [sections, setSections] = useState<HomeSection[]>([]);
@@ -505,47 +509,75 @@ export default function AccueilPage() {
               <i className="ti ti-sparkles" style={{ marginRight: 6, color: "#6366f1" }}></i>
               Produits mis en avant{" "}
               <span className="ak-count-badge" style={{ marginLeft: 6 }}>
-                {produits.filter((p) => p.featured).length} / {produits.length}
+                {produits.filter((p) => p.featured).length} sélectionné{produits.filter((p) => p.featured).length > 1 ? "s" : ""}
               </span>
             </h3>
             <p className="ak-card__subtitle">Affichés sous la bannière « Suggestions » de l&apos;accueil</p>
           </div>
         </div>
-        {produits.length === 0 ? (
-          <div className="ak-card__body">
+        <div className="ak-card__body">
+          {produits.length === 0 ? (
             <p style={{ color: "#94a3b8", margin: 0 }}>
               Aucun produit publié. <a href="/admin/produits" style={{ color: "#6366f1", fontWeight: 600 }}>Ajouter des produits</a>
             </p>
-          </div>
-        ) : (
-          <div className="ak-table-wrap">
-            <table className="ak-table">
-              <thead>
-                <tr>
-                  <th style={{ width: 70 }}>Vedette</th>
-                  <th>Produit</th>
-                  <th style={{ width: 110 }}>Prix</th>
-                </tr>
-              </thead>
-              <tbody>
-                {produits.map((p) => (
-                  <tr key={p.id}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={p.featured}
-                        onChange={() => toggleFeatured(p.id, p.featured)}
-                        style={{ width: 17, height: 17, accentColor: "#6366f1", cursor: "pointer" }}
-                      />
-                    </td>
-                    <td><span className="ak-cell-bold">{p.title}</span></td>
-                    <td><span className="ak-cell-mono">{p.price} DT</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+          ) : (
+            <>
+              {/* Chips produits sélectionnés */}
+              {produits.filter((p) => p.featured).length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+                  {produits.filter((p) => p.featured).map((p) => (
+                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 7, background: "#ede9fe", border: "1.5px solid #c4b5fd", borderRadius: 10, padding: "5px 8px 5px 6px" }}>
+                      {p.image_url && <img src={p.image_url} alt="" style={{ width: 28, height: 28, borderRadius: 6, objectFit: "cover", flexShrink: 0 }} />}
+                      <span style={{ fontWeight: 600, fontSize: 12.5, color: "#3730a3", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
+                      <span style={{ fontSize: 11.5, color: "#7c3aed", flexShrink: 0 }}>{p.price} DT</span>
+                      <button onClick={() => toggleFeatured(p.id, true)} style={{ background: "none", border: "none", cursor: "pointer", color: "#7c3aed", padding: "0 0 0 2px", lineHeight: 1, display: "flex", alignItems: "center" }}>
+                        <i className="ti ti-x" style={{ fontSize: 13 }}></i>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Combobox recherche */}
+              <div style={{ position: "relative", maxWidth: 420 }}>
+                <div style={{ position: "relative" }}>
+                  <i className="ti ti-search" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--a-ink-mute)", fontSize: 15, pointerEvents: "none" }}></i>
+                  <input
+                    className="ak-input"
+                    style={{ paddingLeft: 34 }}
+                    placeholder="Rechercher un produit à mettre en avant…"
+                    value={searchFeatured}
+                    onChange={(e) => { setSearchFeatured(e.target.value); setShowDropFeatured(true); }}
+                    onFocus={() => setShowDropFeatured(true)}
+                    onBlur={() => setTimeout(() => setShowDropFeatured(false), 180)}
+                  />
+                </div>
+                {showDropFeatured && (
+                  <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--a-paper)", border: "1.5px solid var(--a-rule)", borderRadius: 12, boxShadow: "0 8px 28px rgba(0,0,0,0.12)", zIndex: 50, maxHeight: 260, overflowY: "auto" }}>
+                    {produits
+                      .filter((p) => !searchFeatured || p.title.toLowerCase().includes(searchFeatured.toLowerCase()))
+                      .map((p) => (
+                        <button
+                          key={p.id}
+                          onMouseDown={(e) => { e.preventDefault(); toggleFeatured(p.id, p.featured); setSearchFeatured(""); }}
+                          style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", width: "100%", background: p.featured ? "#f5f3ff" : "transparent", border: "none", borderBottom: "1px solid var(--a-rule)", cursor: "pointer", textAlign: "left" }}
+                        >
+                          {p.image_url
+                            ? <img src={p.image_url} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
+                            : <span style={{ width: 36, height: 36, borderRadius: 8, background: "var(--a-bg)", display: "grid", placeItems: "center", flexShrink: 0 }}><i className="ti ti-photo" style={{ color: "#94a3b8" }}></i></span>}
+                          <span style={{ flex: 1, fontWeight: 600, fontSize: 13, color: "var(--a-ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
+                          <span style={{ fontSize: 12, color: "var(--a-ink-mute)", flexShrink: 0 }}>{p.price} DT</span>
+                          {p.featured && <i className="ti ti-check" style={{ color: "#6366f1", fontSize: 15, flexShrink: 0 }}></i>}
+                        </button>
+                      ))}
+                    {produits.filter((p) => !searchFeatured || p.title.toLowerCase().includes(searchFeatured.toLowerCase())).length === 0 && (
+                      <p style={{ textAlign: "center", color: "var(--a-ink-mute)", padding: "16px 0", fontSize: 13 }}>Aucun produit trouvé</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* ---------- Quoi de neuf ---------- */}
@@ -560,7 +592,7 @@ export default function AccueilPage() {
               </span>
             </h3>
             <p className="ak-card__subtitle">
-              Cochez les produits à afficher en priorité. Si aucun n&apos;est coché, le dernier article de chaque catégorie s&apos;affiche automatiquement.
+              Épinglez des produits prioritaires. Si aucun n&apos;est épinglé, le dernier article de chaque catégorie s&apos;affiche automatiquement.
             </p>
           </div>
           {whatsnewIds.size > 0 && (
@@ -578,48 +610,77 @@ export default function AccueilPage() {
             </button>
           )}
         </div>
-        {!whatsnewDispo ? (
-          <div className="ak-card__body">
+        <div className="ak-card__body">
+          {!whatsnewDispo ? (
             <div className="ak-alert ak-alert--warning" style={{ margin: 0 }}>
               <i className="ti ti-alert-circle"></i> La colonne <code>whats_new</code> n&apos;existe pas encore —
               exécutez <code>supabase/migration-v12-whats-new.sql</code> dans le SQL Editor de Supabase puis rechargez.
             </div>
-          </div>
-        ) : produits.length === 0 ? (
-          <div className="ak-card__body">
+          ) : produits.length === 0 ? (
             <p style={{ color: "#94a3b8", margin: 0 }}>
               Aucun produit publié. <a href="/admin/produits" style={{ color: "#6366f1", fontWeight: 600 }}>Ajouter des produits</a>
             </p>
-          </div>
-        ) : (
-          <div className="ak-table-wrap">
-            <table className="ak-table">
-              <thead>
-                <tr>
-                  <th style={{ width: 70 }}>Épingler</th>
-                  <th>Produit</th>
-                  <th style={{ width: 110 }}>Prix</th>
-                </tr>
-              </thead>
-              <tbody>
-                {produits.map((p) => (
-                  <tr key={`wn-${p.id}`} style={whatsnewIds.has(p.id) ? { background: "rgba(16,185,129,0.05)" } : undefined}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={whatsnewIds.has(p.id)}
-                        onChange={() => toggleWhatsNew(p.id)}
-                        style={{ width: 17, height: 17, accentColor: "#10b981", cursor: "pointer" }}
-                      />
-                    </td>
-                    <td><span className="ak-cell-bold">{p.title}</span></td>
-                    <td><span className="ak-cell-mono">{p.price} DT</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+          ) : (
+            <>
+              {/* Chips produits épinglés */}
+              {whatsnewIds.size > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+                  {produits.filter((p) => whatsnewIds.has(p.id)).map((p) => (
+                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 7, background: "#dcfce7", border: "1.5px solid #86efac", borderRadius: 10, padding: "5px 8px 5px 6px" }}>
+                      {p.image_url && <img src={p.image_url} alt="" style={{ width: 28, height: 28, borderRadius: 6, objectFit: "cover", flexShrink: 0 }} />}
+                      <span style={{ fontWeight: 600, fontSize: 12.5, color: "#14532d", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
+                      <span style={{ fontSize: 11.5, color: "#15803d", flexShrink: 0 }}>{p.price} DT</span>
+                      <button onClick={() => toggleWhatsNew(p.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#15803d", padding: "0 0 0 2px", lineHeight: 1, display: "flex", alignItems: "center" }}>
+                        <i className="ti ti-x" style={{ fontSize: 13 }}></i>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Combobox recherche */}
+              <div style={{ position: "relative", maxWidth: 420 }}>
+                <div style={{ position: "relative" }}>
+                  <i className="ti ti-search" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--a-ink-mute)", fontSize: 15, pointerEvents: "none" }}></i>
+                  <input
+                    className="ak-input"
+                    style={{ paddingLeft: 34 }}
+                    placeholder="Rechercher un produit à épingler…"
+                    value={searchWhatsNew}
+                    onChange={(e) => { setSearchWhatsNew(e.target.value); setShowDropWhatsNew(true); }}
+                    onFocus={() => setShowDropWhatsNew(true)}
+                    onBlur={() => setTimeout(() => setShowDropWhatsNew(false), 180)}
+                  />
+                </div>
+                {showDropWhatsNew && (
+                  <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--a-paper)", border: "1.5px solid var(--a-rule)", borderRadius: 12, boxShadow: "0 8px 28px rgba(0,0,0,0.12)", zIndex: 50, maxHeight: 260, overflowY: "auto" }}>
+                    {produits
+                      .filter((p) => !searchWhatsNew || p.title.toLowerCase().includes(searchWhatsNew.toLowerCase()))
+                      .map((p) => {
+                        const pinned = whatsnewIds.has(p.id);
+                        return (
+                          <button
+                            key={p.id}
+                            onMouseDown={(e) => { e.preventDefault(); toggleWhatsNew(p.id); setSearchWhatsNew(""); }}
+                            style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", width: "100%", background: pinned ? "#f0fdf4" : "transparent", border: "none", borderBottom: "1px solid var(--a-rule)", cursor: "pointer", textAlign: "left" }}
+                          >
+                            {p.image_url
+                              ? <img src={p.image_url} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
+                              : <span style={{ width: 36, height: 36, borderRadius: 8, background: "var(--a-bg)", display: "grid", placeItems: "center", flexShrink: 0 }}><i className="ti ti-photo" style={{ color: "#94a3b8" }}></i></span>}
+                            <span style={{ flex: 1, fontWeight: 600, fontSize: 13, color: "var(--a-ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
+                            <span style={{ fontSize: 12, color: "var(--a-ink-mute)", flexShrink: 0 }}>{p.price} DT</span>
+                            {pinned && <i className="ti ti-check" style={{ color: "#10b981", fontSize: 15, flexShrink: 0 }}></i>}
+                          </button>
+                        );
+                      })}
+                    {produits.filter((p) => !searchWhatsNew || p.title.toLowerCase().includes(searchWhatsNew.toLowerCase())).length === 0 && (
+                      <p style={{ textAlign: "center", color: "var(--a-ink-mute)", padding: "16px 0", fontSize: 13 }}>Aucun produit trouvé</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
