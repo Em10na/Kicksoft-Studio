@@ -44,7 +44,7 @@ export default async function HomePage() {
     supabase.from("products").select("*").eq("status", "published").not("compare_price", "is", null).limit(24),
     // Articles soldés mis en avant dans le slider (admin → Soldes) ;
     // renvoie null tant que la migration v10 n'est pas passée → slides démo
-    supabase.from("products").select("id, title, price, compare_price, short_description, image_url, product_media(url, type, position)").eq("status", "published").eq("solde_hero", true).not("compare_price", "is", null).order("display_order", { ascending: true }).limit(5),
+    supabase.from("products").select("id, title, price, compare_price, short_description, image_url, product_media(url, type, position)").eq("status", "published").eq("solde_hero", true).not("compare_price", "is", null).order("solde_hero_order", { ascending: true }).limit(5),
     // Produits épinglés manuellement dans « Quoi de neuf » (admin → Accueil)
     supabase.from("products").select("*").eq("status", "published").eq("whats_new", true).order("created_at", { ascending: false }).limit(8),
   ]);

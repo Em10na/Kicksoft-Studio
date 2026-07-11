@@ -14,6 +14,7 @@ type Produit = {
   status: string;
   compare_price: number | null;
   solde_hero: boolean;
+  solde_hero_order: number;
   image_url: string | null;
 };
 
@@ -64,6 +65,8 @@ export default function AccueilPage() {
   const [featuredOrderDispo, setFeaturedOrderDispo] = useState(true);
   const [searchFeatured, setSearchFeatured] = useState("");
   const [showDropFeatured, setShowDropFeatured] = useState(false);
+  const [searchSolde, setSearchSolde] = useState("");
+  const [showDropSolde, setShowDropSolde] = useState(false);
   const [searchWhatsNew, setSearchWhatsNew] = useState("");
   const [showDropWhatsNew, setShowDropWhatsNew] = useState(false);
 
@@ -83,11 +86,11 @@ export default function AccueilPage() {
   async function chargerProduits() {
     const { data, error } = await supabase
       .from("products")
-      .select("id, title, price, featured, featured_order, status, compare_price, solde_hero, image_url")
+      .select("id, title, price, featured, featured_order, status, compare_price, solde_hero, solde_hero_order, image_url")
       .eq("status", "published")
       .order("title", { ascending: true });
     if (error?.message?.includes("featured_order")) setFeaturedOrderDispo(false);
-    setProduits((data ?? []).map((p) => ({ ...p, featured_order: p.featured_order ?? 0 })));
+    setProduits((data ?? []).map((p) => ({ ...p, featured_order: p.featured_order ?? 0, solde_hero_order: p.solde_hero_order ?? 0 })));
   }
 
   async function chargerSections() {
@@ -170,15 +173,23 @@ export default function AccueilPage() {
 
   // Articles soldés affichés sur l'accueil (bannière solde + slider du haut)
   async function toggleSoldeAffiche(p: Produit) {
-    const { error } = await supabase.from("products").update({ solde_hero: !p.solde_hero }).eq("id", p.id);
-    if (error) {
-      notifier("Erreur : " + error.message, "danger");
-    } else {
-      notifier(!p.solde_hero
-        ? `« ${p.title} » affiché sur l'accueil (sa vidéo ou son image alimente la bannière et le slider).`
-        : `« ${p.title} » retiré de l'accueil.`);
-      chargerProduits();
-    }
+    const nextOrder = p.solde_hero ? 0 : Math.max(0, ...produits.filter((x) => x.solde_hero).map((x) => x.solde_hero_order)) + 1;
+    const { error } = await supabase.from("products").update({ solde_hero: !p.solde_hero, solde_hero_order: nextOrder }).eq("id", p.id);
+    if (error) { notifier("Erreur : " + error.message, "danger"); return; }
+    notifier(!p.solde_hero ? `« ${p.title} » ajouté au slider soldes.` : `« ${p.title} » retiré du slider soldes.`);
+    chargerProduits();
+  }
+
+  async function moveSoldeHero(produitId: string, dir: -1 | 1) {
+    const ordered = [...produits.filter((p) => p.solde_hero)].sort((a, b) => a.solde_hero_order - b.solde_hero_order);
+    const idx = ordered.findIndex((p) => p.id === produitId);
+    const voisin = ordered[idx + dir];
+    if (!voisin) return;
+    await Promise.all([
+      supabase.from("products").update({ solde_hero_order: voisin.solde_hero_order }).eq("id", produitId),
+      supabase.from("products").update({ solde_hero_order: ordered[idx].solde_hero_order }).eq("id", voisin.id),
+    ]);
+    chargerProduits();
   }
 
   // ---------- Sections média ----------
@@ -370,46 +381,100 @@ export default function AccueilPage() {
                 {/* Sélection des articles soldés (section solde uniquement) */}
                 {s.section === "solde" && (() => {
                   const soldes = produits.filter((p) => p.compare_price && p.compare_price > p.price);
-                  const affiches = soldes.filter((p) => p.solde_hero).length;
+                  const orderedSoldes = [...produits.filter((p) => p.solde_hero)].sort((a, b) => a.solde_hero_order - b.solde_hero_order);
                   return (
                     <div style={{ marginBottom: 18, padding: "14px 16px", background: "#fff1f2", borderRadius: 12, border: "1px solid #fecdd3" }}>
-                      <label className="ak-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                        <span>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+                        <span className="ak-label" style={{ margin: 0 }}>
                           <i className="ti ti-discount-2" style={{ marginRight: 5, color: "#f43f5e" }}></i>
-                          Articles soldés affichés sur l&apos;accueil
-                          <span style={{ color: "#94a3b8", fontWeight: 500 }}> ({affiches} sélectionné{affiches > 1 ? "s" : ""}) — leur vidéo ou image alimente la bannière et le slider du haut</span>
+                          Articles soldés dans le slider{" "}
+                          <span style={{ color: "#94a3b8", fontWeight: 500 }}>({orderedSoldes.length} sélectionné{orderedSoldes.length > 1 ? "s" : ""}) — leur image/vidéo alimente la bannière et le slider</span>
                         </span>
-                        <a href="/admin/soldes" style={{ color: "#6366f1", fontWeight: 600, fontSize: 12 }}>Gérer les remises & notifications →</a>
-                      </label>
-                      {soldes.length === 0 ? (
-                        <p style={{ color: "#9f1239", fontSize: 13, margin: "6px 0 0" }}>
-                          Aucun article en solde pour le moment — créez une remise depuis{" "}
-                          <a href="/admin/soldes" style={{ color: "#6366f1", fontWeight: 600 }}>la page Soldes</a>.
+                        <a href="/admin/soldes" style={{ color: "#6366f1", fontWeight: 600, fontSize: 12 }}>Gérer les remises →</a>
+                      </div>
+
+                      {/* Liste ordonnée */}
+                      {orderedSoldes.length === 0 ? (
+                        <p style={{ color: "#9f1239", fontSize: 13, margin: "0 0 10px" }}>
+                          Aucun article sélectionné — utilisez la recherche ci-dessous.
                         </p>
                       ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
-                          {soldes.map((p) => {
-                            const pct = Math.round((1 - p.price / (p.compare_price as number)) * 100);
+                        <div style={{ marginBottom: 12 }}>
+                          {orderedSoldes.map((p, idx) => {
+                            const pct = p.compare_price ? Math.round((1 - p.price / p.compare_price) * 100) : 0;
                             return (
-                              <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: "#fff", borderRadius: 10, border: `1px solid ${p.solde_hero ? "#f43f5e" : "#e2e8f0"}`, cursor: "pointer" }}>
-                                <input
-                                  type="checkbox"
-                                  checked={p.solde_hero}
-                                  onChange={() => toggleSoldeAffiche(p)}
-                                  style={{ width: 17, height: 17, accentColor: "#f43f5e", cursor: "pointer", flexShrink: 0 }}
-                                />
+                              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: "#fff", border: "1.5px solid #fca5a5", borderRadius: 11, marginBottom: 6 }}>
+                                <span style={{ fontWeight: 800, color: "#f43f5e", fontSize: 15, minWidth: 24, textAlign: "center" }}>#{idx + 1}</span>
                                 {p.image_url
-                                  ? <img src={p.image_url} alt="" style={{ width: 34, height: 34, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
-                                  : <span style={{ width: 34, height: 34, borderRadius: 8, background: "#f1f5f9", display: "grid", placeItems: "center", flexShrink: 0 }}><i className="ti ti-photo" style={{ color: "#94a3b8" }}></i></span>}
-                                <span style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 13, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                  {p.title}
-                                </span>
-                                <span style={{ fontSize: 12.5, fontWeight: 700, color: "#0f172a", flexShrink: 0 }}>{p.price} DT</span>
-                                <span style={{ fontSize: 11.5, color: "#94a3b8", textDecoration: "line-through", flexShrink: 0 }}>{p.compare_price} DT</span>
-                                <span className="ak-badge ak-badge--danger" style={{ flexShrink: 0 }}>-{pct}%</span>
-                              </label>
+                                  ? <img src={p.image_url} alt="" style={{ width: 44, height: 44, borderRadius: 9, objectFit: "cover", flexShrink: 0 }} />
+                                  : <span style={{ width: 44, height: 44, borderRadius: 9, background: "#fef2f2", display: "grid", placeItems: "center", flexShrink: 0 }}><i className="ti ti-photo" style={{ color: "#fca5a5" }}></i></span>}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
+                                  <div style={{ fontSize: 12, marginTop: 2, display: "flex", gap: 6, alignItems: "center" }}>
+                                    <span style={{ fontWeight: 700, color: "#f43f5e" }}>{p.price} DT</span>
+                                    <span style={{ textDecoration: "line-through", color: "#94a3b8" }}>{p.compare_price} DT</span>
+                                    <span className="ak-badge ak-badge--danger" style={{ fontSize: 10 }}>-{pct}%</span>
+                                  </div>
+                                </div>
+                                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                                  <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" disabled={idx === 0} style={idx === 0 ? { opacity: 0.3 } : undefined} onClick={() => moveSoldeHero(p.id, -1)} title="Monter"><i className="ti ti-chevron-up"></i></button>
+                                  <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" disabled={idx === orderedSoldes.length - 1} style={idx === orderedSoldes.length - 1 ? { opacity: 0.3 } : undefined} onClick={() => moveSoldeHero(p.id, 1)} title="Descendre"><i className="ti ti-chevron-down"></i></button>
+                                  <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => toggleSoldeAffiche(p)} title="Retirer"><i className="ti ti-trash"></i></button>
+                                </div>
+                              </div>
                             );
                           })}
+                        </div>
+                      )}
+
+                      {/* Combobox — ajouter un article soldé */}
+                      {soldes.length === 0 ? (
+                        <p style={{ color: "#9f1239", fontSize: 13, margin: 0 }}>
+                          Aucun article en solde — créez une remise depuis <a href="/admin/soldes" style={{ color: "#6366f1", fontWeight: 600 }}>la page Soldes</a>.
+                        </p>
+                      ) : (
+                        <div style={{ position: "relative" }}>
+                          <div style={{ position: "relative" }}>
+                            <i className="ti ti-plus" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "#fca5a5", fontSize: 15, pointerEvents: "none" }}></i>
+                            <input
+                              className="ak-input"
+                              style={{ paddingLeft: 34, borderColor: "#fecdd3", background: "#fff" }}
+                              placeholder="Ajouter un article soldé — tapez pour chercher…"
+                              value={searchSolde}
+                              onChange={(e) => { setSearchSolde(e.target.value); setShowDropSolde(true); }}
+                              onFocus={() => setShowDropSolde(true)}
+                              onBlur={() => setTimeout(() => setShowDropSolde(false), 180)}
+                            />
+                          </div>
+                          {showDropSolde && (
+                            <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--a-paper)", border: "1.5px solid #fecdd3", borderRadius: 12, boxShadow: "0 8px 28px rgba(0,0,0,0.14)", zIndex: 60, maxHeight: 260, overflowY: "auto" }}>
+                              {soldes
+                                .filter((p) => !searchSolde || p.title.toLowerCase().includes(searchSolde.toLowerCase()))
+                                .map((p) => {
+                                  const pct = p.compare_price ? Math.round((1 - p.price / p.compare_price) * 100) : 0;
+                                  return (
+                                    <button
+                                      key={p.id}
+                                      onMouseDown={(e) => { e.preventDefault(); toggleSoldeAffiche(p); setSearchSolde(""); setShowDropSolde(false); }}
+                                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", width: "100%", background: p.solde_hero ? "#fff1f2" : "transparent", border: "none", borderBottom: "1px solid #fecdd3", cursor: "pointer", textAlign: "left" }}
+                                    >
+                                      {p.image_url
+                                        ? <img src={p.image_url} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
+                                        : <span style={{ width: 36, height: 36, borderRadius: 8, background: "#fef2f2", display: "grid", placeItems: "center", flexShrink: 0 }}><i className="ti ti-photo" style={{ color: "#fca5a5" }}></i></span>}
+                                      <span style={{ flex: 1, fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
+                                      <span style={{ fontSize: 12, fontWeight: 700, color: "#f43f5e", flexShrink: 0 }}>{p.price} DT</span>
+                                      <span className="ak-badge ak-badge--danger" style={{ fontSize: 10, flexShrink: 0 }}>-{pct}%</span>
+                                      {p.solde_hero
+                                        ? <i className="ti ti-check" style={{ color: "#f43f5e", fontSize: 15, flexShrink: 0 }}></i>
+                                        : <i className="ti ti-plus" style={{ color: "#94a3b8", fontSize: 15, flexShrink: 0 }}></i>}
+                                    </button>
+                                  );
+                                })}
+                              {soldes.filter((p) => !searchSolde || p.title.toLowerCase().includes(searchSolde.toLowerCase())).length === 0 && (
+                                <p style={{ textAlign: "center", color: "var(--a-ink-mute)", padding: "16px 0", fontSize: 13 }}>Aucun article trouvé</p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
