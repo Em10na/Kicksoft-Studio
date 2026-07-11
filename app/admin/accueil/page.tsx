@@ -3,14 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type Template = {
-  id: string;
-  title: string;
-  subtitle: string | null;
-  body: string | null;
-  page: string;
-};
-
 type Categorie = { id: string; name: string };
 
 type Produit = {
@@ -62,14 +54,12 @@ function estVideo(nomOuUrl: string, mime?: string): boolean {
 
 export default function AccueilPage() {
   const supabase = createClient();
-  const [template, setTemplate] = useState<Template | null>(null);
   const [produits, setProduits] = useState<Produit[]>([]);
   const [categories, setCategories] = useState<Categorie[]>([]);
   const [whatsnewIds, setWhatsnewIds] = useState<Set<string>>(new Set());
   const [whatsnewDispo, setWhatsnewDispo] = useState(true);
   const [loading, setLoading] = useState(true);
   const [alert, setAlert] = useState({ message: "", type: "" });
-  const [form, setForm] = useState({ title: "", subtitle: "", body: "" });
 
   // Sections média (suggestion / recommandation / solde)
   const [sections, setSections] = useState<HomeSection[]>([]);
@@ -82,14 +72,6 @@ export default function AccueilPage() {
   function notifier(message: string, type: "success" | "danger" | "warning" = "success") {
     setAlert({ message, type });
     setTimeout(() => setAlert({ message: "", type: "" }), 3000);
-  }
-
-  async function chargerTemplate() {
-    const { data } = await supabase.from("templates").select("*").eq("page", "home").single();
-    if (data) {
-      setTemplate(data);
-      setForm({ title: data.title ?? "", subtitle: data.subtitle ?? "", body: data.body ?? "" });
-    }
   }
 
   async function chargerProduits() {
@@ -156,18 +138,8 @@ export default function AccueilPage() {
   }
 
   useEffect(() => {
-    Promise.all([chargerTemplate(), chargerProduits(), chargerSections(), chargerCategories(), chargerWhatsNew()]).then(() => setLoading(false));
+    Promise.all([chargerProduits(), chargerSections(), chargerCategories(), chargerWhatsNew()]).then(() => setLoading(false));
   }, []);
-
-  async function sauvegarderHero() {
-    if (!template) return;
-    const { error } = await supabase
-      .from("templates")
-      .update({ title: form.title, subtitle: form.subtitle, body: form.body })
-      .eq("id", template.id);
-    if (error) notifier("Erreur : " + error.message, "danger");
-    else notifier("Hero mis à jour avec succès !");
-  }
 
   async function toggleFeatured(produitId: string, actuel: boolean) {
     const { error } = await supabase.from("products").update({ featured: !actuel }).eq("id", produitId);
@@ -303,43 +275,6 @@ export default function AccueilPage() {
         <div>
           <h1 className="ak-page-title">Page d&apos;accueil</h1>
           <p className="ak-page-sub">Personnalisez le hero, les sections média, « Quoi de neuf » et les produits vedettes</p>
-        </div>
-      </div>
-
-      {/* ---------- Section Hero ---------- */}
-      <div className="ak-card" style={{ marginBottom: 20 }}>
-        <div className="ak-card__header">
-          <div>
-            <h3 className="ak-card__title"><i className="ti ti-star" style={{ marginRight: 6, color: "#6366f1" }}></i>Section Hero</h3>
-            <p className="ak-card__subtitle">Textes affichés en haut de la boutique</p>
-          </div>
-          {template && (
-            <button className="ak-btn ak-btn--primary ak-btn--sm" onClick={sauvegarderHero}>
-              <i className="ti ti-device-floppy"></i> Enregistrer
-            </button>
-          )}
-        </div>
-        <div className="ak-card__body">
-          {!template ? (
-            <p style={{ color: "#94a3b8", margin: 0 }}>Aucun template trouvé pour la page d&apos;accueil.</p>
-          ) : (
-            <>
-              <div className="ak-form-row">
-                <div className="ak-field">
-                  <label className="ak-label">Titre principal</label>
-                  <input className="ak-input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-                </div>
-                <div className="ak-field">
-                  <label className="ak-label">Sous-titre</label>
-                  <input className="ak-input" value={form.subtitle} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} />
-                </div>
-              </div>
-              <div className="ak-field" style={{ marginBottom: 0 }}>
-                <label className="ak-label">Contenu (body)</label>
-                <textarea className="ak-textarea" rows={3} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })}></textarea>
-              </div>
-            </>
-          )}
         </div>
       </div>
 
