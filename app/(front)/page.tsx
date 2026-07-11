@@ -34,7 +34,7 @@ export default async function HomePage() {
   const supabase = await createClient();
 
   const [{ data: featured }, { data: categories }, { data: whatsNew }, { data: handheld }, { data: homeSections }, { data: promoPool }, { data: heroSoldes }, { data: pinnedNew }] = await Promise.all([
-    supabase.from("products").select("*").eq("status", "published").eq("featured", true).limit(4),
+    supabase.from("products").select("*").eq("status", "published").eq("featured", true).order("featured_order", { ascending: true }).limit(4),
     supabase.from("categories").select("*").order("name"),
     // Pool trié du plus récent au plus ancien — « Quoi de neuf » garde le
     // dernier article de chaque catégorie
