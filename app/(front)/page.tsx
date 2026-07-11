@@ -33,20 +33,17 @@ const CIRCLE_CATS = [
 export default async function HomePage() {
   const supabase = await createClient();
 
-  const [{ data: featured }, { data: categories }, { data: whatsNew }, { data: handheld }, { data: homeSections }, { data: promoPool }, { data: heroSoldes }, { data: pinnedNew }] = await Promise.all([
+  const [{ data: featured }, { data: categories }, { data: whatsNew }, { data: handheld }, { data: homeSections }, { data: promoPool }, { data: heroSoldes }, { data: pinnedNew }, { data: heroSlidesAdmin }] = await Promise.all([
     supabase.from("products").select("*").eq("status", "published").eq("featured", true).order("featured_order", { ascending: true }).limit(4),
     supabase.from("categories").select("*").order("name"),
-    // Pool trié du plus récent au plus ancien — « Quoi de neuf » garde le
-    // dernier article de chaque catégorie
     supabase.from("products").select("*").eq("status", "published").order("created_at", { ascending: false }).limit(60),
     supabase.from("products").select("*").eq("status", "published").order("display_order", { ascending: true }).order("created_at", { ascending: false }).range(8, 11),
     supabase.from("home_sections").select("*, home_section_media(*)"),
     supabase.from("products").select("*").eq("status", "published").not("compare_price", "is", null).limit(24),
-    // Articles soldés mis en avant dans le slider (admin → Soldes) ;
-    // renvoie null tant que la migration v10 n'est pas passée → slides démo
     supabase.from("products").select("id, title, price, compare_price, short_description, image_url, product_media(url, type, position)").eq("status", "published").eq("solde_hero", true).not("compare_price", "is", null).order("solde_hero_order", { ascending: true }).limit(5),
-    // Produits épinglés manuellement dans « Quoi de neuf » (admin → Accueil)
     supabase.from("products").select("*").eq("status", "published").eq("whats_new", true).order("created_at", { ascending: false }).limit(8),
+    // Slides hero gérés manuellement depuis l'admin (priorité sur solde_hero)
+    supabase.from("hero_slides").select("*").eq("visible", true).order("display_order", { ascending: true }),
   ]);
 
   // Admin-managed media sections; each falls back to the hardcoded
@@ -96,11 +93,23 @@ export default async function HomePage() {
     return image ? [{ id: `sync-${p.id}`, media_type: "image" as const, url: image, poster_url: null }] : [];
   });
 
-  const heroSlides: HeroSlide[] = heroSoldesActifs
-    .map((p) => {
-      const media = [...(p.product_media ?? [])].sort((a, b) => a.position - b.position);
-      const video = media.find((m) => m.type === "video" && /\.(mp4|webm|mov)(\?|$)/i.test(m.url));
-      const image = p.image_url || media.find((m) => m.type === "image")?.url;
+  // Slides hero : priorité admin → produits solde_hero → slides démo (undefined)
+  const heroSlides: HeroSlide[] = (() => {
+    if (heroSlidesAdmin && heroSlidesAdmin.length > 0) {
+      return heroSlidesAdmin.map((s: { title: string; tagline: string | null; badge: string | null; image_url: string | null; video_url: string | null; buy_href: string; more_href: string }) => ({
+        bg: s.image_url ?? "https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=1920&q=95&auto=format&fit=crop",
+        video: s.video_url ?? null,
+        badge: s.badge ?? "",
+        name: s.title,
+        tagline: s.tagline ?? "",
+        buy: s.buy_href,
+        more: s.more_href,
+      }));
+    }
+    return heroSoldesActifs.map((p) => {
+      const media = [...(p.product_media ?? [])].sort((a: { position: number }, b: { position: number }) => a.position - b.position);
+      const video = media.find((m: { type: string; url: string }) => m.type === "video" && /\.(mp4|webm|mov)(\?|$)/i.test(m.url));
+      const image = p.image_url || media.find((m: { type: string; url: string }) => m.type === "image")?.url;
       const pct = Math.round((1 - p.price / p.compare_price) * 100);
       return {
         bg: image ?? "https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=1920&q=95&auto=format&fit=crop",
@@ -114,6 +123,7 @@ export default async function HomePage() {
         compare_price: p.compare_price,
       };
     });
+  })();
 
   // Bubbles come from the admin categories; fall back to the demo list when empty
   const circleCats =
