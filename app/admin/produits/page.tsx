@@ -54,7 +54,7 @@ export default function ProduitsPage() {
 
   function ouvrirAjout() {
     setEditId(null); setErreurs({}); setMediaItems([]);
-    setForm({ title: "", category_id: "", price: "", compare_price: "", stock: "0", short_description: "", status: "draft", loyalty_points: "0", display_order: "0" });
+    setForm({ title: "", category_id: "", price: "", stock: "0", short_description: "", status: "draft", loyalty_points: "0", display_order: "0" });
     setShowModal(true);
   }
 
@@ -285,9 +285,6 @@ export default function ProduitsPage() {
                   <td><span className="ak-cell-bold">{p.title}</span></td>
                   <td>
                     <span style={{ fontWeight: 700, color: "#0f172a" }}>{p.price} DT</span>
-                    {p.compare_price && p.compare_price > p.price && (
-                      <span className="ak-badge ak-badge--danger" style={{ marginLeft: 6, fontSize: 10 }}>Solde</span>
-                    )}
                   </td>
                   <td><span style={{ fontWeight: 700, color: p.stock === 0 ? "#ef4444" : p.stock < 5 ? "#f59e0b" : "#10b981" }}>{p.stock}</span></td>
                   <td><span className="ak-cell-muted">{p.categories?.name ?? "Sans catégorie"}</span></td>
