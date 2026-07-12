@@ -159,6 +159,16 @@ export default function AccueilPage() {
     chargerHeroSlides();
   }
 
+  async function deplacerSlideVers(id: string, newIdx: number) {
+    const liste = [...heroSlides];
+    const fromIdx = liste.findIndex((s) => s.id === id);
+    if (fromIdx === newIdx) return;
+    const [moved] = liste.splice(fromIdx, 1);
+    liste.splice(newIdx, 0, moved);
+    await Promise.all(liste.map((s, i) => supabase.from("hero_slides").update({ display_order: i + 1 }).eq("id", s.id)));
+    chargerHeroSlides();
+  }
+
   async function uploaderImageHero(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -435,7 +445,18 @@ export default function AccueilPage() {
                 </p>
               )}
               {heroSlides.map((s, idx) => (
-                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: s.visible ? "var(--a-paper)" : "var(--a-bg)", border: `1.5px solid ${s.visible ? "var(--a-rule)" : "#e2e8f0"}`, borderRadius: 12, marginBottom: 8, opacity: s.visible ? 1 : 0.6 }}>
+                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: s.visible ? "var(--a-paper)" : "var(--a-bg)", border: `1.5px solid ${s.visible ? "var(--a-rule)" : "#e2e8f0"}`, borderRadius: 12, marginBottom: 8, opacity: s.visible ? 1 : 0.6 }}>
+                  {/* Sélecteur de position */}
+                  <select
+                    value={idx}
+                    onChange={(e) => deplacerSlideVers(s.id, parseInt(e.target.value))}
+                    title="Changer la position"
+                    style={{ width: 58, padding: "5px 4px", borderRadius: 8, border: "1.5px solid var(--a-rule)", fontSize: 13, fontWeight: 800, color: "#6366f1", background: "var(--a-paper)", cursor: "pointer", textAlign: "center", flexShrink: 0 }}
+                  >
+                    {heroSlides.map((_, i) => (
+                      <option key={i} value={i}>#{i + 1}</option>
+                    ))}
+                  </select>
                   {/* Miniature */}
                   {s.image_url
                     ? <img src={s.image_url} alt="" style={{ width: 72, height: 46, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
@@ -454,8 +475,6 @@ export default function AccueilPage() {
                     <button className={`ak-btn ak-btn--sm ${s.visible ? "ak-btn--ghost" : "ak-btn--muted"}`} onClick={() => toggleSlideVisible(s)} title={s.visible ? "Masquer" : "Afficher"}>
                       <i className={`ti ${s.visible ? "ti-eye" : "ti-eye-off"}`}></i>
                     </button>
-                    <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" disabled={idx === 0} style={idx === 0 ? { opacity: 0.3 } : undefined} onClick={() => moveSlide(s.id, -1)} title="Monter"><i className="ti ti-chevron-up"></i></button>
-                    <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" disabled={idx === heroSlides.length - 1} style={idx === heroSlides.length - 1 ? { opacity: 0.3 } : undefined} onClick={() => moveSlide(s.id, 1)} title="Descendre"><i className="ti ti-chevron-down"></i></button>
                     <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" onClick={() => { setHeroForm({ title: s.title, tagline: s.tagline ?? "", badge: s.badge ?? "", image_url: s.image_url ?? "", video_url: s.video_url ?? "", buy_href: s.buy_href, more_href: s.more_href }); setEditingSlideId(s.id); setShowHeroForm(true); }} title="Modifier"><i className="ti ti-pencil"></i></button>
                     <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => supprimerSlide(s.id)} title="Supprimer"><i className="ti ti-trash"></i></button>
                   </div>
