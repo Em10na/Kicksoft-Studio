@@ -29,7 +29,7 @@ export default function ProduitsPage() {
   const [showVideoInput, setShowVideoInput] = useState(false);
   const imageFileRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
-    title: "", category_id: "", price: "", compare_price: "",
+    title: "", category_id: "", price: "",
     stock: "0", short_description: "", status: "draft", loyalty_points: "0", display_order: "0",
   });
 
@@ -60,7 +60,7 @@ export default function ProduitsPage() {
 
   async function ouvrirEdition(p: Produit) {
     setEditId(p.id); setErreurs({});
-    setForm({ title: p.title, category_id: p.category_id ?? "", price: String(p.price), compare_price: String(p.compare_price ?? ""), stock: String(p.stock), short_description: p.short_description ?? "", status: p.status, loyalty_points: String(p.loyalty_points ?? 0), display_order: String(p.display_order ?? 0) });
+    setForm({ title: p.title, category_id: p.category_id ?? "", price: String(p.price), stock: String(p.stock), short_description: p.short_description ?? "", status: p.status, loyalty_points: String(p.loyalty_points ?? 0), display_order: String(p.display_order ?? 0) });
     await chargerMedias(p.id);
     setShowModal(true);
   }
@@ -103,7 +103,6 @@ export default function ProduitsPage() {
     if (!form.title.trim()) e.title = "Nom obligatoire.";
     else if (form.title.trim().length < 3) e.title = "Min 3 caractères.";
     if (!form.price || isNaN(Number(form.price)) || Number(form.price) <= 0) e.price = "Prix obligatoire > 0.";
-    if (form.compare_price && (isNaN(Number(form.compare_price)) || Number(form.compare_price) <= Number(form.price))) e.compare_price = "Prix barré doit être > prix.";
     if (form.stock === "" || isNaN(Number(form.stock)) || Number(form.stock) < 0) e.stock = "Stock invalide.";
     setErreurs(e); return Object.keys(e).length === 0;
   }
@@ -132,7 +131,6 @@ export default function ProduitsPage() {
       title: form.title.trim(), slug,
       category_id: form.category_id || null,
       price: parseFloat(form.price),
-      compare_price: form.compare_price ? parseFloat(form.compare_price) : null,
       stock: parseInt(form.stock),
       short_description: form.short_description.trim(),
       status: form.status,
@@ -287,7 +285,9 @@ export default function ProduitsPage() {
                   <td><span className="ak-cell-bold">{p.title}</span></td>
                   <td>
                     <span style={{ fontWeight: 700, color: "#0f172a" }}>{p.price} DT</span>
-                    {p.compare_price && <span style={{ fontSize: 11, color: "#94a3b8", textDecoration: "line-through", marginLeft: 6 }}>{p.compare_price} DT</span>}
+                    {p.compare_price && p.compare_price > p.price && (
+                      <span className="ak-badge ak-badge--danger" style={{ marginLeft: 6, fontSize: 10 }}>Solde</span>
+                    )}
                   </td>
                   <td><span style={{ fontWeight: 700, color: p.stock === 0 ? "#ef4444" : p.stock < 5 ? "#f59e0b" : "#10b981" }}>{p.stock}</span></td>
                   <td><span className="ak-cell-muted">{p.categories?.name ?? "Sans catégorie"}</span></td>
@@ -403,16 +403,11 @@ export default function ProduitsPage() {
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
                 <div className="ak-field">
                   <label className="ak-label">Prix (DT) <span>*</span></label>
                   <input type="number" step="0.01" className={`ak-input${erreurs.price ? " ak-input--error" : ""}`} value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
                   {erreurs.price && <p className="ak-field-error">{erreurs.price}</p>}
-                </div>
-                <div className="ak-field">
-                  <label className="ak-label">Prix barré</label>
-                  <input type="number" step="0.01" className={`ak-input${erreurs.compare_price ? " ak-input--error" : ""}`} value={form.compare_price} onChange={(e) => setForm({ ...form, compare_price: e.target.value })} />
-                  {erreurs.compare_price && <p className="ak-field-error">{erreurs.compare_price}</p>}
                 </div>
                 <div className="ak-field">
                   <label className="ak-label">Stock <span>*</span></label>
