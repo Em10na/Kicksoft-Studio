@@ -33,6 +33,7 @@ type Produit = {
   solde_hero: boolean;
   solde_hero_order: number;
   image_url: string | null;
+  category_id: string | null;
 };
 
 type SectionMedia = {
@@ -91,8 +92,6 @@ export default function AccueilPage() {
   const heroVideoRef = useRef<HTMLInputElement | null>(null);
 
   const [featuredOrderDispo, setFeaturedOrderDispo] = useState(true);
-  const [searchFeatured, setSearchFeatured] = useState("");
-  const [showDropFeatured, setShowDropFeatured] = useState(false);
   const [searchSolde, setSearchSolde] = useState("");
   const [showDropSolde, setShowDropSolde] = useState(false);
   const [searchWhatsNew, setSearchWhatsNew] = useState("");
@@ -198,7 +197,7 @@ export default function AccueilPage() {
   async function chargerProduits() {
     const { data, error } = await supabase
       .from("products")
-      .select("id, title, price, featured, featured_order, status, compare_price, solde_hero, solde_hero_order, image_url")
+      .select("id, title, price, featured, featured_order, status, compare_price, solde_hero, solde_hero_order, image_url, category_id")
       .eq("status", "published")
       .order("title", { ascending: true });
     if (error?.message?.includes("featured_order")) setFeaturedOrderDispo(false);
@@ -959,44 +958,71 @@ export default function AccueilPage() {
                         </p>
                       )}
 
-                      {/* Combobox recherche */}
-                      <div style={{ position: "relative", maxWidth: 460 }}>
-                        <div style={{ position: "relative" }}>
-                          <i className="ti ti-plus" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--a-ink-mute)", fontSize: 15, pointerEvents: "none" }}></i>
-                          <input
-                            className="ak-input"
-                            style={{ paddingLeft: 34 }}
-                            placeholder="Ajouter un produit — tapez pour chercher…"
-                            value={searchFeatured}
-                            onChange={(e) => { setSearchFeatured(e.target.value); setShowDropFeatured(true); }}
-                            onFocus={() => setShowDropFeatured(true)}
-                            onBlur={() => setTimeout(() => setShowDropFeatured(false), 180)}
-                          />
-                        </div>
-                        {showDropFeatured && (
-                          <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--a-paper)", border: "1.5px solid var(--a-rule)", borderRadius: 12, boxShadow: "0 8px 28px rgba(0,0,0,0.14)", zIndex: 60, maxHeight: 260, overflowY: "auto" }}>
-                            {produits
-                              .filter((p) => !searchFeatured || p.title.toLowerCase().includes(searchFeatured.toLowerCase()))
-                              .map((p) => (
-                                <button
-                                  key={p.id}
-                                  onMouseDown={(e) => { e.preventDefault(); toggleFeatured(p.id, p.featured); setSearchFeatured(""); setShowDropFeatured(false); }}
-                                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", width: "100%", background: p.featured ? "#f5f3ff" : "transparent", border: "none", borderBottom: "1px solid var(--a-rule)", cursor: "pointer", textAlign: "left" }}
-                                >
+                      {/* Liste catégories → produits */}
+                      <div style={{ border: "1.5px solid var(--a-rule)", borderRadius: 12, overflow: "hidden", maxHeight: 380, overflowY: "auto" }}>
+                        {categories.map((cat) => {
+                          const catProduits = produits.filter((p) => p.category_id === cat.id);
+                          if (catProduits.length === 0) return null;
+                          return (
+                            <div key={cat.id}>
+                              <div style={{ padding: "8px 14px", background: "var(--a-bg)", fontWeight: 700, fontSize: 12, color: "var(--a-ink-mute)", borderBottom: "1px solid var(--a-rule)", display: "flex", alignItems: "center", gap: 6, position: "sticky", top: 0, zIndex: 2 }}>
+                                <i className="ti ti-folder" style={{ color: "#6366f1" }}></i>
+                                {cat.name}
+                                <span style={{ fontWeight: 400, color: "#94a3b8" }}>({catProduits.length})</span>
+                              </div>
+                              {catProduits.map((p) => (
+                                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", borderBottom: "1px solid var(--a-rule)", background: p.featured ? "#f5f3ff" : "var(--a-paper)" }}>
                                   {p.image_url
-                                    ? <img src={p.image_url} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
-                                    : <span style={{ width: 36, height: 36, borderRadius: 8, background: "var(--a-bg)", display: "grid", placeItems: "center", flexShrink: 0 }}><i className="ti ti-photo" style={{ color: "#94a3b8" }}></i></span>}
+                                    ? <img src={p.image_url} alt="" style={{ width: 38, height: 38, borderRadius: 7, objectFit: "cover", flexShrink: 0 }} />
+                                    : <span style={{ width: 38, height: 38, borderRadius: 7, background: "var(--a-bg)", display: "grid", placeItems: "center", flexShrink: 0 }}><i className="ti ti-photo" style={{ color: "#94a3b8" }}></i></span>}
                                   <span style={{ flex: 1, fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
                                   <span style={{ fontSize: 12, color: "var(--a-ink-mute)", flexShrink: 0 }}>{p.price} DT</span>
-                                  {p.featured
-                                    ? <i className="ti ti-check" style={{ color: "#6366f1", fontSize: 15, flexShrink: 0 }}></i>
-                                    : <i className="ti ti-plus" style={{ color: "#94a3b8", fontSize: 15, flexShrink: 0 }}></i>}
-                                </button>
+                                  <button
+                                    className={`ak-btn ak-btn--sm ${p.featured ? "ak-btn--danger-ghost" : "ak-btn--primary"}`}
+                                    style={{ flexShrink: 0 }}
+                                    onClick={() => toggleFeatured(p.id, p.featured)}
+                                  >
+                                    {p.featured
+                                      ? <><i className="ti ti-check"></i> Sélectionné</>
+                                      : <><i className="ti ti-plus"></i> Ajouter</>}
+                                  </button>
+                                </div>
                               ))}
-                            {produits.filter((p) => !searchFeatured || p.title.toLowerCase().includes(searchFeatured.toLowerCase())).length === 0 && (
-                              <p style={{ textAlign: "center", color: "var(--a-ink-mute)", padding: "16px 0", fontSize: 13 }}>Aucun produit trouvé</p>
-                            )}
-                          </div>
+                            </div>
+                          );
+                        })}
+                        {/* Produits sans catégorie */}
+                        {(() => {
+                          const sansCat = produits.filter((p) => !p.category_id);
+                          if (sansCat.length === 0) return null;
+                          return (
+                            <div>
+                              <div style={{ padding: "8px 14px", background: "var(--a-bg)", fontWeight: 700, fontSize: 12, color: "#94a3b8", borderBottom: "1px solid var(--a-rule)", display: "flex", alignItems: "center", gap: 6, position: "sticky", top: 0, zIndex: 2 }}>
+                                <i className="ti ti-folder-off"></i> Sans catégorie
+                              </div>
+                              {sansCat.map((p) => (
+                                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", borderBottom: "1px solid var(--a-rule)", background: p.featured ? "#f5f3ff" : "var(--a-paper)" }}>
+                                  {p.image_url
+                                    ? <img src={p.image_url} alt="" style={{ width: 38, height: 38, borderRadius: 7, objectFit: "cover", flexShrink: 0 }} />
+                                    : <span style={{ width: 38, height: 38, borderRadius: 7, background: "var(--a-bg)", display: "grid", placeItems: "center", flexShrink: 0 }}><i className="ti ti-photo" style={{ color: "#94a3b8" }}></i></span>}
+                                  <span style={{ flex: 1, fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
+                                  <span style={{ fontSize: 12, color: "var(--a-ink-mute)", flexShrink: 0 }}>{p.price} DT</span>
+                                  <button
+                                    className={`ak-btn ak-btn--sm ${p.featured ? "ak-btn--danger-ghost" : "ak-btn--primary"}`}
+                                    style={{ flexShrink: 0 }}
+                                    onClick={() => toggleFeatured(p.id, p.featured)}
+                                  >
+                                    {p.featured
+                                      ? <><i className="ti ti-check"></i> Sélectionné</>
+                                      : <><i className="ti ti-plus"></i> Ajouter</>}
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                        {produits.length === 0 && (
+                          <div style={{ padding: 24, textAlign: "center", color: "var(--a-ink-mute)", fontSize: 13 }}>Aucun produit publié</div>
                         )}
                       </div>
                     </div>
