@@ -200,7 +200,18 @@ export default function AccueilPage() {
       .select("id, title, price, featured, featured_order, status, compare_price, solde_hero, solde_hero_order, image_url, category_id")
       .eq("status", "published")
       .order("title", { ascending: true });
-    if (error?.message?.includes("featured_order")) setFeaturedOrderDispo(false);
+
+    if (error) {
+      // Colonnes de migration absentes — repli sans ces colonnes
+      setFeaturedOrderDispo(false);
+      const { data: fallback } = await supabase
+        .from("products")
+        .select("id, title, price, featured, status, compare_price, solde_hero, image_url, category_id")
+        .eq("status", "published")
+        .order("title", { ascending: true });
+      setProduits((fallback ?? []).map((p) => ({ ...p, featured_order: 0, solde_hero_order: 0 })));
+      return;
+    }
     setProduits((data ?? []).map((p) => ({ ...p, featured_order: p.featured_order ?? 0, solde_hero_order: p.solde_hero_order ?? 0 })));
   }
 
@@ -983,7 +994,8 @@ export default function AccueilPage() {
                           );
                         })}
                         {(() => {
-                          const sans = produits.filter((p) => !p.category_id && !p.featured);
+                          const catIds = new Set(categories.map((c) => c.id));
+                          const sans = produits.filter((p) => (!p.category_id || !catIds.has(p.category_id)) && !p.featured);
                           if (sans.length === 0) return null;
                           return (
                             <optgroup label="Sans catégorie">
