@@ -9,6 +9,7 @@ type Produit = {
   id: string; title: string; price: number; compare_price: number | null;
   image_url: string | null; solde_hero: boolean; solde_notified_at: string | null;
   category_id: string | null; categories?: { name: string } | null;
+  display_order: number; status: string;
 };
 
 function remisePct(price: number, compare: number) {
@@ -43,9 +44,8 @@ export default function SoldesPage() {
     const [{ data: prodData, error }, { data: catData }] = await Promise.all([
       supabase
         .from("products")
-        .select("id, title, price, compare_price, image_url, solde_hero, solde_notified_at, category_id, categories(name)")
-        .eq("status", "published")
-        .order("title"),
+        .select("id, title, price, compare_price, image_url, solde_hero, solde_notified_at, category_id, display_order, status, categories(name)")
+        .order("display_order", { ascending: true }),
       supabase.from("categories").select("id, name").order("name"),
     ]);
 
@@ -182,6 +182,20 @@ export default function SoldesPage() {
     charger();
   }
 
+  async function deplacerSolde(id: string, dir: "up" | "down") {
+    const idx = soldes.findIndex((p) => p.id === id);
+    if (idx < 0) return;
+    const swapIdx = dir === "up" ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= soldes.length) return;
+    const a = soldes[idx];
+    const b = soldes[swapIdx];
+    await Promise.all([
+      supabase.from("products").update({ display_order: b.display_order }).eq("id", a.id),
+      supabase.from("products").update({ display_order: a.display_order }).eq("id", b.id),
+    ]);
+    charger();
+  }
+
   async function renvoyerNotif(p: Produit) {
     if (!p.compare_price) return;
     if (!confirm(`Renvoyer la notification de solde de « ${p.title} » à tous les clients ?`)) return;
@@ -279,41 +293,50 @@ export default function SoldesPage() {
           <table className="ak-table">
             <thead>
               <tr>
-                <th>Produit</th>
-                <th>Prix soldé</th>
+                <th style={{ width: 60 }}>Ordre</th>
+                <th style={{ width: 56 }}>Image</th>
+                <th>Nom</th>
+                <th>Prix</th>
                 <th>Prix barré</th>
-                <th>Remise</th>
-                <th>Notification</th>
+                <th>Catégorie</th>
+                <th>Statut</th>
                 <th style={{ textAlign: "right" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6} style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>Chargement...</td></tr>
+                <tr><td colSpan={8} style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>Chargement...</td></tr>
               ) : soldes.length === 0 ? (
-                <tr><td colSpan={6} style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>
+                <tr><td colSpan={8} style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>
                   Aucun article en solde — cliquez sur <strong>Ajouter un article en solde</strong>.
                 </td></tr>
-              ) : soldes.map((p) => (
+              ) : soldes.map((p, idx) => (
                 <tr key={p.id}>
                   <td>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      {p.image_url
-                        ? <img src={p.image_url} alt="" style={{ width: 38, height: 38, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
-                        : <div style={{ width: 38, height: 38, borderRadius: 8, background: "#f1f5f9", display: "grid", placeItems: "center", flexShrink: 0 }}><i className="ti ti-photo" style={{ color: "#94a3b8" }}></i></div>}
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>{p.title}</div>
-                        <div style={{ fontSize: 11, color: "#94a3b8" }}>{p.categories?.name ?? "Sans catégorie"}</div>
-                      </div>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                      <button onClick={() => deplacerSolde(p.id, "up")} disabled={idx === 0}
+                        style={{ width: 24, height: 24, borderRadius: 6, border: "1.5px solid #e2e8f0", background: idx === 0 ? "#f8fafc" : "#fff", cursor: idx === 0 ? "default" : "pointer", display: "grid", placeItems: "center", color: idx === 0 ? "#cbd5e1" : "#64748b" }}>▲</button>
+                      <span style={{ fontSize: 10, color: "#94a3b8", fontFamily: "monospace" }}>{idx + 1}</span>
+                      <button onClick={() => deplacerSolde(p.id, "down")} disabled={idx === soldes.length - 1}
+                        style={{ width: 24, height: 24, borderRadius: 6, border: "1.5px solid #e2e8f0", background: idx === soldes.length - 1 ? "#f8fafc" : "#fff", cursor: idx === soldes.length - 1 ? "default" : "pointer", display: "grid", placeItems: "center", color: idx === soldes.length - 1 ? "#cbd5e1" : "#64748b" }}>▼</button>
                     </div>
                   </td>
-                  <td><span className="ak-cell-bold" style={{ color: "#f43f5e" }}>{p.price} DT</span></td>
-                  <td><span style={{ textDecoration: "line-through", color: "#94a3b8", fontSize: 13 }}>{p.compare_price} DT</span></td>
-                  <td><span className="ak-badge ak-badge--danger">-{remisePct(p.price, p.compare_price!)}%</span></td>
                   <td>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {p.image_url
+                      ? <img src={p.image_url} alt="" style={{ width: 42, height: 42, objectFit: "cover", borderRadius: 8 }} />
+                      : <div style={{ width: 42, height: 42, borderRadius: 8, background: "#f1f5f9", display: "grid", placeItems: "center" }}><i className="ti ti-photo" style={{ color: "#94a3b8" }}></i></div>}
+                  </td>
+                  <td><span className="ak-cell-bold">{p.title}</span></td>
+                  <td>
+                    <span style={{ fontWeight: 700, color: "#f43f5e" }}>{p.price} DT</span>
+                    <span className="ak-badge ak-badge--danger" style={{ marginLeft: 6, fontSize: 10 }}>-{remisePct(p.price, p.compare_price!)}%</span>
+                  </td>
+                  <td><span style={{ textDecoration: "line-through", color: "#94a3b8", fontSize: 13 }}>{p.compare_price} DT</span></td>
+                  <td><span className="ak-cell-muted">{p.categories?.name ?? "Sans catégorie"}</span></td>
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                       {p.solde_notified_at
-                        ? <span className="ak-badge ak-badge--success" title={`Envoyée le ${new Date(p.solde_notified_at).toLocaleString("fr-FR")}`}>Envoyée</span>
+                        ? <span className="ak-badge ak-badge--success" title={`Envoyée le ${new Date(p.solde_notified_at).toLocaleString("fr-FR")}`}>Notif envoyée</span>
                         : <span className="ak-badge ak-badge--warning">En attente</span>}
                       <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" disabled={saving} onClick={() => renvoyerNotif(p)} title="Renvoyer la notification">
                         <i className="ti ti-send"></i>
@@ -322,12 +345,8 @@ export default function SoldesPage() {
                   </td>
                   <td>
                     <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                      <button className="ak-btn ak-btn--ghost ak-btn--sm" disabled={saving} onClick={() => ouvrirEdit(p)}>
-                        <i className="ti ti-pencil"></i> Modifier
-                      </button>
-                      <button className="ak-btn ak-btn--danger-ghost ak-btn--sm" disabled={saving} onClick={() => terminerSolde(p)}>
-                        <i className="ti ti-x"></i> Terminer
-                      </button>
+                      <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" disabled={saving} onClick={() => ouvrirEdit(p)} title="Modifier"><i className="ti ti-pencil"></i></button>
+                      <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" disabled={saving} onClick={() => terminerSolde(p)} title="Terminer la solde"><i className="ti ti-x"></i></button>
                     </div>
                   </td>
                 </tr>
