@@ -20,7 +20,7 @@ const NAV: NavGroup[] = [
     section: "Boutique",
     items: [
       { href: "/admin/produits", icon: "ti-package", label: "Produits" },
-      { href: "/admin/soldes", icon: "ti-speakerphone", label: "Notifs soldes" },
+      { href: "/admin/soldes", icon: "ti-discount-2", label: "Articles soldés" },
       { href: "/admin/stock", icon: "ti-stack-2", label: "Stock" },
       { href: "/admin/categories", icon: "ti-category", label: "Catégories" },
       { href: "/admin/commandes", icon: "ti-shopping-cart", label: "Commandes" },
@@ -47,7 +47,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin": "Dashboard",
   "/admin/rapports": "Rapports de ventes",
   "/admin/produits": "Produits",
-  "/admin/soldes": "Notifications des soldes",
+  "/admin/soldes": "Articles soldés",
   "/admin/stock": "Gestion du stock",
   "/admin/categories": "Catégories",
   "/admin/commandes": "Commandes",
