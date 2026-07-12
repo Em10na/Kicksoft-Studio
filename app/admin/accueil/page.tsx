@@ -86,7 +86,9 @@ export default function AccueilPage() {
   const [editingSlideId, setEditingSlideId] = useState<string | null>(null);
   const [showHeroForm, setShowHeroForm] = useState(false);
   const [heroUploading, setHeroUploading] = useState(false);
+  const [heroVideoUploading, setHeroVideoUploading] = useState(false);
   const heroFileRef = useRef<HTMLInputElement | null>(null);
+  const heroVideoRef = useRef<HTMLInputElement | null>(null);
 
   const [featuredOrderDispo, setFeaturedOrderDispo] = useState(true);
   const [searchFeatured, setSearchFeatured] = useState("");
@@ -168,6 +170,19 @@ export default function AccueilPage() {
     setHeroForm((f) => ({ ...f, image_url: data.publicUrl }));
     setHeroUploading(false);
     if (heroFileRef.current) heroFileRef.current.value = "";
+  }
+
+  async function uploaderVideoHero(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setHeroVideoUploading(true);
+    const nom = `hero/${Date.now()}_${file.name.replace(/\s+/g, "_")}`;
+    const { error } = await supabase.storage.from(BUCKET).upload(nom, file, { upsert: false });
+    if (error) { notifier("Upload échoué : " + error.message, "danger"); setHeroVideoUploading(false); return; }
+    const { data } = supabase.storage.from(BUCKET).getPublicUrl(nom);
+    setHeroForm((f) => ({ ...f, video_url: data.publicUrl }));
+    setHeroVideoUploading(false);
+    if (heroVideoRef.current) heroVideoRef.current.value = "";
   }
 
   async function chargerProduits() {
@@ -453,6 +468,8 @@ export default function AccueilPage() {
                   <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 16 }}>
                     {editingSlideId ? "Modifier le slide" : "Nouveau slide"}
                   </h4>
+
+                  {/* Titre + Badge */}
                   <div className="ak-form-row" style={{ marginBottom: 12 }}>
                     <div className="ak-field">
                       <label className="ak-label">Titre <span style={{ color: "#f43f5e" }}>*</span></label>
@@ -463,38 +480,124 @@ export default function AccueilPage() {
                       <input className="ak-input" placeholder="ex : Nouveau 2025, Soldes" value={heroForm.badge ?? ""} onChange={(e) => setHeroForm((f) => ({ ...f, badge: e.target.value }))} />
                     </div>
                   </div>
+
+                  {/* Accroche */}
                   <div className="ak-field" style={{ marginBottom: 12 }}>
                     <label className="ak-label">Accroche (sous le titre)</label>
                     <input className="ak-input" placeholder="ex : Capturez l'instant depuis les airs" value={heroForm.tagline ?? ""} onChange={(e) => setHeroForm((f) => ({ ...f, tagline: e.target.value }))} />
                   </div>
+
+                  {/* Image + Vidéo */}
                   <div className="ak-form-row" style={{ marginBottom: 12 }}>
+                    {/* IMAGE */}
                     <div className="ak-field">
-                      <label className="ak-label">Image de fond (URL)</label>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <input className="ak-input" placeholder="https://..." value={heroForm.image_url ?? ""} onChange={(e) => setHeroForm((f) => ({ ...f, image_url: e.target.value }))} />
-                        <input ref={heroFileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={uploaderImageHero} />
-                        <button className="ak-btn ak-btn--ghost ak-btn--sm" style={{ flexShrink: 0 }} disabled={heroUploading} onClick={() => heroFileRef.current?.click()}>
-                          <i className="ti ti-upload"></i> {heroUploading ? "…" : "Upload"}
-                        </button>
-                      </div>
-                      {heroForm.image_url && <img src={heroForm.image_url} alt="" style={{ marginTop: 6, height: 60, borderRadius: 8, objectFit: "cover", width: "100%" }} />}
+                      <label className="ak-label">Image de fond</label>
+                      <input ref={heroFileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={uploaderImageHero} />
+                      {heroForm.image_url ? (
+                        <>
+                          <img src={heroForm.image_url} alt="" style={{ width: "100%", height: 84, objectFit: "cover", borderRadius: 10, marginBottom: 7 }} />
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button className="ak-btn ak-btn--ghost ak-btn--sm" disabled={heroUploading} onClick={() => heroFileRef.current?.click()}>
+                              <i className="ti ti-replace"></i> {heroUploading ? "Upload…" : "Changer"}
+                            </button>
+                            <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => setHeroForm((f) => ({ ...f, image_url: "" }))} title="Retirer l'image">
+                              <i className="ti ti-x"></i>
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            className="ak-btn ak-btn--ghost"
+                            style={{ width: "100%", justifyContent: "center", flexDirection: "column", gap: 4, padding: "20px 0", border: "2px dashed var(--a-rule)", borderRadius: 10, marginBottom: 7, fontSize: 13 }}
+                            disabled={heroUploading}
+                            onClick={() => heroFileRef.current?.click()}
+                          >
+                            <i className="ti ti-photo-up" style={{ fontSize: 22, color: "#94a3b8" }}></i>
+                            <span>{heroUploading ? "Upload en cours…" : "Parcourir depuis le PC"}</span>
+                          </button>
+                          <input className="ak-input ak-input--sm" placeholder="ou coller une URL https://…" value={heroForm.image_url ?? ""} onChange={(e) => setHeroForm((f) => ({ ...f, image_url: e.target.value }))} />
+                        </>
+                      )}
                     </div>
+
+                    {/* VIDEO */}
                     <div className="ak-field">
-                      <label className="ak-label">Vidéo (URL mp4/webm — optionnel)</label>
-                      <input className="ak-input" placeholder="https://...video.mp4" value={heroForm.video_url ?? ""} onChange={(e) => setHeroForm((f) => ({ ...f, video_url: e.target.value }))} />
-                      <p style={{ fontSize: 11.5, color: "var(--a-ink-mute)", marginTop: 4 }}>La vidéo se joue sur l'image. L'image reste visible si la vidéo n'est pas supportée.</p>
+                      <label className="ak-label">Vidéo <span style={{ color: "var(--a-ink-mute)", fontWeight: 400 }}>(optionnel)</span></label>
+                      <input ref={heroVideoRef} type="file" accept="video/mp4,video/webm,video/quicktime" style={{ display: "none" }} onChange={uploaderVideoHero} />
+                      {heroForm.video_url ? (
+                        <>
+                          <div style={{ width: "100%", height: 84, borderRadius: 10, overflow: "hidden", background: "#0f172a", marginBottom: 7, position: "relative" }}>
+                            <video src={heroForm.video_url} muted preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            <span style={{ position: "absolute", top: 6, left: 6, background: "rgba(0,0,0,0.6)", color: "#fff", borderRadius: 6, fontSize: 10, padding: "2px 8px" }}>
+                              <i className="ti ti-video" style={{ marginRight: 4 }}></i>Vidéo
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button className="ak-btn ak-btn--ghost ak-btn--sm" disabled={heroVideoUploading} onClick={() => heroVideoRef.current?.click()}>
+                              <i className="ti ti-replace"></i> {heroVideoUploading ? "Upload…" : "Changer"}
+                            </button>
+                            <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => setHeroForm((f) => ({ ...f, video_url: "" }))} title="Retirer la vidéo">
+                              <i className="ti ti-x"></i>
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            className="ak-btn ak-btn--ghost"
+                            style={{ width: "100%", justifyContent: "center", flexDirection: "column", gap: 4, padding: "20px 0", border: "2px dashed var(--a-rule)", borderRadius: 10, marginBottom: 7, fontSize: 13 }}
+                            disabled={heroVideoUploading}
+                            onClick={() => heroVideoRef.current?.click()}
+                          >
+                            <i className="ti ti-video-plus" style={{ fontSize: 22, color: "#94a3b8" }}></i>
+                            <span>{heroVideoUploading ? "Upload en cours…" : "Parcourir depuis le PC"}</span>
+                          </button>
+                          <input className="ak-input ak-input--sm" placeholder="ou coller une URL .mp4/.webm…" value={heroForm.video_url ?? ""} onChange={(e) => setHeroForm((f) => ({ ...f, video_url: e.target.value }))} />
+                        </>
+                      )}
+                      <p style={{ fontSize: 11.5, color: "var(--a-ink-mute)", marginTop: 6 }}>Joue en boucle sur l&apos;image. Si non supportée, l&apos;image reste visible.</p>
                     </div>
                   </div>
+
+                  {/* Liens */}
                   <div className="ak-form-row" style={{ marginBottom: 16 }}>
-                    <div className="ak-field">
-                      <label className="ak-label">Lien bouton "Acheter"</label>
-                      <input className="ak-input" placeholder="/boutique ou /produit/..." value={heroForm.buy_href} onChange={(e) => setHeroForm((f) => ({ ...f, buy_href: e.target.value }))} />
-                    </div>
-                    <div className="ak-field">
-                      <label className="ak-label">Lien bouton "En savoir plus"</label>
-                      <input className="ak-input" placeholder="/boutique ou /produit/..." value={heroForm.more_href} onChange={(e) => setHeroForm((f) => ({ ...f, more_href: e.target.value }))} />
-                    </div>
+                    {(["buy_href", "more_href"] as const).map((field) => (
+                      <div key={field} className="ak-field">
+                        <label className="ak-label">Lien bouton &quot;{field === "buy_href" ? "Acheter" : "En savoir plus"}&quot;</label>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <input
+                            className="ak-input"
+                            placeholder="/boutique"
+                            value={heroForm[field]}
+                            onChange={(e) => setHeroForm((f) => ({ ...f, [field]: e.target.value }))}
+                          />
+                          <select
+                            className="ak-input"
+                            style={{ maxWidth: 150, flexShrink: 0, cursor: "pointer", fontSize: 12 }}
+                            value=""
+                            onChange={(e) => { if (e.target.value) setHeroForm((f) => ({ ...f, [field]: e.target.value })); }}
+                          >
+                            <option value="">Choisir…</option>
+                            <optgroup label="Boutique">
+                              <option value="/boutique">Tous les produits</option>
+                            </optgroup>
+                            {categories.length > 0 && (
+                              <optgroup label="Catégories">
+                                {categories.map((c) => <option key={c.id} value={`/boutique?categorie=${c.id}`}>{c.name}</option>)}
+                              </optgroup>
+                            )}
+                            {produits.length > 0 && (
+                              <optgroup label="Produits">
+                                {produits.map((p) => <option key={p.id} value={`/produit/${p.id}`}>{p.title}</option>)}
+                              </optgroup>
+                            )}
+                          </select>
+                        </div>
+                      </div>
+                    ))}
                   </div>
+
                   <div style={{ display: "flex", gap: 10 }}>
                     <button className="ak-btn ak-btn--primary" onClick={sauvegarderSlide}>
                       <i className="ti ti-device-floppy"></i> {editingSlideId ? "Enregistrer" : "Ajouter"}
