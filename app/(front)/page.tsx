@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
+
+export const dynamic = "force-dynamic";
 import ProductCard from "./components/ProductCard";
 import DroneHeroSlider, { type HeroSlide } from "./components/DroneHeroSlider";
 import ScrollReveal from "./components/ScrollReveal";
@@ -34,14 +36,17 @@ export default async function HomePage() {
   const supabase = await createClient();
 
   const [{ data: featured }, { data: categories }, { data: whatsNew }, { data: handheld }, { data: homeSections }, { data: promoPool }, { data: heroSoldes }, { data: pinnedNew }, { data: heroSlidesAdmin }] = await Promise.all([
-    supabase.from("products").select("*").eq("status", "published").eq("featured", true).order("featured_order", { ascending: true }).limit(4),
+    // Suggestions : produits featured ordonnés par featured_order (admin-managed)
+    supabase.from("products").select("*").eq("status", "published").eq("featured", true).order("featured_order", { ascending: true }).limit(8),
     supabase.from("categories").select("*").order("name"),
     supabase.from("products").select("*").eq("status", "published").order("created_at", { ascending: false }).limit(60),
     supabase.from("products").select("*").eq("status", "published").order("display_order", { ascending: true }).order("created_at", { ascending: false }).range(8, 11),
     supabase.from("home_sections").select("*, home_section_media(*)"),
-    supabase.from("products").select("*").eq("status", "published").not("compare_price", "is", null).limit(24),
+    // Articles en Solde : uniquement les produits solde_hero=true, ordonnés par solde_hero_order (admin-managed)
+    supabase.from("products").select("*").eq("status", "published").eq("solde_hero", true).not("compare_price", "is", null).order("solde_hero_order", { ascending: true }).limit(8),
     supabase.from("products").select("id, title, price, compare_price, short_description, image_url, product_media(url, type, position)").eq("status", "published").eq("solde_hero", true).not("compare_price", "is", null).order("solde_hero_order", { ascending: true }).limit(5),
-    supabase.from("products").select("*").eq("status", "published").eq("whats_new", true).order("created_at", { ascending: false }).limit(8),
+    // Quoi de neuf : ordonnés par whats_new_order (admin-managed)
+    supabase.from("products").select("*").eq("status", "published").eq("whats_new", true).order("whats_new_order", { ascending: true }).limit(8),
     // Slides hero gérés manuellement depuis l'admin (priorité sur solde_hero)
     supabase.from("hero_slides").select("*").eq("visible", true).order("display_order", { ascending: true }),
   ]);
@@ -70,7 +75,7 @@ export default async function HomePage() {
           return true;
         }).slice(0, 8);
       })();
-  const soldeProducts = (promoPool ?? []).filter((p) => p.compare_price && p.compare_price > p.price).slice(0, 4);
+  const soldeProducts = promoPool ?? [];
 
   // Slides du hero : articles soldés « à la une » avec leur vidéo
   // (fichier direct) ou image ; sinon le slider garde ses slides démo.
@@ -185,7 +190,7 @@ export default async function HomePage() {
             <ScrollReveal animation="fade-up">
               <h2 className="series-section__label">{suggestion ? "Nos Suggestions" : "Caméras Professionnelles"}</h2>
               <div className="series-banner">
-                {suggestion ? (
+                {suggestion && suggestion.media.length > 0 ? (
                   <BannerMedia items={suggestion.media} />
                 ) : (
                   <video
@@ -227,7 +232,7 @@ export default async function HomePage() {
         <section className="series-section">
           <div className="container">
             <div className="pvid pvid--banner">
-              {recommandation ? (
+              {recommandation && recommandation.media.length > 0 ? (
                 <BannerMedia items={recommandation.media} />
               ) : (
                 <video
@@ -283,10 +288,10 @@ export default async function HomePage() {
             <ScrollReveal animation="fade-up">
               <h2 className="series-section__label">{solde ? "Articles en Solde" : "Prise en Main · Vlogging Quotidien"}</h2>
               <div className="series-banner">
-                {soldeSyncMedia.length > 0 ? (
-                  <BannerMedia items={soldeSyncMedia} />
-                ) : solde ? (
+                {solde && solde.media.length > 0 ? (
                   <BannerMedia items={solde.media} />
+                ) : soldeSyncMedia.length > 0 ? (
+                  <BannerMedia items={soldeSyncMedia} />
                 ) : (
                   <div className="series-banner__bg" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1508444845599-5c89863b1c44?w=1600&q=85&auto=format&fit=crop)" }} />
                 )}

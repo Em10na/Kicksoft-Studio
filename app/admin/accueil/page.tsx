@@ -32,6 +32,8 @@ type Produit = {
   compare_price: number | null;
   solde_hero: boolean;
   solde_hero_order: number;
+  whats_new: boolean;
+  whats_new_order: number;
   image_url: string | null;
   category_id: string | null;
 };
@@ -65,6 +67,12 @@ const SECTION_META: Record<HomeSection["section"], { label: string; desc: string
 };
 const SECTION_ORDER: HomeSection["section"][] = ["suggestion", "recommandation", "solde"];
 
+const SECTION_DEFAULTS: Record<HomeSection["section"], { title: string; tagline: string; cta_label: string; cta_href: string }> = {
+  suggestion:     { title: "Caméra Cinéma Pro",         tagline: "Filmez comme un professionnel",                                                       cta_label: "Acheter",          cta_href: "/boutique?q=camera" },
+  recommandation: { title: "DJI Série Professionnelle",  tagline: "Précision, autonomie et performance. La référence mondiale de la capture aérienne.",   cta_label: "Acheter maintenant", cta_href: "/boutique" },
+  solde:          { title: "Caméra d'Action 6 Pro",      tagline: "La caméra d'action à la qualité d'image révolutionnaire",                             cta_label: "Acheter",          cta_href: "/boutique?q=action" },
+};
+
 const BUCKET = "media";
 
 function estVideo(nomOuUrl: string, mime?: string): boolean {
@@ -76,7 +84,6 @@ export default function AccueilPage() {
   const supabase = createClient();
   const [produits, setProduits] = useState<Produit[]>([]);
   const [categories, setCategories] = useState<Categorie[]>([]);
-  const [whatsnewIds, setWhatsnewIds] = useState<Set<string>>(new Set());
   const [whatsnewDispo, setWhatsnewDispo] = useState(true);
   const [loading, setLoading] = useState(true);
   const [alert, setAlert] = useState({ message: "", type: "" });
@@ -92,8 +99,7 @@ export default function AccueilPage() {
   const heroVideoRef = useRef<HTMLInputElement | null>(null);
 
   const [featuredOrderDispo, setFeaturedOrderDispo] = useState(true);
-  const [searchSolde, setSearchSolde] = useState("");
-  const [showDropSolde, setShowDropSolde] = useState(false);
+
   const [searchWhatsNew, setSearchWhatsNew] = useState("");
   const [showDropWhatsNew, setShowDropWhatsNew] = useState(false);
 
@@ -103,7 +109,6 @@ export default function AccueilPage() {
   const [sectionForms, setSectionForms] = useState<Record<string, SectionForm>>({});
   const [urlInputs, setUrlInputs] = useState<Record<string, string>>({});
   const [uploadingId, setUploadingId] = useState<string | null>(null);
-  const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
 
   function notifier(message: string, type: "success" | "danger" | "warning" = "success") {
     setAlert({ message, type });
@@ -197,22 +202,23 @@ export default function AccueilPage() {
   async function chargerProduits() {
     const { data, error } = await supabase
       .from("products")
-      .select("id, title, price, featured, featured_order, status, compare_price, solde_hero, solde_hero_order, image_url, category_id")
+      .select("id, title, price, featured, featured_order, status, compare_price, solde_hero, solde_hero_order, whats_new, whats_new_order, image_url, category_id")
       .eq("status", "published")
       .order("title", { ascending: true });
 
     if (error) {
-      // Colonnes de migration absentes — repli sans ces colonnes
+      // Colonnes de migration absentes — repli sans les colonnes _order
       setFeaturedOrderDispo(false);
-      const { data: fallback } = await supabase
+      const { data: fallback, error: e2 } = await supabase
         .from("products")
-        .select("id, title, price, featured, status, compare_price, solde_hero, image_url, category_id")
+        .select("id, title, price, featured, status, compare_price, solde_hero, whats_new, image_url, category_id")
         .eq("status", "published")
         .order("title", { ascending: true });
-      setProduits((fallback ?? []).map((p) => ({ ...p, featured_order: 0, solde_hero_order: 0 })));
+      if (e2) setWhatsnewDispo(false);
+      setProduits((fallback ?? []).map((p: any) => ({ ...p, featured_order: 0, solde_hero_order: 0, whats_new: p.whats_new ?? false, whats_new_order: 0 })));
       return;
     }
-    setProduits((data ?? []).map((p) => ({ ...p, featured_order: p.featured_order ?? 0, solde_hero_order: p.solde_hero_order ?? 0 })));
+    setProduits((data ?? []).map((p) => ({ ...p, featured_order: p.featured_order ?? 0, solde_hero_order: p.solde_hero_order ?? 0, whats_new_order: p.whats_new_order ?? 0 })));
   }
 
   async function chargerSections() {
@@ -223,7 +229,25 @@ export default function AccueilPage() {
       return;
     }
     setSectionsDispo(true);
-    const tri = (data ?? []).map((s: HomeSection) => ({
+
+    // Auto-créer les sections manquantes (suggestion / recommandation / solde)
+    const existingKeys = new Set((data ?? []).map((s: HomeSection) => s.section));
+    const manquantes = SECTION_ORDER.filter((k) => !existingKeys.has(k));
+    if (manquantes.length > 0) {
+      await Promise.all(
+        manquantes.map((k) =>
+          supabase.from("home_sections").insert({ section: k, ...SECTION_DEFAULTS[k], visible: true })
+        )
+      );
+      // Recharger après la création
+      const { data: data2 } = await supabase.from("home_sections").select("*, home_section_media(*)");
+      return chargerSectionsDepuisData(data2 ?? []);
+    }
+    chargerSectionsDepuisData(data ?? []);
+  }
+
+  function chargerSectionsDepuisData(data: HomeSection[]) {
+    const tri = data.map((s) => ({
       ...s,
       home_section_media: [...(s.home_section_media ?? [])].sort((a, b) => a.display_order - b.display_order),
     }));
@@ -250,27 +274,26 @@ export default function AccueilPage() {
     setCategories(data ?? []);
   }
 
-  async function chargerWhatsNew() {
-    const { data, error } = await supabase
-      .from("products")
-      .select("id")
-      .eq("status", "published")
-      .eq("whats_new", true);
-    if (error) { setWhatsnewDispo(false); return; }
-    setWhatsnewDispo(true);
-    setWhatsnewIds(new Set((data ?? []).map((p: { id: string }) => p.id)));
+  async function toggleWhatsNew(p: Produit) {
+    const nextOrder = p.whats_new ? 0 : Math.max(0, ...produits.filter((x) => x.whats_new).map((x) => x.whats_new_order)) + 1;
+    const { error } = await supabase.from("products").update({ whats_new: !p.whats_new, whats_new_order: nextOrder }).eq("id", p.id);
+    if (error) { notifier("Erreur : " + error.message, "danger"); return; }
+    notifier(!p.whats_new ? `Produit épinglé dans « Quoi de neuf » !` : `Produit retiré de « Quoi de neuf ».`);
+    chargerProduits();
   }
 
-  async function toggleWhatsNew(produitId: string) {
-    const actuel = whatsnewIds.has(produitId);
-    const { error } = await supabase.from("products").update({ whats_new: !actuel }).eq("id", produitId);
-    if (error) { notifier("Erreur : " + error.message, "danger"); return; }
-    notifier(!actuel ? `Produit épinglé dans « Quoi de neuf » !` : `Produit retiré de « Quoi de neuf ».`);
-    chargerWhatsNew();
+  async function deplacerWhatsNewVers(produitId: string, newIdx: number) {
+    const ordered = [...produits.filter((p) => p.whats_new)].sort((a, b) => a.whats_new_order - b.whats_new_order);
+    const fromIdx = ordered.findIndex((p) => p.id === produitId);
+    if (fromIdx === newIdx) return;
+    const [moved] = ordered.splice(fromIdx, 1);
+    ordered.splice(newIdx, 0, moved);
+    await Promise.all(ordered.map((p, i) => supabase.from("products").update({ whats_new_order: i + 1 }).eq("id", p.id)));
+    chargerProduits();
   }
 
   useEffect(() => {
-    Promise.all([chargerHeroSlides(), chargerProduits(), chargerSections(), chargerCategories(), chargerWhatsNew()]).then(() => setLoading(false));
+    Promise.all([chargerHeroSlides(), chargerProduits(), chargerSections(), chargerCategories()]).then(() => setLoading(false));
   }, []);
 
   async function toggleFeatured(produitId: string, actuel: boolean) {
@@ -312,15 +335,13 @@ export default function AccueilPage() {
     chargerProduits();
   }
 
-  async function moveSoldeHero(produitId: string, dir: -1 | 1) {
+  async function deplacerSoldeVers(produitId: string, newIdx: number) {
     const ordered = [...produits.filter((p) => p.solde_hero)].sort((a, b) => a.solde_hero_order - b.solde_hero_order);
-    const idx = ordered.findIndex((p) => p.id === produitId);
-    const voisin = ordered[idx + dir];
-    if (!voisin) return;
-    await Promise.all([
-      supabase.from("products").update({ solde_hero_order: voisin.solde_hero_order }).eq("id", produitId),
-      supabase.from("products").update({ solde_hero_order: ordered[idx].solde_hero_order }).eq("id", voisin.id),
-    ]);
+    const fromIdx = ordered.findIndex((p) => p.id === produitId);
+    if (fromIdx === newIdx) return;
+    const [moved] = ordered.splice(fromIdx, 1);
+    ordered.splice(newIdx, 0, moved);
+    await Promise.all(ordered.map((p, i) => supabase.from("products").update({ solde_hero_order: i + 1 }).eq("id", p.id)));
     chargerProduits();
   }
 
@@ -385,8 +406,7 @@ export default function AccueilPage() {
       await ajouterMedia(s, data.publicUrl, estVideo(file.name, file.type) ? "video" : "image");
     }
     setUploadingId(null);
-    const input = fileInputs.current[s.id];
-    if (input) input.value = "";
+    event.target.value = "";
   }
 
   async function ajouterParUrl(s: HomeSection) {
@@ -750,7 +770,14 @@ export default function AccueilPage() {
                             const pct = p.compare_price ? Math.round((1 - p.price / p.compare_price) * 100) : 0;
                             return (
                               <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: "#fff", border: "1.5px solid #fca5a5", borderRadius: 11, marginBottom: 6 }}>
-                                <span style={{ fontWeight: 800, color: "#f43f5e", fontSize: 15, minWidth: 24, textAlign: "center" }}>#{idx + 1}</span>
+                                <select
+                                  value={idx}
+                                  onChange={(e) => deplacerSoldeVers(p.id, parseInt(e.target.value))}
+                                  title="Changer la position"
+                                  style={{ width: 58, padding: "5px 4px", borderRadius: 8, border: "1.5px solid #fecdd3", fontSize: 13, fontWeight: 800, color: "#f43f5e", background: "#fff1f2", cursor: "pointer", textAlign: "center", flexShrink: 0 }}
+                                >
+                                  {orderedSoldes.map((_, i) => <option key={i} value={i}>#{i + 1}</option>)}
+                                </select>
                                 {p.image_url
                                   ? <img src={p.image_url} alt="" style={{ width: 44, height: 44, borderRadius: 9, objectFit: "cover", flexShrink: 0 }} />
                                   : <span style={{ width: 44, height: 44, borderRadius: 9, background: "#fef2f2", display: "grid", placeItems: "center", flexShrink: 0 }}><i className="ti ti-photo" style={{ color: "#fca5a5" }}></i></span>}
@@ -762,67 +789,61 @@ export default function AccueilPage() {
                                     <span className="ak-badge ak-badge--danger" style={{ fontSize: 10 }}>-{pct}%</span>
                                   </div>
                                 </div>
-                                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                                  <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" disabled={idx === 0} style={idx === 0 ? { opacity: 0.3 } : undefined} onClick={() => moveSoldeHero(p.id, -1)} title="Monter"><i className="ti ti-chevron-up"></i></button>
-                                  <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" disabled={idx === orderedSoldes.length - 1} style={idx === orderedSoldes.length - 1 ? { opacity: 0.3 } : undefined} onClick={() => moveSoldeHero(p.id, 1)} title="Descendre"><i className="ti ti-chevron-down"></i></button>
-                                  <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => toggleSoldeAffiche(p)} title="Retirer"><i className="ti ti-trash"></i></button>
-                                </div>
+                                <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => toggleSoldeAffiche(p)} title="Retirer" style={{ flexShrink: 0 }}><i className="ti ti-trash"></i></button>
                               </div>
                             );
                           })}
                         </div>
                       )}
 
-                      {/* Combobox — ajouter un article soldé */}
+                      {/* Sélecteur natif — ajouter un article soldé */}
                       {soldes.length === 0 ? (
                         <p style={{ color: "#9f1239", fontSize: 13, margin: 0 }}>
                           Aucun article en solde — créez une remise depuis <a href="/admin/soldes" style={{ color: "#6366f1", fontWeight: 600 }}>la page Soldes</a>.
                         </p>
-                      ) : (
-                        <div style={{ position: "relative" }}>
-                          <div style={{ position: "relative" }}>
-                            <i className="ti ti-plus" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "#fca5a5", fontSize: 15, pointerEvents: "none" }}></i>
-                            <input
-                              className="ak-input"
-                              style={{ paddingLeft: 34, borderColor: "#fecdd3", background: "#fff" }}
-                              placeholder="Ajouter un article soldé — tapez pour chercher…"
-                              value={searchSolde}
-                              onChange={(e) => { setSearchSolde(e.target.value); setShowDropSolde(true); }}
-                              onFocus={() => setShowDropSolde(true)}
-                              onBlur={() => setTimeout(() => setShowDropSolde(false), 180)}
-                            />
-                          </div>
-                          {showDropSolde && (
-                            <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--a-paper)", border: "1.5px solid #fecdd3", borderRadius: 12, boxShadow: "0 8px 28px rgba(0,0,0,0.14)", zIndex: 60, maxHeight: 260, overflowY: "auto" }}>
-                              {soldes
-                                .filter((p) => !searchSolde || p.title.toLowerCase().includes(searchSolde.toLowerCase()))
-                                .map((p) => {
-                                  const pct = p.compare_price ? Math.round((1 - p.price / p.compare_price) * 100) : 0;
-                                  return (
-                                    <button
-                                      key={p.id}
-                                      onMouseDown={(e) => { e.preventDefault(); toggleSoldeAffiche(p); setSearchSolde(""); setShowDropSolde(false); }}
-                                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", width: "100%", background: p.solde_hero ? "#fff1f2" : "transparent", border: "none", borderBottom: "1px solid #fecdd3", cursor: "pointer", textAlign: "left" }}
-                                    >
-                                      {p.image_url
-                                        ? <img src={p.image_url} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
-                                        : <span style={{ width: 36, height: 36, borderRadius: 8, background: "#fef2f2", display: "grid", placeItems: "center", flexShrink: 0 }}><i className="ti ti-photo" style={{ color: "#fca5a5" }}></i></span>}
-                                      <span style={{ flex: 1, fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
-                                      <span style={{ fontSize: 12, fontWeight: 700, color: "#f43f5e", flexShrink: 0 }}>{p.price} DT</span>
-                                      <span className="ak-badge ak-badge--danger" style={{ fontSize: 10, flexShrink: 0 }}>-{pct}%</span>
-                                      {p.solde_hero
-                                        ? <i className="ti ti-check" style={{ color: "#f43f5e", fontSize: 15, flexShrink: 0 }}></i>
-                                        : <i className="ti ti-plus" style={{ color: "#94a3b8", fontSize: 15, flexShrink: 0 }}></i>}
-                                    </button>
-                                  );
-                                })}
-                              {soldes.filter((p) => !searchSolde || p.title.toLowerCase().includes(searchSolde.toLowerCase())).length === 0 && (
-                                <p style={{ textAlign: "center", color: "var(--a-ink-mute)", padding: "16px 0", fontSize: 13 }}>Aucun article trouvé</p>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      ) : (() => {
+                        const validCatIds = new Set(categories.map((c) => c.id));
+                        const disponibles = soldes.filter((p) => !p.solde_hero);
+                        return (
+                          <select
+                            className="ak-input"
+                            style={{ borderColor: "#fecdd3", background: "#fff" }}
+                            value=""
+                            onChange={(e) => {
+                              const id = e.target.value;
+                              if (!id) return;
+                              const p = produits.find((x) => x.id === id);
+                              if (p) toggleSoldeAffiche(p);
+                            }}
+                          >
+                            <option value="">+ Ajouter un article soldé…</option>
+                            {categories.map((cat) => {
+                              const opts = disponibles.filter((p) => p.category_id === cat.id);
+                              if (opts.length === 0) return null;
+                              return (
+                                <optgroup key={cat.id} label={cat.name}>
+                                  {opts.map((p) => {
+                                    const pct = p.compare_price ? Math.round((1 - p.price / p.compare_price) * 100) : 0;
+                                    return <option key={p.id} value={p.id}>{p.title} — {p.price} DT (-{pct}%)</option>;
+                                  })}
+                                </optgroup>
+                              );
+                            })}
+                            {(() => {
+                              const orphans = disponibles.filter((p) => !p.category_id || !validCatIds.has(p.category_id));
+                              if (orphans.length === 0) return null;
+                              return (
+                                <optgroup label="Sans catégorie">
+                                  {orphans.map((p) => {
+                                    const pct = p.compare_price ? Math.round((1 - p.price / p.compare_price) * 100) : 0;
+                                    return <option key={p.id} value={p.id}>{p.title} — {p.price} DT (-{pct}%)</option>;
+                                  })}
+                                </optgroup>
+                              );
+                            })()}
+                          </select>
+                        );
+                      })()}
                     </div>
                   );
                 })()}
@@ -830,8 +851,7 @@ export default function AccueilPage() {
                 {/* Médias */}
                 <label className="ak-label">
                   Médias <span style={{ color: "#94a3b8", fontWeight: 500 }}>
-                    ({s.home_section_media.length}) — images ou vidéos, affichés en carrousel
-                    {s.section === "solde" && " (utilisés seulement si aucun article soldé n'est sélectionné ci-dessus)"}
+                    ({s.home_section_media.length}) — {s.section === "solde" ? "image ou vidéo de la bannière (prioritaire sur les images produits)" : "images ou vidéos, affichés en carrousel"}
                   </span>
                 </label>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
@@ -885,26 +905,25 @@ export default function AccueilPage() {
                   )}
                 </div>
 
-                {/* Ajout de médias */}
+                {/* Ajout de médias — label natif (plus fiable que .click() via ref) */}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
                   <input
-                    ref={(el) => {
-                      fileInputs.current[s.id] = el;
-                    }}
+                    id={`media-upload-${s.id}`}
                     type="file"
                     multiple
                     accept="image/*,video/mp4,video/webm,video/quicktime"
                     style={{ display: "none" }}
+                    disabled={uploadingId === s.id}
                     onChange={(e) => uploaderMedia(s, e)}
                   />
-                  <button
+                  <label
+                    htmlFor={uploadingId === s.id ? undefined : `media-upload-${s.id}`}
                     className="ak-btn ak-btn--ghost ak-btn--sm"
-                    disabled={uploadingId === s.id}
-                    onClick={() => fileInputs.current[s.id]?.click()}
+                    style={{ cursor: uploadingId === s.id ? "not-allowed" : "pointer", opacity: uploadingId === s.id ? 0.6 : 1 }}
                   >
                     <i className="ti ti-upload"></i>
                     {uploadingId === s.id ? "Upload en cours..." : "Uploader image / vidéo"}
-                  </button>
+                  </label>
                   <div style={{ display: "flex", gap: 6, flex: "1 1 280px", maxWidth: 440 }}>
                     <input
                       className="ak-input"
@@ -1021,22 +1040,24 @@ export default function AccueilPage() {
               <i className="ti ti-sparkles" style={{ marginRight: 6, color: "#10b981" }}></i>
               Quoi de neuf{" "}
               <span className="ak-count-badge" style={{ marginLeft: 6 }}>
-                {whatsnewIds.size > 0 ? `${whatsnewIds.size} épinglé${whatsnewIds.size > 1 ? "s" : ""}` : "auto"}
+                {(() => { const n = produits.filter((p) => p.whats_new).length; return n > 0 ? `${n} épinglé${n > 1 ? "s" : ""}` : "auto"; })()}
               </span>
             </h3>
             <p className="ak-card__subtitle">
               Épinglez des produits prioritaires. Si aucun n&apos;est épinglé, le dernier article de chaque catégorie s&apos;affiche automatiquement.
             </p>
           </div>
-          {whatsnewIds.size > 0 && (
+          {produits.some((p) => p.whats_new) && (
             <button
               className="ak-btn ak-btn--ghost ak-btn--sm"
               onClick={async () => {
-                for (const id of Array.from(whatsnewIds)) {
-                  await supabase.from("products").update({ whats_new: false }).eq("id", id);
-                }
+                await Promise.all(
+                  produits.filter((p) => p.whats_new).map((p) =>
+                    supabase.from("products").update({ whats_new: false, whats_new_order: 0 }).eq("id", p.id)
+                  )
+                );
                 notifier("Sélection effacée — mode automatique activé.");
-                chargerWhatsNew();
+                chargerProduits();
               }}
             >
               <i className="ti ti-refresh"></i> Réinitialiser (auto)
@@ -1055,21 +1076,35 @@ export default function AccueilPage() {
             </p>
           ) : (
             <>
-              {/* Chips produits épinglés */}
-              {whatsnewIds.size > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
-                  {produits.filter((p) => whatsnewIds.has(p.id)).map((p) => (
-                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 7, background: "#dcfce7", border: "1.5px solid #86efac", borderRadius: 10, padding: "5px 8px 5px 6px" }}>
-                      {p.image_url && <img src={p.image_url} alt="" style={{ width: 28, height: 28, borderRadius: 6, objectFit: "cover", flexShrink: 0 }} />}
-                      <span style={{ fontWeight: 600, fontSize: 12.5, color: "#14532d", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
-                      <span style={{ fontSize: 11.5, color: "#15803d", flexShrink: 0 }}>{p.price} DT</span>
-                      <button onClick={() => toggleWhatsNew(p.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#15803d", padding: "0 0 0 2px", lineHeight: 1, display: "flex", alignItems: "center" }}>
-                        <i className="ti ti-x" style={{ fontSize: 13 }}></i>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+              {/* Liste ordonnée des produits épinglés */}
+              {(() => {
+                const orderedWN = [...produits.filter((p) => p.whats_new)].sort((a, b) => a.whats_new_order - b.whats_new_order);
+                if (orderedWN.length === 0) return null;
+                return (
+                  <div style={{ marginBottom: 14 }}>
+                    {orderedWN.map((p, idx) => (
+                      <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: "var(--a-paper)", border: "1.5px solid #86efac", borderRadius: 11, marginBottom: 6 }}>
+                        <select
+                          value={idx}
+                          onChange={(e) => deplacerWhatsNewVers(p.id, parseInt(e.target.value))}
+                          title="Changer la position"
+                          style={{ width: 58, padding: "5px 4px", borderRadius: 8, border: "1.5px solid #86efac", fontSize: 13, fontWeight: 800, color: "#10b981", background: "#f0fdf4", cursor: "pointer", textAlign: "center", flexShrink: 0 }}
+                        >
+                          {orderedWN.map((_, i) => <option key={i} value={i}>#{i + 1}</option>)}
+                        </select>
+                        {p.image_url
+                          ? <img src={p.image_url} alt="" style={{ width: 44, height: 44, borderRadius: 9, objectFit: "cover", flexShrink: 0 }} />
+                          : <span style={{ width: 44, height: 44, borderRadius: 9, background: "var(--a-bg)", display: "grid", placeItems: "center", flexShrink: 0 }}><i className="ti ti-photo" style={{ color: "#94a3b8" }}></i></span>}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
+                          <div style={{ fontSize: 12, color: "#10b981", fontWeight: 600, marginTop: 2 }}>{p.price} DT</div>
+                        </div>
+                        <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => toggleWhatsNew(p)} title="Retirer" style={{ flexShrink: 0 }}><i className="ti ti-trash"></i></button>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
               {/* Combobox recherche */}
               <div style={{ position: "relative", maxWidth: 420 }}>
                 <div style={{ position: "relative" }}>
@@ -1089,11 +1124,11 @@ export default function AccueilPage() {
                     {produits
                       .filter((p) => !searchWhatsNew || p.title.toLowerCase().includes(searchWhatsNew.toLowerCase()))
                       .map((p) => {
-                        const pinned = whatsnewIds.has(p.id);
+                        const pinned = p.whats_new;
                         return (
                           <button
                             key={p.id}
-                            onMouseDown={(e) => { e.preventDefault(); toggleWhatsNew(p.id); setSearchWhatsNew(""); }}
+                            onMouseDown={(e) => { e.preventDefault(); toggleWhatsNew(p); setSearchWhatsNew(""); }}
                             style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", width: "100%", background: pinned ? "#f0fdf4" : "transparent", border: "none", borderBottom: "1px solid var(--a-rule)", cursor: "pointer", textAlign: "left" }}
                           >
                             {p.image_url
