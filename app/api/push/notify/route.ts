@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import webpush from "web-push";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+
+// Chargement différé : web-push utilise des modules Node.js natifs
+// (crypto, http2) que Turbopack ne peut pas bundler. L'import dynamique
+// garantit qu'il n'est évalué que sur le serveur, à l'exécution.
+async function getWebPush() {
+  const mod = await import("web-push");
+  return mod.default as typeof import("web-push");
+}
+
+export const maxDuration = 30;
 
 // ================================================================
 // Notifications — diffusion multicanal (style Temu / Shein) :
@@ -40,6 +49,8 @@ async function sendWebPush(
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
   if (!publicKey || !privateKey) return { sent: 0, failed: 0, removed: 0 };
+
+  const webpush = await getWebPush();
   webpush.setVapidDetails(process.env.VAPID_SUBJECT ?? "mailto:admin@kicksoft.tn", publicKey, privateKey);
 
   const { data: subs } = await supabaseAdmin
