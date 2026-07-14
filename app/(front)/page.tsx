@@ -229,65 +229,31 @@ export default async function HomePage() {
       )}
 
       {/* ====== SHOWCASE — géré depuis "Articles en solde" dans l'admin ====== */}
-      {(!solde || solde.visible) && (
-        <section className="series-section">
-          {solde && solde.media.length > 0 ? (
+      {(!solde || solde.visible) && (() => {
+        // Priority: 1) admin-uploaded media  2) solde_hero product images  3) demo images
+        const DEMO: BannerMediaItem[] = [
+          { id: "demo-1", media_type: "image", url: "https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=1200&q=80&auto=format&fit=crop", poster_url: null },
+          { id: "demo-2", media_type: "image", url: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=900&q=80&auto=format&fit=crop", poster_url: null },
+          { id: "demo-3", media_type: "image", url: "https://images.unsplash.com/photo-1508444845599-5c89863b1c44?w=700&q=80&auto=format&fit=crop", poster_url: null },
+        ];
+        const items: BannerMediaItem[] =
+          solde?.media && solde.media.length > 0 ? solde.media
+          : soldeSyncMedia.length > 0 ? soldeSyncMedia
+          : DEMO;
+        return (
+          <section className="series-section">
             <div className="container">
               <FloatingMediaCarousel
-                items={solde.media}
-                title={solde.title}
-                tagline={solde.tagline ?? undefined}
-                ctaLabel={solde.cta_label ?? undefined}
-                ctaHref={solde.cta_href ?? undefined}
+                items={items}
+                title={solde?.title || "DJI Série Professionnelle"}
+                tagline={solde?.tagline ?? "Précision, autonomie et performance. La référence mondiale de la capture aérienne."}
+                ctaLabel={solde?.cta_label ?? "Acheter maintenant"}
+                ctaHref={solde?.cta_href ?? "/boutique"}
               />
             </div>
-          ) : (
-            /* Fallback plein écran quand aucun média n'a encore été uploadé */
-            <div className="container">
-              <div className="pvid pvid--banner">
-                <video
-                  className="pvid__video"
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  poster="https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=1920&q=80&auto=format&fit=crop"
-                >
-                  <source src="/front/videos/dji-product.mp4" type="video/mp4" />
-                </video>
-                <div className="pvid__overlay" />
-                <div className="pvid__content">
-                  <p className="pvid__badge">{solde ? solde.title : "Produit en Vedette"}</p>
-                  {solde ? (
-                    <h2 className="pvid__title">{solde.title}</h2>
-                  ) : (
-                    <h2 className="pvid__title">DJI<br /><span className="pvid__thin">Série Professionnelle</span></h2>
-                  )}
-                  <p className="pvid__desc">
-                    {solde?.tagline || "Précision, autonomie et performance. La référence mondiale de la capture aérienne."}
-                  </p>
-                  {!solde && (
-                    <div className="pvid__specs">
-                      <div className="pvid__spec"><strong>4K</strong><span>Ultra HD</span></div>
-                      <div className="pvid__sep" />
-                      <div className="pvid__spec"><strong>45 min</strong><span>Autonomie</span></div>
-                      <div className="pvid__sep" />
-                      <div className="pvid__spec"><strong>15 km</strong><span>Portée</span></div>
-                      <div className="pvid__sep" />
-                      <div className="pvid__spec"><strong>GPS</strong><span>Précision</span></div>
-                    </div>
-                  )}
-                  <div className="pvid__ctas">
-                    <Link href={solde?.cta_href || "/boutique"} className="pvid__btn pvid__btn--white">
-                      {solde?.cta_label || "Acheter maintenant"}
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-      )}
+          </section>
+        );
+      })()}
 
 
       {/* ====== SHOP OUR SELECTIONS (categories) ====== */}
