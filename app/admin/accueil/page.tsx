@@ -49,7 +49,7 @@ type SectionMedia = {
 
 type HomeSection = {
   id: string;
-  section: "suggestion" | "recommandation" | "solde";
+  section: "suggestion" | "solde";
   title: string;
   tagline: string | null;
   cta_label: string | null;
@@ -62,15 +62,13 @@ type SectionForm = { title: string; tagline: string; cta_label: string; cta_href
 
 const SECTION_META: Record<HomeSection["section"], { label: string; desc: string; icon: string }> = {
   suggestion: { label: "Suggestions", desc: "Bannière au-dessus des produits vedettes", icon: "ti-bulb" },
-  recommandation: { label: "Recommandation", desc: "Grande vidéo pleine largeur", icon: "ti-thumb-up" },
-  solde: { label: "Articles en solde", desc: "Bannière + produits en promotion", icon: "ti-discount-2" },
+  solde: { label: "Articles en solde", desc: "Carousel flottant — images et vidéos des produits en vedette", icon: "ti-discount-2" },
 };
-const SECTION_ORDER: HomeSection["section"][] = ["suggestion", "recommandation", "solde"];
+const SECTION_ORDER: HomeSection["section"][] = ["suggestion", "solde"];
 
 const SECTION_DEFAULTS: Record<HomeSection["section"], { title: string; tagline: string; cta_label: string; cta_href: string }> = {
-  suggestion:     { title: "Caméra Cinéma Pro",         tagline: "Filmez comme un professionnel",                                                       cta_label: "Acheter",          cta_href: "/boutique?q=camera" },
-  recommandation: { title: "DJI Série Professionnelle",  tagline: "Précision, autonomie et performance. La référence mondiale de la capture aérienne.",   cta_label: "Acheter maintenant", cta_href: "/boutique" },
-  solde:          { title: "Caméra d'Action 6 Pro",      tagline: "La caméra d'action à la qualité d'image révolutionnaire",                             cta_label: "Acheter",          cta_href: "/boutique?q=action" },
+  suggestion: { title: "Caméra Cinéma Pro",        tagline: "Filmez comme un professionnel",                                     cta_label: "Acheter", cta_href: "/boutique?q=camera" },
+  solde:      { title: "DJI Série Professionnelle", tagline: "Précision, autonomie et performance. La référence mondiale de la capture aérienne.", cta_label: "Acheter maintenant", cta_href: "/boutique" },
 };
 
 const BUCKET = "media";
@@ -109,6 +107,10 @@ export default function AccueilPage() {
   const [sectionForms, setSectionForms] = useState<Record<string, SectionForm>>({});
   const [urlInputs, setUrlInputs] = useState<Record<string, string>>({});
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [showSectionModal, setShowSectionModal] = useState(false);
+  const [editingSection, setEditingSection] = useState<HomeSection | null>(null);
+  const [showWhatsNewModal, setShowWhatsNewModal] = useState(false);
+  const [showHeroModal, setShowHeroModal] = useState(false);
 
   function notifier(message: string, type: "success" | "danger" | "warning" = "success") {
     setAlert({ message, type });
@@ -267,6 +269,7 @@ export default function AccueilPage() {
       }
       return next;
     });
+    setEditingSection((prev) => prev ? (tri.find((s) => s.id === prev.id) ?? prev) : null);
   }
 
   async function chargerCategories() {
@@ -439,6 +442,15 @@ export default function AccueilPage() {
     chargerSections();
   }
 
+  function ouvrirSectionModal(s: HomeSection) {
+    setSectionForms((prev) => ({
+      ...prev,
+      [s.id]: prev[s.id] ?? { title: s.title ?? "", tagline: s.tagline ?? "", cta_label: s.cta_label ?? "", cta_href: s.cta_href ?? "" },
+    }));
+    setEditingSection(s);
+    setShowSectionModal(true);
+  }
+
   if (loading) {
     return <p style={{ color: "#94a3b8", padding: 24 }}>Chargement...</p>;
   }
@@ -460,75 +472,143 @@ export default function AccueilPage() {
 
       {/* ---------- Slides Hero ---------- */}
       <div className="ak-card" style={{ marginBottom: 20 }}>
-        <div className="ak-card__header">
-          <div>
-            <h3 className="ak-card__title"><i className="ti ti-photo-film" style={{ marginRight: 6, color: "#6366f1" }}></i>Slides du Hero</h3>
-            <p className="ak-card__subtitle">Carrousel principal affiché en haut de la boutique — image ou vidéo par slide</p>
+        <div className="ak-card__header" style={{ padding: "14px 18px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ width: 40, height: 40, borderRadius: 10, background: "#f0f0ff", display: "grid", placeItems: "center", flexShrink: 0 }}>
+              <i className="ti ti-photo-film" style={{ color: "#6366f1", fontSize: 20 }}></i>
+            </span>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <h3 className="ak-card__title" style={{ margin: 0 }}>Slides du Hero</h3>
+                {heroSlidesDispo && heroSlides.length > 0 && (
+                  <span className="ak-badge ak-badge--dot" style={{ fontSize: 11 }}>
+                    {heroSlides.length} slide{heroSlides.length > 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
+              <p className="ak-card__subtitle" style={{ margin: 0, fontSize: 12 }}>Carrousel principal affiché en haut de la boutique — image ou vidéo par slide</p>
+            </div>
           </div>
-          {heroSlidesDispo && (
-            <button className="ak-btn ak-btn--primary ak-btn--sm" onClick={() => { setHeroForm({ ...HERO_FORM_EMPTY }); setEditingSlideId(null); setShowHeroForm((v) => !v); }}>
-              <i className="ti ti-plus"></i> Ajouter un slide
-            </button>
-          )}
+          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+            {heroSlidesDispo && (
+              <button className="ak-btn ak-btn--primary ak-btn--sm" onClick={() => setShowHeroModal(true)}>
+                <i className="ti ti-pencil"></i> Modifier
+              </button>
+            )}
+          </div>
         </div>
-        <div className="ak-card__body">
-          {!heroSlidesDispo ? (
+        {!heroSlidesDispo && (
+          <div className="ak-card__body">
             <div className="ak-alert ak-alert--warning" style={{ margin: 0 }}>
               <i className="ti ti-alert-circle"></i> Exécutez <code>supabase/migration-v15-hero-slides.sql</code> dans le SQL Editor de Supabase puis rechargez.
             </div>
-          ) : (
-            <>
-              {/* Liste des slides */}
-              {heroSlides.length === 0 && !showHeroForm && (
-                <p style={{ color: "var(--a-ink-mute)", fontSize: 13, marginBottom: 0 }}>
-                  Aucun slide — le carrousel affiche les slides de démonstration. Ajoutez-en un pour les remplacer.
-                </p>
-              )}
-              {heroSlides.map((s, idx) => (
-                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: s.visible ? "var(--a-paper)" : "var(--a-bg)", border: `1.5px solid ${s.visible ? "var(--a-rule)" : "#e2e8f0"}`, borderRadius: 12, marginBottom: 8, opacity: s.visible ? 1 : 0.6 }}>
-                  {/* Sélecteur de position */}
-                  <select
-                    value={idx}
-                    onChange={(e) => deplacerSlideVers(s.id, parseInt(e.target.value))}
-                    title="Changer la position"
-                    style={{ width: 58, padding: "5px 4px", borderRadius: 8, border: "1.5px solid var(--a-rule)", fontSize: 13, fontWeight: 800, color: "#6366f1", background: "var(--a-paper)", cursor: "pointer", textAlign: "center", flexShrink: 0 }}
-                  >
-                    {heroSlides.map((_, i) => (
-                      <option key={i} value={i}>#{i + 1}</option>
-                    ))}
-                  </select>
-                  {/* Miniature */}
-                  {s.image_url
-                    ? <img src={s.image_url} alt="" style={{ width: 72, height: 46, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
-                    : <span style={{ width: 72, height: 46, borderRadius: 8, background: "var(--a-bg)", display: "grid", placeItems: "center", flexShrink: 0, border: "1px dashed var(--a-rule)" }}><i className="ti ti-photo" style={{ color: "#94a3b8", fontSize: 18 }}></i></span>}
-                  {/* Infos */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</span>
-                      {s.badge && <span className="ak-badge ak-badge--accent" style={{ fontSize: 10, flexShrink: 0 }}>{s.badge}</span>}
-                      {s.video_url && <span className="ak-badge ak-badge--muted" style={{ fontSize: 10, flexShrink: 0 }}><i className="ti ti-video"></i> Vidéo</span>}
+          </div>
+        )}
+      </div>
+
+      {/* ---------- Sections média ---------- */}
+      {!sectionsDispo ? (
+        <div className="ak-alert ak-alert--warning" style={{ marginBottom: 20 }}>
+          <i className="ti ti-alert-circle"></i> Les tables des sections média n&apos;existent pas encore —
+          exécutez <code>supabase/migration-v5-home-sections.sql</code> dans le SQL Editor de Supabase puis rechargez.
+        </div>
+      ) : (
+        sections.filter((s) => s.section in SECTION_META).map((s) => {
+          const meta = SECTION_META[s.section];
+          return (
+            <div key={s.id} className="ak-card" style={{ marginBottom: 12 }}>
+              <div className="ak-card__header" style={{ padding: "14px 18px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ width: 40, height: 40, borderRadius: 10, background: "#f0f0ff", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                    <i className={`ti ${meta.icon}`} style={{ color: "#6366f1", fontSize: 20 }}></i>
+                  </span>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <h3 className="ak-card__title" style={{ margin: 0 }}>{meta.label}</h3>
+                      {s.home_section_media.length > 0 && (
+                        <span className="ak-badge ak-badge--dot" style={{ fontSize: 11 }}>
+                          {s.home_section_media.length} média{s.home_section_media.length > 1 ? "s" : ""}
+                        </span>
+                      )}
+                      {!s.visible && (
+                        <span className="ak-badge ak-badge--muted" style={{ fontSize: 11 }}>Masquée</span>
+                      )}
                     </div>
-                    {s.tagline && <div style={{ fontSize: 12, color: "var(--a-ink-mute)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.tagline}</div>}
-                  </div>
-                  {/* Actions */}
-                  <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
-                    <button className={`ak-btn ak-btn--sm ${s.visible ? "ak-btn--ghost" : "ak-btn--muted"}`} onClick={() => toggleSlideVisible(s)} title={s.visible ? "Masquer" : "Afficher"}>
-                      <i className={`ti ${s.visible ? "ti-eye" : "ti-eye-off"}`}></i>
-                    </button>
-                    <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" onClick={() => { setHeroForm({ title: s.title, tagline: s.tagline ?? "", badge: s.badge ?? "", image_url: s.image_url ?? "", video_url: s.video_url ?? "", buy_href: s.buy_href, more_href: s.more_href }); setEditingSlideId(s.id); setShowHeroForm(true); }} title="Modifier"><i className="ti ti-pencil"></i></button>
-                    <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => supprimerSlide(s.id)} title="Supprimer"><i className="ti ti-trash"></i></button>
+                    <p className="ak-card__subtitle" style={{ margin: 0, fontSize: 12 }}>{meta.desc}</p>
                   </div>
                 </div>
-              ))}
+                <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                  <button
+                    className={`ak-btn ak-btn--sm ${s.visible ? "ak-btn--ghost" : "ak-btn--danger"}`}
+                    onClick={() => toggleVisible(s)}
+                    title={s.visible ? "Masquer sur la boutique" : "Afficher sur la boutique"}
+                  >
+                    <i className={`ti ${s.visible ? "ti-eye" : "ti-eye-off"}`}></i>
+                    {s.visible ? "Visible" : "Masquée"}
+                  </button>
+                  <button className="ak-btn ak-btn--primary ak-btn--sm" onClick={() => ouvrirSectionModal(s)}>
+                    <i className="ti ti-pencil"></i> Modifier
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })
+      )}
 
-              {/* Formulaire ajout / édition */}
-              {showHeroForm && (
-                <div style={{ marginTop: heroSlides.length > 0 ? 16 : 0, padding: "18px 20px", background: "var(--a-bg)", border: "1.5px solid var(--a-rule)", borderRadius: 14 }}>
-                  <h4 style={{ fontWeight: 700, fontSize: 14, marginBottom: 16 }}>
-                    {editingSlideId ? "Modifier le slide" : "Nouveau slide"}
-                  </h4>
+      {/* ---------- Modal Slides Hero ---------- */}
+      {showHeroModal && (
+        <div className="ak-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) { setShowHeroModal(false); setShowHeroForm(false); setEditingSlideId(null); setHeroForm({ ...HERO_FORM_EMPTY }); } }}>
+          <div className="ak-modal ak-modal--lg" onClick={(e) => e.stopPropagation()}>
+            <div className="ak-modal__header">
+              <h2 className="ak-modal__title">
+                <i className="ti ti-photo-film" style={{ marginRight: 8, color: "#6366f1" }}></i>
+                {showHeroForm ? (editingSlideId ? "Modifier le slide" : "Nouveau slide") : "Slides du Hero"}
+              </h2>
+              <button className="ak-modal__close" onClick={() => { setShowHeroModal(false); setShowHeroForm(false); setEditingSlideId(null); setHeroForm({ ...HERO_FORM_EMPTY }); }}>
+                <i className="ti ti-x"></i>
+              </button>
+            </div>
 
-                  {/* Titre + Badge */}
+            <div className="ak-modal__body" style={{ overflowY: "auto", maxHeight: "70vh" }}>
+              {!showHeroForm ? (
+                /* ---- Vue liste ---- */
+                <>
+                  {heroSlides.length === 0 ? (
+                    <p style={{ color: "var(--a-ink-mute)", fontSize: 13, marginBottom: 0 }}>
+                      Aucun slide — le carrousel affiche les slides de démonstration. Ajoutez-en un pour les remplacer.
+                    </p>
+                  ) : (
+                    heroSlides.map((s, idx) => (
+                      <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: s.visible ? "var(--a-paper)" : "var(--a-bg)", border: `1.5px solid ${s.visible ? "var(--a-rule)" : "#e2e8f0"}`, borderRadius: 12, marginBottom: 8, opacity: s.visible ? 1 : 0.6 }}>
+                        <select value={idx} onChange={(e) => deplacerSlideVers(s.id, parseInt(e.target.value))} title="Changer la position" style={{ width: 58, padding: "5px 4px", borderRadius: 8, border: "1.5px solid var(--a-rule)", fontSize: 13, fontWeight: 800, color: "#6366f1", background: "var(--a-paper)", cursor: "pointer", textAlign: "center", flexShrink: 0 }}>
+                          {heroSlides.map((_, i) => <option key={i} value={i}>#{i + 1}</option>)}
+                        </select>
+                        {s.image_url
+                          ? <img src={s.image_url} alt="" style={{ width: 72, height: 46, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
+                          : <span style={{ width: 72, height: 46, borderRadius: 8, background: "var(--a-bg)", display: "grid", placeItems: "center", flexShrink: 0, border: "1px dashed var(--a-rule)" }}><i className="ti ti-photo" style={{ color: "#94a3b8", fontSize: 18 }}></i></span>}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</span>
+                            {s.badge && <span className="ak-badge ak-badge--accent" style={{ fontSize: 10, flexShrink: 0 }}>{s.badge}</span>}
+                            {s.video_url && <span className="ak-badge ak-badge--muted" style={{ fontSize: 10, flexShrink: 0 }}><i className="ti ti-video"></i> Vidéo</span>}
+                          </div>
+                          {s.tagline && <div style={{ fontSize: 12, color: "var(--a-ink-mute)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.tagline}</div>}
+                        </div>
+                        <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
+                          <button className={`ak-btn ak-btn--sm ${s.visible ? "ak-btn--ghost" : "ak-btn--muted"}`} onClick={() => toggleSlideVisible(s)} title={s.visible ? "Masquer" : "Afficher"}>
+                            <i className={`ti ${s.visible ? "ti-eye" : "ti-eye-off"}`}></i>
+                          </button>
+                          <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" onClick={() => { setHeroForm({ title: s.title, tagline: s.tagline ?? "", badge: s.badge ?? "", image_url: s.image_url ?? "", video_url: s.video_url ?? "", buy_href: s.buy_href, more_href: s.more_href }); setEditingSlideId(s.id); setShowHeroForm(true); }} title="Modifier"><i className="ti ti-pencil"></i></button>
+                          <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => supprimerSlide(s.id)} title="Supprimer"><i className="ti ti-trash"></i></button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </>
+              ) : (
+                /* ---- Vue formulaire ---- */
+                <>
                   <div className="ak-form-row" style={{ marginBottom: 12 }}>
                     <div className="ak-field">
                       <label className="ak-label">Titre <span style={{ color: "#f43f5e" }}>*</span></label>
@@ -539,16 +619,11 @@ export default function AccueilPage() {
                       <input className="ak-input" placeholder="ex : Nouveau 2025, Soldes" value={heroForm.badge ?? ""} onChange={(e) => setHeroForm((f) => ({ ...f, badge: e.target.value }))} />
                     </div>
                   </div>
-
-                  {/* Accroche */}
                   <div className="ak-field" style={{ marginBottom: 12 }}>
                     <label className="ak-label">Accroche (sous le titre)</label>
                     <input className="ak-input" placeholder="ex : Capturez l'instant depuis les airs" value={heroForm.tagline ?? ""} onChange={(e) => setHeroForm((f) => ({ ...f, tagline: e.target.value }))} />
                   </div>
-
-                  {/* Image + Vidéo */}
                   <div className="ak-form-row" style={{ marginBottom: 12 }}>
-                    {/* IMAGE */}
                     <div className="ak-field">
                       <label className="ak-label">Image de fond</label>
                       <input ref={heroFileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={uploaderImageHero} />
@@ -556,22 +631,13 @@ export default function AccueilPage() {
                         <>
                           <img src={heroForm.image_url} alt="" style={{ width: "100%", height: 84, objectFit: "cover", borderRadius: 10, marginBottom: 7 }} />
                           <div style={{ display: "flex", gap: 6 }}>
-                            <button className="ak-btn ak-btn--ghost ak-btn--sm" disabled={heroUploading} onClick={() => heroFileRef.current?.click()}>
-                              <i className="ti ti-replace"></i> {heroUploading ? "Upload…" : "Changer"}
-                            </button>
-                            <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => setHeroForm((f) => ({ ...f, image_url: "" }))} title="Retirer l'image">
-                              <i className="ti ti-x"></i>
-                            </button>
+                            <button className="ak-btn ak-btn--ghost ak-btn--sm" disabled={heroUploading} onClick={() => heroFileRef.current?.click()}><i className="ti ti-replace"></i> {heroUploading ? "Upload…" : "Changer"}</button>
+                            <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => setHeroForm((f) => ({ ...f, image_url: "" }))} title="Retirer"><i className="ti ti-x"></i></button>
                           </div>
                         </>
                       ) : (
                         <>
-                          <button
-                            className="ak-btn ak-btn--ghost"
-                            style={{ width: "100%", justifyContent: "center", flexDirection: "column", gap: 4, padding: "20px 0", border: "2px dashed var(--a-rule)", borderRadius: 10, marginBottom: 7, fontSize: 13 }}
-                            disabled={heroUploading}
-                            onClick={() => heroFileRef.current?.click()}
-                          >
+                          <button className="ak-btn ak-btn--ghost" style={{ width: "100%", justifyContent: "center", flexDirection: "column", gap: 4, padding: "20px 0", border: "2px dashed var(--a-rule)", borderRadius: 10, marginBottom: 7, fontSize: 13 }} disabled={heroUploading} onClick={() => heroFileRef.current?.click()}>
                             <i className="ti ti-photo-up" style={{ fontSize: 22, color: "#94a3b8" }}></i>
                             <span>{heroUploading ? "Upload en cours…" : "Parcourir depuis le PC"}</span>
                           </button>
@@ -579,8 +645,6 @@ export default function AccueilPage() {
                         </>
                       )}
                     </div>
-
-                    {/* VIDEO */}
                     <div className="ak-field">
                       <label className="ak-label">Vidéo <span style={{ color: "var(--a-ink-mute)", fontWeight: 400 }}>(optionnel)</span></label>
                       <input ref={heroVideoRef} type="file" accept="video/mp4,video/webm,video/quicktime" style={{ display: "none" }} onChange={uploaderVideoHero} />
@@ -588,27 +652,16 @@ export default function AccueilPage() {
                         <>
                           <div style={{ width: "100%", height: 84, borderRadius: 10, overflow: "hidden", background: "#0f172a", marginBottom: 7, position: "relative" }}>
                             <video src={heroForm.video_url} muted preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                            <span style={{ position: "absolute", top: 6, left: 6, background: "rgba(0,0,0,0.6)", color: "#fff", borderRadius: 6, fontSize: 10, padding: "2px 8px" }}>
-                              <i className="ti ti-video" style={{ marginRight: 4 }}></i>Vidéo
-                            </span>
+                            <span style={{ position: "absolute", top: 6, left: 6, background: "rgba(0,0,0,0.6)", color: "#fff", borderRadius: 6, fontSize: 10, padding: "2px 8px" }}><i className="ti ti-video" style={{ marginRight: 4 }}></i>Vidéo</span>
                           </div>
                           <div style={{ display: "flex", gap: 6 }}>
-                            <button className="ak-btn ak-btn--ghost ak-btn--sm" disabled={heroVideoUploading} onClick={() => heroVideoRef.current?.click()}>
-                              <i className="ti ti-replace"></i> {heroVideoUploading ? "Upload…" : "Changer"}
-                            </button>
-                            <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => setHeroForm((f) => ({ ...f, video_url: "" }))} title="Retirer la vidéo">
-                              <i className="ti ti-x"></i>
-                            </button>
+                            <button className="ak-btn ak-btn--ghost ak-btn--sm" disabled={heroVideoUploading} onClick={() => heroVideoRef.current?.click()}><i className="ti ti-replace"></i> {heroVideoUploading ? "Upload…" : "Changer"}</button>
+                            <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => setHeroForm((f) => ({ ...f, video_url: "" }))} title="Retirer"><i className="ti ti-x"></i></button>
                           </div>
                         </>
                       ) : (
                         <>
-                          <button
-                            className="ak-btn ak-btn--ghost"
-                            style={{ width: "100%", justifyContent: "center", flexDirection: "column", gap: 4, padding: "20px 0", border: "2px dashed var(--a-rule)", borderRadius: 10, marginBottom: 7, fontSize: 13 }}
-                            disabled={heroVideoUploading}
-                            onClick={() => heroVideoRef.current?.click()}
-                          >
+                          <button className="ak-btn ak-btn--ghost" style={{ width: "100%", justifyContent: "center", flexDirection: "column", gap: 4, padding: "20px 0", border: "2px dashed var(--a-rule)", borderRadius: 10, marginBottom: 7, fontSize: 13 }} disabled={heroVideoUploading} onClick={() => heroVideoRef.current?.click()}>
                             <i className="ti ti-video-plus" style={{ fontSize: 22, color: "#94a3b8" }}></i>
                             <span>{heroVideoUploading ? "Upload en cours…" : "Parcourir depuis le PC"}</span>
                           </button>
@@ -618,96 +671,151 @@ export default function AccueilPage() {
                       <p style={{ fontSize: 11.5, color: "var(--a-ink-mute)", marginTop: 6 }}>Joue en boucle sur l&apos;image. Si non supportée, l&apos;image reste visible.</p>
                     </div>
                   </div>
-
-                  {/* Liens */}
-                  <div className="ak-form-row" style={{ marginBottom: 16 }}>
+                  <div className="ak-form-row">
                     {(["buy_href", "more_href"] as const).map((field) => (
                       <div key={field} className="ak-field">
                         <label className="ak-label">Lien bouton &quot;{field === "buy_href" ? "Acheter" : "En savoir plus"}&quot;</label>
                         <div style={{ display: "flex", gap: 6 }}>
-                          <input
-                            className="ak-input"
-                            placeholder="/boutique"
-                            value={heroForm[field]}
-                            onChange={(e) => setHeroForm((f) => ({ ...f, [field]: e.target.value }))}
-                          />
-                          <select
-                            className="ak-input"
-                            style={{ maxWidth: 150, flexShrink: 0, cursor: "pointer", fontSize: 12 }}
-                            value=""
-                            onChange={(e) => { if (e.target.value) setHeroForm((f) => ({ ...f, [field]: e.target.value })); }}
-                          >
+                          <input className="ak-input" placeholder="/boutique" value={heroForm[field]} onChange={(e) => setHeroForm((f) => ({ ...f, [field]: e.target.value }))} />
+                          <select className="ak-input" style={{ maxWidth: 150, flexShrink: 0, cursor: "pointer", fontSize: 12 }} value="" onChange={(e) => { if (e.target.value) setHeroForm((f) => ({ ...f, [field]: e.target.value })); }}>
                             <option value="">Choisir…</option>
-                            <optgroup label="Boutique">
-                              <option value="/boutique">Tous les produits</option>
-                            </optgroup>
-                            {categories.length > 0 && (
-                              <optgroup label="Catégories">
-                                {categories.map((c) => <option key={c.id} value={`/boutique?categorie=${c.id}`}>{c.name}</option>)}
-                              </optgroup>
-                            )}
-                            {produits.length > 0 && (
-                              <optgroup label="Produits">
-                                {produits.map((p) => <option key={p.id} value={`/produit/${p.id}`}>{p.title}</option>)}
-                              </optgroup>
-                            )}
+                            <optgroup label="Boutique"><option value="/boutique">Tous les produits</option></optgroup>
+                            {categories.length > 0 && (<optgroup label="Catégories">{categories.map((c) => <option key={c.id} value={`/boutique?categorie=${c.id}`}>{c.name}</option>)}</optgroup>)}
+                            {produits.length > 0 && (<optgroup label="Produits">{produits.map((p) => <option key={p.id} value={`/produit/${p.id}`}>{p.title}</option>)}</optgroup>)}
                           </select>
                         </div>
                       </div>
                     ))}
                   </div>
-
-                  <div style={{ display: "flex", gap: 10 }}>
-                    <button className="ak-btn ak-btn--primary" onClick={sauvegarderSlide}>
-                      <i className="ti ti-device-floppy"></i> {editingSlideId ? "Enregistrer" : "Ajouter"}
-                    </button>
-                    <button className="ak-btn ak-btn--ghost" onClick={() => { setShowHeroForm(false); setEditingSlideId(null); setHeroForm({ ...HERO_FORM_EMPTY }); }}>
-                      Annuler
-                    </button>
-                  </div>
-                </div>
+                </>
               )}
-            </>
-          )}
-        </div>
-      </div>
+            </div>
 
-      {/* ---------- Sections média ---------- */}
-      {!sectionsDispo ? (
-        <div className="ak-alert ak-alert--warning" style={{ marginBottom: 20 }}>
-          <i className="ti ti-alert-circle"></i> Les tables des sections média n&apos;existent pas encore —
-          exécutez <code>supabase/migration-v5-home-sections.sql</code> dans le SQL Editor de Supabase puis rechargez.
+            <div className="ak-modal__footer">
+              {!showHeroForm ? (
+                <>
+                  <button className="ak-btn ak-btn--ghost" onClick={() => { setShowHeroModal(false); }}>Fermer</button>
+                  <button className="ak-btn ak-btn--primary ak-btn--sm" onClick={() => { setHeroForm({ ...HERO_FORM_EMPTY }); setEditingSlideId(null); setShowHeroForm(true); }}>
+                    <i className="ti ti-plus"></i> Ajouter un slide
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="ak-btn ak-btn--ghost" onClick={() => { setShowHeroForm(false); setEditingSlideId(null); setHeroForm({ ...HERO_FORM_EMPTY }); }}>← Retour</button>
+                  <button className="ak-btn ak-btn--primary" onClick={async () => { await sauvegarderSlide(); setShowHeroForm(false); }}>
+                    <i className="ti ti-device-floppy"></i> {editingSlideId ? "Enregistrer" : "Ajouter"}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
-      ) : (
-        sections.map((s) => {
-          const meta = SECTION_META[s.section];
-          const f = sectionForms[s.id] ?? { title: "", tagline: "", cta_label: "", cta_href: "" };
-          return (
-            <div key={s.id} className="ak-card" style={{ marginBottom: 20 }}>
-              <div className="ak-card__header">
-                <div>
-                  <h3 className="ak-card__title">
-                    <i className={`ti ${meta.icon}`} style={{ marginRight: 6, color: "#6366f1" }}></i>
-                    {meta.label}{" "}
-                    {!s.visible && <span className="ak-badge ak-badge--muted" style={{ marginLeft: 6 }}>Masquée</span>}
-                  </h3>
-                  <p className="ak-card__subtitle">{meta.desc}</p>
+      )}
+
+      {/* ---------- Modal Quoi de neuf ---------- */}
+      {showWhatsNewModal && (
+        <div className="ak-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setShowWhatsNewModal(false); }}>
+          <div className="ak-modal ak-modal--lg" onClick={(e) => e.stopPropagation()}>
+            <div className="ak-modal__header">
+              <h2 className="ak-modal__title">
+                <i className="ti ti-sparkles" style={{ marginRight: 8, color: "#10b981" }}></i>
+                Quoi de neuf
+              </h2>
+              <button className="ak-modal__close" onClick={() => setShowWhatsNewModal(false)}>
+                <i className="ti ti-x"></i>
+              </button>
+            </div>
+
+            <div className="ak-modal__body" style={{ overflowY: "auto", maxHeight: "70vh" }}>
+              {/* Liste ordonnée des produits épinglés */}
+              {(() => {
+                const orderedWN = [...produits.filter((p) => p.whats_new)].sort((a, b) => a.whats_new_order - b.whats_new_order);
+                if (orderedWN.length === 0) return (
+                  <p style={{ color: "var(--a-ink-mute)", fontSize: 13, marginBottom: 14 }}>
+                    Aucun produit épinglé — le dernier article de chaque catégorie s&apos;affiche automatiquement.
+                  </p>
+                );
+                return (
+                  <div style={{ marginBottom: 14 }}>
+                    {orderedWN.map((p, idx) => (
+                      <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: "var(--a-paper)", border: "1.5px solid #86efac", borderRadius: 11, marginBottom: 6 }}>
+                        <select value={idx} onChange={(e) => deplacerWhatsNewVers(p.id, parseInt(e.target.value))} title="Changer la position" style={{ width: 58, padding: "5px 4px", borderRadius: 8, border: "1.5px solid #86efac", fontSize: 13, fontWeight: 800, color: "#10b981", background: "#f0fdf4", cursor: "pointer", textAlign: "center", flexShrink: 0 }}>
+                          {orderedWN.map((_, i) => <option key={i} value={i}>#{i + 1}</option>)}
+                        </select>
+                        {p.image_url
+                          ? <img src={p.image_url} alt="" style={{ width: 44, height: 44, borderRadius: 9, objectFit: "cover", flexShrink: 0 }} />
+                          : <span style={{ width: 44, height: 44, borderRadius: 9, background: "var(--a-bg)", display: "grid", placeItems: "center", flexShrink: 0 }}><i className="ti ti-photo" style={{ color: "#94a3b8" }}></i></span>}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
+                          <div style={{ fontSize: 12, color: "#10b981", fontWeight: 600, marginTop: 2 }}>{p.price} DT</div>
+                        </div>
+                        <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => toggleWhatsNew(p)} title="Retirer" style={{ flexShrink: 0 }}><i className="ti ti-trash"></i></button>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {/* Combobox recherche */}
+              <label className="ak-label" style={{ marginBottom: 8 }}>Ajouter un produit à épingler</label>
+              <div style={{ position: "relative", maxWidth: 420 }}>
+                <div style={{ position: "relative" }}>
+                  <i className="ti ti-search" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--a-ink-mute)", fontSize: 15, pointerEvents: "none" }}></i>
+                  <input className="ak-input" style={{ paddingLeft: 34 }} placeholder="Rechercher un produit à épingler…" value={searchWhatsNew} onChange={(e) => { setSearchWhatsNew(e.target.value); setShowDropWhatsNew(true); }} onFocus={() => setShowDropWhatsNew(true)} onBlur={() => setTimeout(() => setShowDropWhatsNew(false), 180)} />
                 </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    className={`ak-btn ak-btn--sm ${s.visible ? "ak-btn--ghost" : "ak-btn--danger"}`}
-                    onClick={() => toggleVisible(s)}
-                    title={s.visible ? "Cliquer pour masquer la section sur la boutique" : "Cliquer pour afficher la section sur la boutique"}
-                  >
-                    <i className={`ti ${s.visible ? "ti-eye" : "ti-eye-off"}`}></i>
-                    {s.visible ? "Visible" : "Masquée"}
-                  </button>
-                  <button className="ak-btn ak-btn--primary ak-btn--sm" onClick={() => sauvegarderSection(s)}>
-                    <i className="ti ti-device-floppy"></i> Enregistrer
-                  </button>
-                </div>
+                {showDropWhatsNew && (
+                  <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--a-paper)", border: "1.5px solid var(--a-rule)", borderRadius: 12, boxShadow: "0 8px 28px rgba(0,0,0,0.12)", zIndex: 50, maxHeight: 240, overflowY: "auto" }}>
+                    {produits.filter((p) => !searchWhatsNew || p.title.toLowerCase().includes(searchWhatsNew.toLowerCase())).map((p) => {
+                      const pinned = p.whats_new;
+                      return (
+                        <button key={p.id} onMouseDown={(e) => { e.preventDefault(); toggleWhatsNew(p); setSearchWhatsNew(""); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", width: "100%", background: pinned ? "#f0fdf4" : "transparent", border: "none", borderBottom: "1px solid var(--a-rule)", cursor: "pointer", textAlign: "left" }}>
+                          {p.image_url
+                            ? <img src={p.image_url} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
+                            : <span style={{ width: 36, height: 36, borderRadius: 8, background: "var(--a-bg)", display: "grid", placeItems: "center", flexShrink: 0 }}><i className="ti ti-photo" style={{ color: "#94a3b8" }}></i></span>}
+                          <span style={{ flex: 1, fontWeight: 600, fontSize: 13, color: "var(--a-ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
+                          <span style={{ fontSize: 12, color: "var(--a-ink-mute)", flexShrink: 0 }}>{p.price} DT</span>
+                          {pinned && <i className="ti ti-check" style={{ color: "#10b981", fontSize: 15, flexShrink: 0 }}></i>}
+                        </button>
+                      );
+                    })}
+                    {produits.filter((p) => !searchWhatsNew || p.title.toLowerCase().includes(searchWhatsNew.toLowerCase())).length === 0 && (
+                      <p style={{ textAlign: "center", color: "var(--a-ink-mute)", padding: "16px 0", fontSize: 13 }}>Aucun produit trouvé</p>
+                    )}
+                  </div>
+                )}
               </div>
-              <div className="ak-card__body">
+            </div>
+
+            <div className="ak-modal__footer">
+              <button className="ak-btn ak-btn--ghost" onClick={() => setShowWhatsNewModal(false)}>Fermer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------- Modal édition section ---------- */}
+      {showSectionModal && editingSection && (() => {
+        const s = editingSection;
+        const meta = SECTION_META[s.section];
+        const f = sectionForms[s.id] ?? { title: "", tagline: "", cta_label: "", cta_href: "" };
+        return (
+          <div
+            className="ak-modal-backdrop"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowSectionModal(false); }}
+          >
+            <div className="ak-modal ak-modal--lg" onClick={(e) => e.stopPropagation()}>
+              <div className="ak-modal__header">
+                <h2 className="ak-modal__title">
+                  <i className={`ti ${meta.icon}`} style={{ marginRight: 8, color: "#6366f1" }}></i>
+                  {meta.label}
+                </h2>
+                <button className="ak-modal__close" onClick={() => setShowSectionModal(false)}>
+                  <i className="ti ti-x"></i>
+                </button>
+              </div>
+
+              <div className="ak-modal__body" style={{ overflowY: "auto", maxHeight: "70vh" }}>
+                {/* Textes */}
                 <div className="ak-form-row">
                   <div className="ak-field">
                     <label className="ak-label">Titre</label>
@@ -718,7 +826,7 @@ export default function AccueilPage() {
                     <input className="ak-input" value={f.tagline} onChange={(e) => setSectionForms({ ...sectionForms, [s.id]: { ...f, tagline: e.target.value } })} />
                   </div>
                 </div>
-                <div className="ak-form-row">
+                <div className="ak-form-row" style={{ marginBottom: 18 }}>
                   <div className="ak-field">
                     <label className="ak-label">Texte du bouton</label>
                     <input className="ak-input" value={f.cta_label} onChange={(e) => setSectionForms({ ...sectionForms, [s.id]: { ...f, cta_label: e.target.value } })} />
@@ -730,11 +838,9 @@ export default function AccueilPage() {
                       {categories.length > 0 && (
                         <select
                           className="ak-input"
-                          style={{ maxWidth: 170, flexShrink: 0, cursor: "pointer" }}
+                          style={{ maxWidth: 160, flexShrink: 0, cursor: "pointer" }}
                           value=""
-                          onChange={(e) => {
-                            if (e.target.value) setSectionForms({ ...sectionForms, [s.id]: { ...f, cta_href: `/boutique?categorie=${e.target.value}` } });
-                          }}
+                          onChange={(e) => { if (e.target.value) setSectionForms({ ...sectionForms, [s.id]: { ...f, cta_href: `/boutique?categorie=${e.target.value}` } }); }}
                         >
                           <option value="">Catégorie…</option>
                           {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -744,7 +850,7 @@ export default function AccueilPage() {
                   </div>
                 </div>
 
-                {/* Sélection des articles soldés (section solde uniquement) */}
+                {/* Articles soldés — section solde uniquement */}
                 {s.section === "solde" && (() => {
                   const soldes = produits.filter((p) => p.compare_price && p.compare_price > p.price);
                   const orderedSoldes = [...produits.filter((p) => p.solde_hero)].sort((a, b) => a.solde_hero_order - b.solde_hero_order);
@@ -758,24 +864,15 @@ export default function AccueilPage() {
                         </span>
                         <a href="/admin/soldes" style={{ color: "#6366f1", fontWeight: 600, fontSize: 12 }}>Gérer les remises →</a>
                       </div>
-
-                      {/* Liste ordonnée */}
                       {orderedSoldes.length === 0 ? (
-                        <p style={{ color: "#9f1239", fontSize: 13, margin: "0 0 10px" }}>
-                          Aucun article sélectionné — utilisez la recherche ci-dessous.
-                        </p>
+                        <p style={{ color: "#9f1239", fontSize: 13, margin: "0 0 10px" }}>Aucun article sélectionné — utilisez la liste ci-dessous.</p>
                       ) : (
                         <div style={{ marginBottom: 12 }}>
                           {orderedSoldes.map((p, idx) => {
                             const pct = p.compare_price ? Math.round((1 - p.price / p.compare_price) * 100) : 0;
                             return (
                               <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: "#fff", border: "1.5px solid #fca5a5", borderRadius: 11, marginBottom: 6 }}>
-                                <select
-                                  value={idx}
-                                  onChange={(e) => deplacerSoldeVers(p.id, parseInt(e.target.value))}
-                                  title="Changer la position"
-                                  style={{ width: 58, padding: "5px 4px", borderRadius: 8, border: "1.5px solid #fecdd3", fontSize: 13, fontWeight: 800, color: "#f43f5e", background: "#fff1f2", cursor: "pointer", textAlign: "center", flexShrink: 0 }}
-                                >
+                                <select value={idx} onChange={(e) => deplacerSoldeVers(p.id, parseInt(e.target.value))} title="Changer la position" style={{ width: 58, padding: "5px 4px", borderRadius: 8, border: "1.5px solid #fecdd3", fontSize: 13, fontWeight: 800, color: "#f43f5e", background: "#fff1f2", cursor: "pointer", textAlign: "center", flexShrink: 0 }}>
                                   {orderedSoldes.map((_, i) => <option key={i} value={i}>#{i + 1}</option>)}
                                 </select>
                                 {p.image_url
@@ -795,51 +892,27 @@ export default function AccueilPage() {
                           })}
                         </div>
                       )}
-
-                      {/* Sélecteur natif — ajouter un article soldé */}
                       {soldes.length === 0 ? (
-                        <p style={{ color: "#9f1239", fontSize: 13, margin: 0 }}>
-                          Aucun article en solde — créez une remise depuis <a href="/admin/soldes" style={{ color: "#6366f1", fontWeight: 600 }}>la page Soldes</a>.
-                        </p>
+                        <p style={{ color: "#9f1239", fontSize: 13, margin: 0 }}>Aucun article en solde — créez une remise depuis <a href="/admin/soldes" style={{ color: "#6366f1", fontWeight: 600 }}>la page Soldes</a>.</p>
                       ) : (() => {
                         const validCatIds = new Set(categories.map((c) => c.id));
                         const disponibles = soldes.filter((p) => !p.solde_hero);
                         return (
-                          <select
-                            className="ak-input"
-                            style={{ borderColor: "#fecdd3", background: "#fff" }}
-                            value=""
-                            onChange={(e) => {
-                              const id = e.target.value;
-                              if (!id) return;
-                              const p = produits.find((x) => x.id === id);
-                              if (p) toggleSoldeAffiche(p);
-                            }}
-                          >
+                          <select className="ak-input" style={{ borderColor: "#fecdd3", background: "#fff" }} value="" onChange={(e) => { const id = e.target.value; if (!id) return; const p = produits.find((x) => x.id === id); if (p) toggleSoldeAffiche(p); }}>
                             <option value="">+ Ajouter un article soldé…</option>
                             {categories.map((cat) => {
                               const opts = disponibles.filter((p) => p.category_id === cat.id);
                               if (opts.length === 0) return null;
                               return (
                                 <optgroup key={cat.id} label={cat.name}>
-                                  {opts.map((p) => {
-                                    const pct = p.compare_price ? Math.round((1 - p.price / p.compare_price) * 100) : 0;
-                                    return <option key={p.id} value={p.id}>{p.title} — {p.price} DT (-{pct}%)</option>;
-                                  })}
+                                  {opts.map((p) => { const pct = p.compare_price ? Math.round((1 - p.price / p.compare_price) * 100) : 0; return <option key={p.id} value={p.id}>{p.title} — {p.price} DT (-{pct}%)</option>; })}
                                 </optgroup>
                               );
                             })}
                             {(() => {
                               const orphans = disponibles.filter((p) => !p.category_id || !validCatIds.has(p.category_id));
                               if (orphans.length === 0) return null;
-                              return (
-                                <optgroup label="Sans catégorie">
-                                  {orphans.map((p) => {
-                                    const pct = p.compare_price ? Math.round((1 - p.price / p.compare_price) * 100) : 0;
-                                    return <option key={p.id} value={p.id}>{p.title} — {p.price} DT (-{pct}%)</option>;
-                                  })}
-                                </optgroup>
-                              );
+                              return (<optgroup label="Sans catégorie">{orphans.map((p) => { const pct = p.compare_price ? Math.round((1 - p.price / p.compare_price) * 100) : 0; return <option key={p.id} value={p.id}>{p.title} — {p.price} DT (-{pct}%)</option>; })}</optgroup>);
                             })()}
                           </select>
                         );
@@ -858,40 +931,18 @@ export default function AccueilPage() {
                   {s.home_section_media.map((m, idx) => (
                     <div key={m.id} style={{ width: 150, border: "1px solid #e2e8f0", borderRadius: 10, padding: 5, background: "#fff" }}>
                       <div style={{ height: 84, borderRadius: 7, overflow: "hidden", background: "#f1f5f9", position: "relative" }}>
-                        {m.media_type === "video" ? (
-                          <video src={m.url} muted preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        ) : (
-                          <img src={m.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        )}
-                        <span
-                          className="ak-badge ak-badge--dot"
-                          style={{
-                            position: "absolute", top: 5, left: 5,
-                            background: m.media_type === "video" ? "#1e293b" : "#e2e8f0",
-                            color: m.media_type === "video" ? "#fff" : "#334155",
-                            fontSize: 10, padding: "2px 8px",
-                          }}
-                        >
+                        {m.media_type === "video"
+                          ? <video src={m.url} muted preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          : <img src={m.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                        <span className="ak-badge ak-badge--dot" style={{ position: "absolute", top: 5, left: 5, background: m.media_type === "video" ? "#1e293b" : "#e2e8f0", color: m.media_type === "video" ? "#fff" : "#334155", fontSize: 10, padding: "2px 8px" }}>
                           {m.media_type === "video" ? "Vidéo" : "Image"}
                         </span>
                       </div>
                       <div style={{ display: "flex", justifyContent: "center", gap: 4, marginTop: 6 }}>
-                        <button
-                          className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon"
-                          disabled={idx === 0}
-                          style={idx === 0 ? { opacity: 0.35, cursor: "default" } : undefined}
-                          onClick={() => deplacerMedia(s, m, -1)}
-                          title="Avancer"
-                        >
+                        <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" disabled={idx === 0} style={idx === 0 ? { opacity: 0.35, cursor: "default" } : undefined} onClick={() => deplacerMedia(s, m, -1)} title="Avancer">
                           <i className="ti ti-chevron-left" style={{ fontSize: 14 }}></i>
                         </button>
-                        <button
-                          className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon"
-                          disabled={idx === s.home_section_media.length - 1}
-                          style={idx === s.home_section_media.length - 1 ? { opacity: 0.35, cursor: "default" } : undefined}
-                          onClick={() => deplacerMedia(s, m, 1)}
-                          title="Reculer"
-                        >
+                        <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" disabled={idx === s.home_section_media.length - 1} style={idx === s.home_section_media.length - 1 ? { opacity: 0.35, cursor: "default" } : undefined} onClick={() => deplacerMedia(s, m, 1)} title="Reculer">
                           <i className="ti ti-chevron-right" style={{ fontSize: 14 }}></i>
                         </button>
                         <button className="ak-btn ak-btn--danger ak-btn--sm ak-btn--icon" onClick={() => supprimerMedia(m)} title="Supprimer">
@@ -904,42 +955,21 @@ export default function AccueilPage() {
                     <span style={{ color: "#94a3b8", fontSize: 13 }}>Aucun média — la bannière affichera un fond vide.</span>
                   )}
                 </div>
-
-                {/* Ajout de médias — label natif (plus fiable que .click() via ref) */}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
-                  <input
-                    id={`media-upload-${s.id}`}
-                    type="file"
-                    multiple
-                    accept="image/*,video/mp4,video/webm,video/quicktime"
-                    style={{ display: "none" }}
-                    disabled={uploadingId === s.id}
-                    onChange={(e) => uploaderMedia(s, e)}
-                  />
-                  <label
-                    htmlFor={uploadingId === s.id ? undefined : `media-upload-${s.id}`}
-                    className="ak-btn ak-btn--ghost ak-btn--sm"
-                    style={{ cursor: uploadingId === s.id ? "not-allowed" : "pointer", opacity: uploadingId === s.id ? 0.6 : 1 }}
-                  >
+                  <input id={`media-upload-modal-${s.id}`} type="file" multiple accept="image/*,video/mp4,video/webm,video/quicktime" style={{ display: "none" }} disabled={uploadingId === s.id} onChange={(e) => uploaderMedia(s, e)} />
+                  <label htmlFor={uploadingId === s.id ? undefined : `media-upload-modal-${s.id}`} className="ak-btn ak-btn--ghost ak-btn--sm" style={{ cursor: uploadingId === s.id ? "not-allowed" : "pointer", opacity: uploadingId === s.id ? 0.6 : 1 }}>
                     <i className="ti ti-upload"></i>
                     {uploadingId === s.id ? "Upload en cours..." : "Uploader image / vidéo"}
                   </label>
                   <div style={{ display: "flex", gap: 6, flex: "1 1 280px", maxWidth: 440 }}>
-                    <input
-                      className="ak-input"
-                      style={{ padding: "6px 12px", fontSize: 12.5 }}
-                      placeholder="ou coller une URL (mp4, webm, jpg, png...)"
-                      value={urlInputs[s.id] ?? ""}
-                      onChange={(e) => setUrlInputs({ ...urlInputs, [s.id]: e.target.value })}
-                      onKeyDown={(e) => e.key === "Enter" && ajouterParUrl(s)}
-                    />
+                    <input className="ak-input" style={{ padding: "6px 12px", fontSize: 12.5 }} placeholder="ou coller une URL (mp4, webm, jpg, png...)" value={urlInputs[s.id] ?? ""} onChange={(e) => setUrlInputs({ ...urlInputs, [s.id]: e.target.value })} onKeyDown={(e) => e.key === "Enter" && ajouterParUrl(s)} />
                     <button className="ak-btn ak-btn--ghost ak-btn--sm" onClick={() => ajouterParUrl(s)}>
                       <i className="ti ti-plus"></i> Ajouter
                     </button>
                   </div>
                 </div>
 
-                {/* Produits mis en avant — section Suggestions uniquement */}
+                {/* Produits mis en avant — section suggestion uniquement */}
                 {s.section === "suggestion" && (() => {
                   const orderedFeatured = [...produits.filter((p) => p.featured)].sort((a, b) => a.featured_order - b.featured_order);
                   return (
@@ -951,18 +981,11 @@ export default function AccueilPage() {
                           — {orderedFeatured.length > 0 ? `${orderedFeatured.length} sélectionné${orderedFeatured.length > 1 ? "s" : ""}` : "aucun"}
                         </span>
                       </label>
-
-                      {/* Shelf scrollable horizontal */}
                       {orderedFeatured.length > 0 && (
                         <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 10, marginBottom: 14, scrollbarWidth: "thin", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
                           {orderedFeatured.map((p, idx) => (
-                            <div key={p.id} style={{ minWidth: 130, maxWidth: 130, background: "var(--a-paper)", border: "1.5px solid var(--a-rule)", borderRadius: 12, padding: "8px 8px 8px", flexShrink: 0, display: "flex", flexDirection: "column", gap: 5 }}>
-                              <select
-                                value={idx}
-                                onChange={(e) => deplacerFeaturedVers(p.id, parseInt(e.target.value))}
-                                title="Changer la position"
-                                style={{ width: "100%", padding: "3px 4px", borderRadius: 6, border: "1.5px solid var(--a-rule)", fontSize: 11, fontWeight: 800, color: "#6366f1", background: "#f5f3ff", cursor: "pointer", textAlign: "center" }}
-                              >
+                            <div key={p.id} style={{ minWidth: 130, maxWidth: 130, background: "var(--a-paper)", border: "1.5px solid var(--a-rule)", borderRadius: 12, padding: 8, flexShrink: 0, display: "flex", flexDirection: "column", gap: 5 }}>
+                              <select value={idx} onChange={(e) => deplacerFeaturedVers(p.id, parseInt(e.target.value))} title="Changer la position" style={{ width: "100%", padding: "3px 4px", borderRadius: 6, border: "1.5px solid var(--a-rule)", fontSize: 11, fontWeight: 800, color: "#6366f1", background: "#f5f3ff", cursor: "pointer", textAlign: "center" }}>
                                 {orderedFeatured.map((_, i) => <option key={i} value={i}>#{i + 1}</option>)}
                               </select>
                               {p.image_url
@@ -970,185 +993,98 @@ export default function AccueilPage() {
                                 : <span style={{ width: "100%", height: 86, background: "var(--a-bg)", borderRadius: 8, display: "grid", placeItems: "center" }}><i className="ti ti-photo" style={{ color: "#94a3b8", fontSize: 22 }}></i></span>}
                               <div style={{ fontWeight: 700, fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
                               <div style={{ fontSize: 11, color: "#6366f1", fontWeight: 700 }}>{p.price} DT</div>
-                              <button
-                                className="ak-btn ak-btn--danger-ghost ak-btn--sm"
-                                style={{ fontSize: 11, padding: "3px 0", width: "100%" }}
-                                onClick={() => toggleFeatured(p.id, true)}
-                              >
+                              <button className="ak-btn ak-btn--danger-ghost ak-btn--sm" style={{ fontSize: 11, padding: "3px 0", width: "100%" }} onClick={() => toggleFeatured(p.id, true)}>
                                 <i className="ti ti-x"></i> Retirer
                               </button>
                             </div>
                           ))}
                         </div>
                       )}
-
                       {orderedFeatured.length === 0 && (
-                        <p style={{ color: "var(--a-ink-mute)", fontSize: 13, marginBottom: 12 }}>
-                          Aucun produit sélectionné — utilisez la recherche ci-dessous pour en ajouter.
-                        </p>
+                        <p style={{ color: "var(--a-ink-mute)", fontSize: 13, marginBottom: 12 }}>Aucun produit sélectionné — utilisez la liste ci-dessous pour en ajouter.</p>
                       )}
-
-                      {/* Select natif catégories → produits */}
-                      <select
-                        className="ak-input"
-                        style={{ maxWidth: 340, cursor: "pointer" }}
-                        value=""
-                        onChange={(e) => {
-                          const id = e.target.value;
-                          if (!id) return;
-                          const p = produits.find((pr) => pr.id === id);
-                          if (p) toggleFeatured(p.id, false);
-                        }}
-                      >
+                      <select className="ak-input" style={{ maxWidth: 340, cursor: "pointer" }} value="" onChange={(e) => { const id = e.target.value; if (!id) return; const p = produits.find((pr) => pr.id === id); if (p) toggleFeatured(p.id, false); }}>
                         <option value="">+ Ajouter un produit…</option>
                         {categories.map((cat) => {
                           const opts = produits.filter((p) => p.category_id === cat.id && !p.featured);
                           if (opts.length === 0) return null;
-                          return (
-                            <optgroup key={cat.id} label={cat.name}>
-                              {opts.map((p) => (
-                                <option key={p.id} value={p.id}>{p.title} — {p.price} DT</option>
-                              ))}
-                            </optgroup>
-                          );
+                          return (<optgroup key={cat.id} label={cat.name}>{opts.map((p) => <option key={p.id} value={p.id}>{p.title} — {p.price} DT</option>)}</optgroup>);
                         })}
                         {(() => {
                           const catIds = new Set(categories.map((c) => c.id));
                           const sans = produits.filter((p) => (!p.category_id || !catIds.has(p.category_id)) && !p.featured);
                           if (sans.length === 0) return null;
-                          return (
-                            <optgroup label="Sans catégorie">
-                              {sans.map((p) => <option key={p.id} value={p.id}>{p.title} — {p.price} DT</option>)}
-                            </optgroup>
-                          );
+                          return (<optgroup label="Sans catégorie">{sans.map((p) => <option key={p.id} value={p.id}>{p.title} — {p.price} DT</option>)}</optgroup>);
                         })()}
                       </select>
                     </div>
                   );
                 })()}
               </div>
+
+              <div className="ak-modal__footer">
+                <button className="ak-btn ak-btn--ghost" onClick={() => setShowSectionModal(false)}>Fermer</button>
+                <button className="ak-btn ak-btn--primary" onClick={() => sauvegarderSection(s)}>
+                  <i className="ti ti-device-floppy"></i> Enregistrer
+                </button>
+              </div>
             </div>
-          );
-        })
-      )}
+          </div>
+        );
+      })()}
 
       {/* ---------- Quoi de neuf ---------- */}
       <div className="ak-card" style={{ marginTop: 20 }}>
-        <div className="ak-card__header">
-          <div>
-            <h3 className="ak-card__title">
-              <i className="ti ti-sparkles" style={{ marginRight: 6, color: "#10b981" }}></i>
-              Quoi de neuf{" "}
-              <span className="ak-count-badge" style={{ marginLeft: 6 }}>
-                {(() => { const n = produits.filter((p) => p.whats_new).length; return n > 0 ? `${n} épinglé${n > 1 ? "s" : ""}` : "auto"; })()}
-              </span>
-            </h3>
-            <p className="ak-card__subtitle">
-              Épinglez des produits prioritaires. Si aucun n&apos;est épinglé, le dernier article de chaque catégorie s&apos;affiche automatiquement.
-            </p>
+        <div className="ak-card__header" style={{ padding: "14px 18px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ width: 40, height: 40, borderRadius: 10, background: "#f0fdf4", display: "grid", placeItems: "center", flexShrink: 0 }}>
+              <i className="ti ti-sparkles" style={{ color: "#10b981", fontSize: 20 }}></i>
+            </span>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <h3 className="ak-card__title" style={{ margin: 0 }}>Quoi de neuf</h3>
+                <span className="ak-count-badge">
+                  {(() => { const n = produits.filter((p) => p.whats_new).length; return n > 0 ? `${n} épinglé${n > 1 ? "s" : ""}` : "auto"; })()}
+                </span>
+              </div>
+              <p className="ak-card__subtitle" style={{ margin: 0, fontSize: 12 }}>
+                Épinglez des produits prioritaires. Si aucun n&apos;est épinglé, le dernier article de chaque catégorie s&apos;affiche automatiquement.
+              </p>
+            </div>
           </div>
-          {produits.some((p) => p.whats_new) && (
-            <button
-              className="ak-btn ak-btn--ghost ak-btn--sm"
-              onClick={async () => {
-                await Promise.all(
-                  produits.filter((p) => p.whats_new).map((p) =>
-                    supabase.from("products").update({ whats_new: false, whats_new_order: 0 }).eq("id", p.id)
-                  )
-                );
-                notifier("Sélection effacée — mode automatique activé.");
-                chargerProduits();
-              }}
-            >
-              <i className="ti ti-refresh"></i> Réinitialiser (auto)
-            </button>
-          )}
+          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+            {produits.some((p) => p.whats_new) && (
+              <button
+                className="ak-btn ak-btn--ghost ak-btn--sm"
+                onClick={async () => {
+                  await Promise.all(produits.filter((p) => p.whats_new).map((p) => supabase.from("products").update({ whats_new: false, whats_new_order: 0 }).eq("id", p.id)));
+                  notifier("Sélection effacée — mode automatique activé.");
+                  chargerProduits();
+                }}
+              >
+                <i className="ti ti-refresh"></i> Réinitialiser
+              </button>
+            )}
+            {whatsnewDispo && produits.length > 0 && (
+              <button className="ak-btn ak-btn--primary ak-btn--sm" onClick={() => setShowWhatsNewModal(true)}>
+                <i className="ti ti-pencil"></i> Modifier
+              </button>
+            )}
+          </div>
         </div>
-        <div className="ak-card__body">
-          {!whatsnewDispo ? (
+        {!whatsnewDispo && (
+          <div className="ak-card__body">
             <div className="ak-alert ak-alert--warning" style={{ margin: 0 }}>
               <i className="ti ti-alert-circle"></i> La colonne <code>whats_new</code> n&apos;existe pas encore —
               exécutez <code>supabase/migration-v12-whats-new.sql</code> dans le SQL Editor de Supabase puis rechargez.
             </div>
-          ) : produits.length === 0 ? (
-            <p style={{ color: "#94a3b8", margin: 0 }}>
-              Aucun produit publié. <a href="/admin/produits" style={{ color: "#6366f1", fontWeight: 600 }}>Ajouter des produits</a>
-            </p>
-          ) : (
-            <>
-              {/* Liste ordonnée des produits épinglés */}
-              {(() => {
-                const orderedWN = [...produits.filter((p) => p.whats_new)].sort((a, b) => a.whats_new_order - b.whats_new_order);
-                if (orderedWN.length === 0) return null;
-                return (
-                  <div style={{ marginBottom: 14 }}>
-                    {orderedWN.map((p, idx) => (
-                      <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: "var(--a-paper)", border: "1.5px solid #86efac", borderRadius: 11, marginBottom: 6 }}>
-                        <select
-                          value={idx}
-                          onChange={(e) => deplacerWhatsNewVers(p.id, parseInt(e.target.value))}
-                          title="Changer la position"
-                          style={{ width: 58, padding: "5px 4px", borderRadius: 8, border: "1.5px solid #86efac", fontSize: 13, fontWeight: 800, color: "#10b981", background: "#f0fdf4", cursor: "pointer", textAlign: "center", flexShrink: 0 }}
-                        >
-                          {orderedWN.map((_, i) => <option key={i} value={i}>#{i + 1}</option>)}
-                        </select>
-                        {p.image_url
-                          ? <img src={p.image_url} alt="" style={{ width: 44, height: 44, borderRadius: 9, objectFit: "cover", flexShrink: 0 }} />
-                          : <span style={{ width: 44, height: 44, borderRadius: 9, background: "var(--a-bg)", display: "grid", placeItems: "center", flexShrink: 0 }}><i className="ti ti-photo" style={{ color: "#94a3b8" }}></i></span>}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
-                          <div style={{ fontSize: 12, color: "#10b981", fontWeight: 600, marginTop: 2 }}>{p.price} DT</div>
-                        </div>
-                        <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => toggleWhatsNew(p)} title="Retirer" style={{ flexShrink: 0 }}><i className="ti ti-trash"></i></button>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
-              {/* Combobox recherche */}
-              <div style={{ position: "relative", maxWidth: 420 }}>
-                <div style={{ position: "relative" }}>
-                  <i className="ti ti-search" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--a-ink-mute)", fontSize: 15, pointerEvents: "none" }}></i>
-                  <input
-                    className="ak-input"
-                    style={{ paddingLeft: 34 }}
-                    placeholder="Rechercher un produit à épingler…"
-                    value={searchWhatsNew}
-                    onChange={(e) => { setSearchWhatsNew(e.target.value); setShowDropWhatsNew(true); }}
-                    onFocus={() => setShowDropWhatsNew(true)}
-                    onBlur={() => setTimeout(() => setShowDropWhatsNew(false), 180)}
-                  />
-                </div>
-                {showDropWhatsNew && (
-                  <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--a-paper)", border: "1.5px solid var(--a-rule)", borderRadius: 12, boxShadow: "0 8px 28px rgba(0,0,0,0.12)", zIndex: 50, maxHeight: 260, overflowY: "auto" }}>
-                    {produits
-                      .filter((p) => !searchWhatsNew || p.title.toLowerCase().includes(searchWhatsNew.toLowerCase()))
-                      .map((p) => {
-                        const pinned = p.whats_new;
-                        return (
-                          <button
-                            key={p.id}
-                            onMouseDown={(e) => { e.preventDefault(); toggleWhatsNew(p); setSearchWhatsNew(""); }}
-                            style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", width: "100%", background: pinned ? "#f0fdf4" : "transparent", border: "none", borderBottom: "1px solid var(--a-rule)", cursor: "pointer", textAlign: "left" }}
-                          >
-                            {p.image_url
-                              ? <img src={p.image_url} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
-                              : <span style={{ width: 36, height: 36, borderRadius: 8, background: "var(--a-bg)", display: "grid", placeItems: "center", flexShrink: 0 }}><i className="ti ti-photo" style={{ color: "#94a3b8" }}></i></span>}
-                            <span style={{ flex: 1, fontWeight: 600, fontSize: 13, color: "var(--a-ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
-                            <span style={{ fontSize: 12, color: "var(--a-ink-mute)", flexShrink: 0 }}>{p.price} DT</span>
-                            {pinned && <i className="ti ti-check" style={{ color: "#10b981", fontSize: 15, flexShrink: 0 }}></i>}
-                          </button>
-                        );
-                      })}
-                    {produits.filter((p) => !searchWhatsNew || p.title.toLowerCase().includes(searchWhatsNew.toLowerCase())).length === 0 && (
-                      <p style={{ textAlign: "center", color: "var(--a-ink-mute)", padding: "16px 0", fontSize: 13 }}>Aucun produit trouvé</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+          </div>
+        )}
+        {whatsnewDispo && produits.length === 0 && (
+          <div className="ak-card__body">
+            <p style={{ color: "#94a3b8", margin: 0 }}>Aucun produit publié. <a href="/admin/produits" style={{ color: "#6366f1", fontWeight: 600 }}>Ajouter des produits</a></p>
+          </div>
+        )}
       </div>
     </div>
   );

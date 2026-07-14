@@ -6,6 +6,7 @@ import ProductCard from "./components/ProductCard";
 import DroneHeroSlider, { type HeroSlide } from "./components/DroneHeroSlider";
 import ScrollReveal from "./components/ScrollReveal";
 import BannerMedia, { type BannerMediaItem } from "./components/BannerMedia";
+import FloatingMediaCarousel from "./components/FloatingMediaCarousel";
 import CategoryStrip from "./components/CategoryStrip";
 
 type HomeSectionMedia = BannerMediaItem & { display_order: number };
@@ -227,14 +228,23 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* ====== RECOMMANDATION — VIDEO SHOWCASE (admin-managed media) ====== */}
-      {(!recommandation || recommandation.visible) && (
+      {/* ====== SHOWCASE — géré depuis "Articles en solde" dans l'admin ====== */}
+      {(!solde || solde.visible) && (
         <section className="series-section">
-          <div className="container">
-            <div className="pvid pvid--banner">
-              {recommandation && recommandation.media.length > 0 ? (
-                <BannerMedia items={recommandation.media} />
-              ) : (
+          {solde && solde.media.length > 0 ? (
+            <div className="container">
+              <FloatingMediaCarousel
+                items={solde.media}
+                title={solde.title}
+                tagline={solde.tagline ?? undefined}
+                ctaLabel={solde.cta_label ?? undefined}
+                ctaHref={solde.cta_href ?? undefined}
+              />
+            </div>
+          ) : (
+            /* Fallback plein écran quand aucun média n'a encore été uploadé */
+            <div className="container">
+              <div className="pvid pvid--banner">
                 <video
                   className="pvid__video"
                   autoPlay
@@ -245,90 +255,40 @@ export default async function HomePage() {
                 >
                   <source src="/front/videos/dji-product.mp4" type="video/mp4" />
                 </video>
-              )}
-
-              <div className="pvid__overlay" />
-
-              <div className="pvid__content">
-                <p className="pvid__badge">{recommandation ? "Recommandation" : "Produit en Vedette"}</p>
-                {recommandation ? (
-                  <h2 className="pvid__title">{recommandation.title}</h2>
-                ) : (
-                  <h2 className="pvid__title">DJI<br /><span className="pvid__thin">Série Professionnelle</span></h2>
-                )}
-                <p className="pvid__desc">
-                  {recommandation?.tagline || "Précision, autonomie et performance. La référence mondiale de la capture aérienne."}
-                </p>
-                {!recommandation && (
-                  <div className="pvid__specs">
-                    <div className="pvid__spec"><strong>4K</strong><span>Ultra HD</span></div>
-                    <div className="pvid__sep" />
-                    <div className="pvid__spec"><strong>45 min</strong><span>Autonomie</span></div>
-                    <div className="pvid__sep" />
-                    <div className="pvid__spec"><strong>15 km</strong><span>Portée</span></div>
-                    <div className="pvid__sep" />
-                    <div className="pvid__spec"><strong>GPS</strong><span>Précision</span></div>
+                <div className="pvid__overlay" />
+                <div className="pvid__content">
+                  <p className="pvid__badge">{solde ? solde.title : "Produit en Vedette"}</p>
+                  {solde ? (
+                    <h2 className="pvid__title">{solde.title}</h2>
+                  ) : (
+                    <h2 className="pvid__title">DJI<br /><span className="pvid__thin">Série Professionnelle</span></h2>
+                  )}
+                  <p className="pvid__desc">
+                    {solde?.tagline || "Précision, autonomie et performance. La référence mondiale de la capture aérienne."}
+                  </p>
+                  {!solde && (
+                    <div className="pvid__specs">
+                      <div className="pvid__spec"><strong>4K</strong><span>Ultra HD</span></div>
+                      <div className="pvid__sep" />
+                      <div className="pvid__spec"><strong>45 min</strong><span>Autonomie</span></div>
+                      <div className="pvid__sep" />
+                      <div className="pvid__spec"><strong>15 km</strong><span>Portée</span></div>
+                      <div className="pvid__sep" />
+                      <div className="pvid__spec"><strong>GPS</strong><span>Précision</span></div>
+                    </div>
+                  )}
+                  <div className="pvid__ctas">
+                    <Link href={solde?.cta_href || "/boutique"} className="pvid__btn pvid__btn--white">
+                      {solde?.cta_label || "Acheter maintenant"}
+                    </Link>
                   </div>
-                )}
-                <div className="pvid__ctas">
-                  <Link href={recommandation?.cta_href || "/boutique"} className="pvid__btn pvid__btn--white">
-                    {recommandation?.cta_label || "Acheter maintenant"}
-                  </Link>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </section>
       )}
 
-      {/* ====== SERIES: ARTICLES EN SOLDE (admin-managed media, hideable) ====== */}
-      {(!solde || solde.visible) && (
-        <section className="series-section">
-          <div className="container">
-            <ScrollReveal animation="fade-up">
-              <h2 className="series-section__label">{solde ? "Articles en Solde" : "Prise en Main · Vlogging Quotidien"}</h2>
-              <div className="series-banner">
-                {solde && solde.media.length > 0 ? (
-                  <BannerMedia items={solde.media} />
-                ) : soldeSyncMedia.length > 0 ? (
-                  <BannerMedia items={soldeSyncMedia} />
-                ) : (
-                  <div className="series-banner__bg" style={{ backgroundImage: "url(https://images.unsplash.com/photo-1508444845599-5c89863b1c44?w=1600&q=85&auto=format&fit=crop)" }} />
-                )}
-                <div className="series-banner__content">
-                  <h3 className="series-banner__name">{solde?.title || "Caméra d'Action 6 Pro"}</h3>
-                  <p className="series-banner__tagline">{solde?.tagline || "La caméra d'action à la qualité d'image révolutionnaire"}</p>
-                  <Link href={solde?.cta_href || "/boutique?q=action"} className="series-banner__btn">
-                    {solde?.cta_label || "Acheter"}
-                    <svg width="12" height="9" viewBox="0 0 14 10" fill="none"><path d="M1 5h12m0 0L9 1m4 4L9 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  </Link>
-                </div>
-              </div>
-            </ScrollReveal>
-            {solde ? (
-              soldeProducts.length > 0 && (
-                <ScrollReveal animation="fade-up" delay={100} className="stagger">
-                  <div className="series-products">
-                    {soldeProducts.map((p) => (
-                      <ProductCard key={p.id} id={p.id} title={p.title} price={p.price} compare_price={p.compare_price} stock={p.stock} image_url={p.image_url} loyalty_points={p.loyalty_points} badge="Promo" />
-                    ))}
-                  </div>
-                </ScrollReveal>
-              )
-            ) : (
-              handheld && handheld.length > 0 && (
-                <ScrollReveal animation="fade-up" delay={100} className="stagger">
-                  <div className="series-products">
-                    {handheld.map((p) => (
-                      <ProductCard key={p.id} id={p.id} title={p.title} price={p.price} compare_price={p.compare_price} stock={p.stock} image_url={p.image_url} loyalty_points={p.loyalty_points} badge={p.compare_price && p.compare_price > p.price ? "Promo" : undefined} />
-                    ))}
-                  </div>
-                </ScrollReveal>
-              )
-            )}
-          </div>
-        </section>
-      )}
 
       {/* ====== SHOP OUR SELECTIONS (categories) ====== */}
       {categories && categories.length > 0 && (

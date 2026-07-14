@@ -11,6 +11,7 @@ export type BannerMediaItem = {
 
 // Rotating background media (images and/or videos) for the home banners.
 // Renders nothing when the list is empty; shows arrows + dots when there are 2+.
+// Videos play only while the banner is in the viewport (IntersectionObserver).
 export default function BannerMedia({
   items,
   interval = 5000,
@@ -21,6 +22,8 @@ export default function BannerMedia({
   const [index, setIndex] = useState(0);
   const count = items.length;
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const resetTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -33,6 +36,31 @@ export default function BannerMedia({
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [resetTimer]);
 
+  // Pause/resume active video when banner enters/leaves the viewport
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        const video = videoRefs.current.get(items[index]?.id);
+        if (!video) return;
+        if (entry.isIntersecting) video.play().catch(() => {});
+        else video.pause();
+      },
+      { threshold: 0.25 }
+    );
+    obs.observe(container);
+    return () => obs.disconnect();
+  }, [index, items]);
+
+  // When active slide changes: play new video, pause old ones
+  useEffect(() => {
+    videoRefs.current.forEach((video, id) => {
+      if (id === items[index]?.id) video.play().catch(() => {});
+      else video.pause();
+    });
+  }, [index, items]);
+
   const goTo = useCallback((i: number) => {
     setIndex((i + count) % count);
     resetTimer();
@@ -42,11 +70,21 @@ export default function BannerMedia({
 
   return (
     <>
-      <div className="banner-media" aria-hidden="true">
+      <div ref={containerRef} className="banner-media" aria-hidden="true">
         {items.map((m, i) => (
           <div key={m.id} className={`banner-media__item${i === index ? " is-active" : ""}`}>
             {m.media_type === "video" ? (
-              <video autoPlay muted loop playsInline poster={m.poster_url ?? undefined}>
+              <video
+                ref={(el) => {
+                  if (el) videoRefs.current.set(m.id, el);
+                  else videoRefs.current.delete(m.id);
+                }}
+                muted
+                loop
+                playsInline
+                poster={m.poster_url ?? undefined}
+                preload={i === 0 ? "auto" : "metadata"}
+              >
                 <source src={m.url} />
               </video>
             ) : (

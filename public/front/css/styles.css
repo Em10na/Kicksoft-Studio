@@ -6038,6 +6038,219 @@ font { background: transparent !important; box-shadow: none !important; }
 }
 
 /* ================================================================
+   FLOATING MEDIA CAROUSEL (.fmc) — Noon-inspired premium cards
+   Horizontal snap scroll · variable card sizes · IO video autoplay
+   ================================================================ */
+
+.fmc {
+  position: relative;
+  /* Bleed to page edges while keeping the header inside the grid */
+  margin-left:  calc(-1 * var(--container-pad));
+  margin-right: calc(-1 * var(--container-pad));
+}
+
+/* Section header stays readable, padded back in */
+.fmc__head {
+  padding: 0 var(--container-pad) var(--s5);
+  text-align: center;
+}
+.fmc__title {
+  font-family: var(--ff-display);
+  font-size: clamp(1.5rem, 1rem + 2vw, 2.4rem);
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+  margin-bottom: var(--s2);
+}
+.fmc__tagline {
+  color: var(--ink-mute);
+  font-size: var(--text-md);
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+/* Wrapper contains both the track and the arrow buttons */
+.fmc__wrap {
+  position: relative;
+}
+
+/* Horizontal scrolling track */
+.fmc__track {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  padding: 20px var(--container-pad) 28px;
+  -webkit-overflow-scrolling: touch;
+}
+.fmc__track::-webkit-scrollbar { display: none; }
+
+/* ── Cards ─────────────────────────────────────────────── */
+.fmc__card {
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  border-radius: 20px;
+  overflow: hidden;
+  position: relative;
+  height: 380px;
+  background: #111;
+
+  /* Floating shadow */
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.10),
+    0 1px  4px rgba(0, 0, 0, 0.06);
+
+  /* Entrance: starts hidden, slides up when .fmc__card--in added by IO */
+  opacity: 0;
+  transform: translateY(20px) scale(0.975);
+  transition:
+    opacity  0.55s cubic-bezier(0.22, 1, 0.36, 1) var(--fmc-delay, 0ms),
+    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1) var(--fmc-delay, 0ms),
+    box-shadow 0.32s ease,
+    filter    0.32s ease;
+}
+.fmc__card--in {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+.fmc__card--in:hover {
+  box-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.16),
+    0  6px 14px rgba(0, 0, 0, 0.10);
+  transform: translateY(-7px) scale(1.012);
+}
+
+/* Variable widths (desktop) */
+.fmc__card--wide   { min-width: 520px; }
+.fmc__card--medium { min-width: 350px; }
+.fmc__card--narrow { min-width: 240px; }
+
+/* Media fill */
+.fmc__card img,
+.fmc__card video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.fmc__card--in:hover img,
+.fmc__card--in:hover video {
+  transform: scale(1.05);
+}
+
+/* Bottom vignette — adds depth and makes cards feel premium */
+.fmc__card-shade {
+  position: absolute; inset: 0;
+  background: linear-gradient(
+    175deg,
+    transparent 42%,
+    rgba(0, 0, 0, 0.36) 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── Navigation arrows ──────────────────────────────────── */
+.fmc__arrow {
+  position: absolute;
+  top: 50%; transform: translateY(-50%);
+  z-index: 10;
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: var(--ink);
+  display: grid; place-items: center;
+  cursor: pointer;
+  opacity: 0;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.13);
+  transition: opacity 0.22s, box-shadow 0.22s,
+              transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.fmc__wrap:hover .fmc__arrow { opacity: 1; }
+.fmc__arrow:hover {
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.18);
+  transform: translateY(-50%) scale(1.1);
+}
+.fmc__arrow--prev { left: 10px; }
+.fmc__arrow--next { right: 10px; }
+
+[data-theme="dark"] .fmc__arrow {
+  background: rgba(24, 24, 36, 0.9);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+/* ── Footer: dots + CTA ─────────────────────────────────── */
+.fmc__footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--s4);
+  padding: var(--s2) var(--container-pad) var(--s5);
+}
+
+/* Pill-style indicator dots */
+.fmc__dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.fmc__dots button {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  border: none; padding: 0; cursor: pointer;
+  background: var(--rule-strong);
+  transition: width 0.28s ease, background 0.28s ease, border-radius 0.28s ease;
+}
+.fmc__dots button.is-active {
+  width: 24px;
+  border-radius: 4px;
+  background: var(--indigo);
+}
+
+/* CTA button */
+.fmc__cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 26px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #fff;
+  font-weight: 700;
+  font-size: var(--text-sm);
+  letter-spacing: 0.025em;
+  transition: transform 0.2s var(--ease), opacity 0.2s;
+}
+.fmc__cta-btn:hover { color: #fff; transform: scale(1.05); opacity: 0.88; }
+[data-theme="dark"] .fmc__cta-btn { background: #fff; color: #111; }
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .fmc__card--wide   { min-width: 420px; }
+  .fmc__card--medium { min-width: 300px; }
+  .fmc__card--narrow { min-width: 220px; }
+}
+@media (max-width: 768px) {
+  .fmc__card { height: 280px; border-radius: 16px; }
+  .fmc__card--wide   { min-width: 82vw; }
+  .fmc__card--medium { min-width: 72vw; }
+  .fmc__card--narrow { min-width: 64vw; }
+  .fmc__arrow { display: none; }
+}
+@media (max-width: 480px) {
+  .fmc__card { height: 220px; border-radius: 14px; }
+  .fmc__track { gap: 10px; padding: 14px var(--s4) 20px; }
+  .fmc__card--wide, .fmc__card--medium, .fmc__card--narrow { min-width: 86vw; }
+}
+
+/* ================================================================
    ACCOUNT AREA — espace client monochrome
    ================================================================ */
 .account-grid {
