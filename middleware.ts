@@ -31,7 +31,7 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  // --- Routes admin : authentifie + role admin ou manager ---
+  // --- Routes admin : authentifie + role admin ---
   if (pathname.startsWith("/admin")) {
     if (!user) {
       const url = request.nextUrl.clone();
@@ -45,7 +45,7 @@ export async function middleware(request: NextRequest) {
       .single();
     const roles = profile?.roles as unknown as { name: string } | null;
     const roleName = roles?.name;
-    if (roleName !== "admin" && roleName !== "manager") {
+    if (roleName !== "admin") {
       const url = request.nextUrl.clone();
       url.pathname = "/compte";
       return NextResponse.redirect(url);
@@ -53,7 +53,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // --- Routes compte : authentifie + reserve aux clients ---
-  // (l'admin/manager a son propre espace : le dashboard /admin)
+  // (l'admin a son propre espace : le dashboard /admin)
   if (pathname.startsWith("/compte")) {
     if (!user) {
       const url = request.nextUrl.clone();
@@ -67,7 +67,7 @@ export async function middleware(request: NextRequest) {
       .single();
     const roles = profile?.roles as unknown as { name: string } | null;
     const roleName = roles?.name;
-    if (roleName === "admin" || roleName === "manager") {
+    if (roleName === "admin") {
       const url = request.nextUrl.clone();
       url.pathname = "/admin";
       return NextResponse.redirect(url);
@@ -75,7 +75,12 @@ export async function middleware(request: NextRequest) {
   }
 
   // --- Auth : rediriger si deja connecte ---
-  if (pathname.startsWith("/auth/") && user) {
+  // Exception : /auth/reinitialiser-mot-de-passe et /auth/callback
+  // ont besoin d'une session active (échange PKCE ou updateUser).
+  const isResetFlow =
+    pathname === "/auth/reinitialiser-mot-de-passe" ||
+    pathname === "/auth/callback";
+  if (pathname.startsWith("/auth/") && user && !isResetFlow) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role_id, roles(name)")
@@ -84,8 +89,7 @@ export async function middleware(request: NextRequest) {
     const roles = profile?.roles as unknown as { name: string } | null;
     const roleName = roles?.name;
     const url = request.nextUrl.clone();
-    url.pathname =
-      roleName === "admin" || roleName === "manager" ? "/admin" : "/compte";
+    url.pathname = roleName === "admin" ? "/admin" : "/compte";
     return NextResponse.redirect(url);
   }
 

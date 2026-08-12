@@ -43,21 +43,25 @@ export default function ConnexionPage() {
       const { data: profile } = await supabase.from("profiles").select("role_id, roles(name)").eq("id", user.id).single();
       const roles = profile?.roles as unknown as { name: string } | null;
       const roleName = roles?.name;
-      if (roleName === "admin" || roleName === "manager") {
+      if (roleName === "admin") {
         router.push("/admin");
+        router.refresh();
       } else {
-        router.push("/compte");
+        // Compte non-admin : on déconnecte immédiatement et on refuse l'accès
+        await supabase.auth.signOut();
+        setErreur("Accès refusé. Cette interface est réservée aux administrateurs.");
+        setChargement(false);
       }
     } else {
-      router.push("/compte");
+      setErreur("Impossible de récupérer le profil. Réessayez.");
+      setChargement(false);
     }
-    router.refresh();
   }
 
   return (
     <AuthShell>
-      <h1 className="auth-title">Bon retour !</h1>
-      <p className="auth-sub">Connectez-vous pour accéder à votre espace.</p>
+      <h1 className="auth-title">Espace administrateur</h1>
+      <p className="auth-sub">Connectez-vous avec votre compte admin pour accéder au tableau de bord.</p>
 
       {erreur && (
         <div className="auth-alert">
@@ -122,10 +126,6 @@ export default function ConnexionPage() {
         {chargement ? "Connexion..." : "Se connecter"}
       </button>
 
-      <p className="auth-switch">
-        Pas encore de compte ?{" "}
-        <Link href="/auth/inscription">Créer un compte</Link>
-      </p>
     </AuthShell>
   );
 }

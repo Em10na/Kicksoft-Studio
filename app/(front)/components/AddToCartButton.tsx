@@ -2,54 +2,12 @@
 
 import { useRef, useState } from "react";
 import { useCart } from "@/lib/cart";
+import { launchCartAnim } from "@/app/(front)/lib/cartAnim";
 
 type Props = {
   product: { id: string; title: string; price: number; image_url: string | null; stock: number };
   showQty?: boolean;
 };
-
-function flyToCart(source: HTMLElement | null) {
-  if (typeof window === "undefined" || !source) return;
-
-  const cartIcon = [
-    document.querySelector<HTMLElement>(".icon-btn--cart"),
-    document.querySelector<HTMLElement>(".bottom-bar__item--cart"),
-  ].find((el) => {
-    if (!el) return false;
-    const s = window.getComputedStyle(el);
-    return s.display !== "none" && s.visibility !== "hidden";
-  });
-  if (!cartIcon) return;
-
-  const sr = source.getBoundingClientRect();
-  const tr = cartIcon.getBoundingClientRect();
-
-  const sx = sr.left + sr.width  / 2;
-  const sy = sr.top  + sr.height / 2;
-  const ex = tr.left + tr.width  / 2;
-  const ey = tr.top  + tr.height / 2;
-
-  // Subtle arc — peaks 90px above the midpoint
-  const mx = (sx + ex) / 2;
-  const my = Math.min(sy, ey) - 90;
-
-  const orb = document.createElement("div");
-  orb.className = "cart-orb";
-  document.body.appendChild(orb);
-
-  orb.animate(
-    [
-      { transform: `translate(${sx - 6}px, ${sy - 6}px) scale(1)`,    opacity: "1"   },
-      { transform: `translate(${mx - 6}px, ${my - 6}px) scale(0.9)`,  opacity: "0.9", offset: 0.44 },
-      { transform: `translate(${ex - 6}px, ${ey - 6}px) scale(0.35)`, opacity: "0"   },
-    ],
-    { duration: 620, easing: "cubic-bezier(0.4, 0, 0.2, 1)", fill: "forwards" }
-  ).onfinish = () => {
-    orb.remove();
-    cartIcon.classList.add("cart-bounce");
-    setTimeout(() => cartIcon.classList.remove("cart-bounce"), 550);
-  };
-}
 
 export default function AddToCartButton({ product, showQty = false }: Props) {
   const { addItem } = useCart();
@@ -59,14 +17,12 @@ export default function AddToCartButton({ product, showQty = false }: Props) {
 
   function handleAdd() {
     if (!showQty) {
-      // On product cards: open the quick-add drawer instead of adding directly
       window.dispatchEvent(new CustomEvent("quickadd", { detail: product }));
       return;
     }
-    // On the product detail page (showQty=true): add directly + animation
     addItem(product, qty);
     setAdded(true);
-    flyToCart(btnRef.current);
+    if (btnRef.current) launchCartAnim(btnRef.current);
     setTimeout(() => setAdded(false), 1500);
   }
 
@@ -89,7 +45,7 @@ export default function AddToCartButton({ product, showQty = false }: Props) {
         style={{ flex: 1, minWidth: "160px" }}
         onClick={handleAdd}
       >
-        {added ? "Ajoute !" : "Ajouter au panier"} &rarr;
+        {added ? "Ajouté !" : "Ajouter au panier"} &rarr;
       </button>
     </>
   );

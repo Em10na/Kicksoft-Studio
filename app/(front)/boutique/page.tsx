@@ -4,7 +4,7 @@ import ProductCard from "../components/ProductCard";
 import BoutiqueFilters from "./BoutiqueFilters";
 
 type Props = {
-  searchParams: Promise<{ q?: string; categorie?: string; tri?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; categorie?: string; tri?: string; page?: string; nouveautes?: string }>;
 };
 
 const ITEMS_PAR_PAGE = 12;
@@ -22,6 +22,9 @@ export default async function BoutiquePage({ searchParams }: Props) {
     .from("products")
     .select("*, categories(name)", { count: "exact" })
     .eq("status", "published");
+
+  // Filtre "Quoi de neuf" — activé depuis le bouton "Voir tout" de la section accueil
+  if (params.nouveautes === "1") query = query.eq("whats_new", true);
 
   if (params.categorie) query = query.eq("category_id", params.categorie);
   if (params.q) {
@@ -62,6 +65,7 @@ export default async function BoutiquePage({ searchParams }: Props) {
     if (p.q) sp.set("q", p.q);
     if (p.categorie) sp.set("categorie", p.categorie);
     if (p.tri) sp.set("tri", p.tri);
+    if (p.nouveautes) sp.set("nouveautes", p.nouveautes);
     if (p.page && p.page !== "1") sp.set("page", p.page);
     const qs = sp.toString();
     return `/boutique${qs ? `?${qs}` : ""}`;
@@ -73,9 +77,9 @@ export default async function BoutiquePage({ searchParams }: Props) {
         <div className="container">
           <div className="crumbs">
             <Link href="/">Accueil</Link> <span className="sep">&rsaquo;</span>{" "}
-            <span>{categorieActive ? categorieActive.name : "Boutique"}</span>
+            <span>{categorieActive ? categorieActive.name : params.nouveautes === "1" ? "Nouveautés" : "Boutique"}</span>
           </div>
-          <h1>{categorieActive ? categorieActive.name : "Tous les produits"}</h1>
+          <h1>{categorieActive ? categorieActive.name : params.nouveautes === "1" ? "Quoi de neuf" : "Tous les produits"}</h1>
           <p>
             {total} produit(s) disponible(s).
             {params.q && ` Recherche : "${params.q}"`}
