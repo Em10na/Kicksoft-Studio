@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
@@ -8,7 +8,7 @@ import Link from "next/link";
 // Durée du blocage après un rate limit (en secondes)
 const COOLDOWN_SECS = 120;
 
-export default function MotDePasseOubliePage() {
+function MotDePasseOublieContenu() {
   const supabase = createClient();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
@@ -233,5 +233,20 @@ export default function MotDePasseOubliePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// useSearchParams force le rendu client de l'arbre jusqu'à la Suspense la plus
+// proche : sans cette frontière, le prerender de la page échoue au build.
+// Le fallback reprend le fond de la page pour éviter un flash blanc.
+export default function MotDePasseOubliePage() {
+  return (
+    <Suspense
+      fallback={
+        <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%)" }} />
+      }
+    >
+      <MotDePasseOublieContenu />
+    </Suspense>
   );
 }
