@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -44,17 +45,23 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <head>
-        {/* Apply saved theme before first paint — prevents flash */}
-        <script
+      <head />
+      {/* suppressHydrationWarning : extensions navigateur et Google Translate
+          injectent des attributs (style, etc.) sur <body> avant l'hydratation */}
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        {/*
+          Applique le thème sauvegardé avant le premier rendu — évite le flash.
+          strategy="beforeInteractive" : Next.js hisse ce script dans le <head>
+          du HTML généré, avant tout JS React. Le composant Script est lui-même
+          dans <body> pour respecter les contraintes de React 19.
+        */}
+        <Script
+          id="theme-init"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem('theme');if(t){document.documentElement.setAttribute('data-theme',t);}else if(window.matchMedia('(prefers-color-scheme:dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})()`,
           }}
         />
-      </head>
-      {/* suppressHydrationWarning : extensions navigateur et Google Translate
-          injectent des attributs (style, etc.) sur <body> avant l'hydratation */}
-      <body className="min-h-full flex flex-col" suppressHydrationWarning>
         {children}
       </body>
     </html>

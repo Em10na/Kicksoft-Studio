@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useCart } from "@/lib/cart";
+import { launchCartAnim } from "@/app/(front)/lib/cartAnim";
 
 type Product = {
   id: string;
@@ -33,9 +34,7 @@ export default function QuickAddDrawer() {
   }, []);
 
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") close();
-    }
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") close(); }
     if (product) window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [product]);
@@ -49,44 +48,9 @@ export default function QuickAddDrawer() {
     if (!product || product.stock <= 0) return;
     addItem(product, qty);
     setAdded(true);
-    flyOrb();
+    const btn = drawerRef.current?.querySelector<HTMLElement>(".qa-add-btn");
+    if (btn) launchCartAnim(btn);
     setTimeout(close, 1100);
-  }
-
-  function flyOrb() {
-    const btn = drawerRef.current?.querySelector(".qa-add-btn") as HTMLElement | null;
-    const cart = (
-      document.querySelector(".bottom-bar__item--cart") ||
-      document.querySelector('[href="/panier"].icon-btn')
-    ) as HTMLElement | null;
-    if (!btn || !cart) return;
-
-    const from = btn.getBoundingClientRect();
-    const to   = cart.getBoundingClientRect();
-    const orb  = document.createElement("div");
-
-    Object.assign(orb.style, {
-      position: "fixed",
-      width: "15px", height: "15px",
-      borderRadius: "50%",
-      background: "#4f46e5",
-      boxShadow: "0 0 10px rgba(79,70,229,0.7)",
-      zIndex: "9999",
-      pointerEvents: "none",
-      left: `${from.left + from.width / 2 - 7.5}px`,
-      top:  `${from.top  + from.height / 2 - 7.5}px`,
-    });
-    document.body.appendChild(orb);
-
-    const dx  = to.left + to.width  / 2 - (from.left + from.width  / 2);
-    const dy  = to.top  + to.height / 2 - (from.top  + from.height / 2);
-    const arc = Math.min(Math.abs(dy) * 0.5, 90);
-
-    orb.animate([
-      { transform: "translate(0,0) scale(1)", opacity: "1" },
-      { transform: `translate(${dx * 0.5}px,${dy * 0.5 - arc}px) scale(0.65)`, opacity: "0.85", offset: 0.5 },
-      { transform: `translate(${dx}px,${dy}px) scale(0.15)`, opacity: "0" },
-    ], { duration: 620, easing: "cubic-bezier(.4,0,.2,1)" }).onfinish = () => orb.remove();
   }
 
   if (!product) return null;
@@ -94,6 +58,9 @@ export default function QuickAddDrawer() {
   const discount = product.compare_price && product.compare_price > product.price
     ? Math.round((1 - product.price / product.compare_price) * 100)
     : null;
+
+  const img = product.image_url
+    || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&q=80&auto=format&fit=crop";
 
   return (
     <>
@@ -106,75 +73,123 @@ export default function QuickAddDrawer() {
         aria-modal="true"
         aria-label={`Aperçu : ${product.title}`}
       >
-        {/* Handle drag (mobile) */}
+        {/* Barre de glissement (mobile) */}
         <div className="qa-handle" aria-hidden="true" />
 
-        {/* Image carrée + close + compteur */}
-        <div className="qa-img">
-          <img
-            src={product.image_url || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&q=80&auto=format&fit=crop"}
-            alt={product.title}
-          />
-          <button className="qa-close" onClick={close} aria-label="Fermer">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
-          <span className="qa-counter">1 / 1</span>
-        </div>
+        {/* Layout 2 colonnes desktop / empilé mobile */}
+        <div className="qa-inner">
 
-        {/* Info produit scrollable */}
-        <div className="qa-scroll">
-          <div className="qa-body">
-            <p className="qa-title">{product.title}</p>
-
-            {/* Prix */}
-            <div className="qa-pricing">
-              {product.compare_price && product.compare_price > product.price && (
-                <div className="qa-pricing-top">
-                  <span className="qa-compare">{product.compare_price.toFixed(2)} DT</span>
-                  <span className="qa-badge">−{discount}%</span>
-                </div>
-              )}
-              <span className="qa-price">{product.price.toFixed(2)} DT</span>
-            </div>
-
-            {/* Stock */}
-            <p className={`qa-stock ${product.stock <= 0 ? "qa-stock--out" : ""}`}>
-              <span className="qa-stock-dot" />
-              {product.stock > 0
-                ? `En stock — ${product.stock} article${product.stock > 1 ? "s" : ""}`
-                : "Rupture de stock"}
-            </p>
-
-            {/* Quantité */}
-            {product.stock > 0 && (
-              <div className="qa-actions">
-                <div className="qty qa-qty">
-                  <button type="button" onClick={() => setQty(Math.max(1, qty - 1))} aria-label="Diminuer">&#x2212;</button>
-                  <input type="text" value={qty} readOnly inputMode="numeric" aria-label="Quantité" />
-                  <button type="button" onClick={() => setQty(Math.min(product.stock, qty + 1))} aria-label="Augmenter">+</button>
-                </div>
-              </div>
+          {/* ── Colonne image ── */}
+          <div className="qa-img">
+            <img src={img} alt={product.title} />
+            {discount && (
+              <span className="qa-img-badge">-{discount}%</span>
             )}
           </div>
-        </div>
 
-        {/* Pied fixe : bouton + lien fiche */}
-        <div className="qa-footer">
-          <button
-            className={`btn ${added ? "btn--emerald" : "btn--indigo"} qa-add-btn`}
-            onClick={handleAdd}
-            disabled={product.stock <= 0 || added}
-          >
-            {added ? "✓ Ajouté au panier !" : product.stock <= 0 ? "Rupture de stock" : "Ajouter au panier"}
-          </button>
-          <Link href={`/produit/${product.id}`} className="qa-view-link" onClick={close}>
-            Voir la fiche complète
-            <svg width="12" height="10" viewBox="0 0 14 10" fill="none">
-              <path d="M1 5h12m0 0L9 1m4 4L9 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </Link>
+          {/* ── Colonne info ── */}
+          <div className="qa-panel">
+
+            {/* Bouton fermer */}
+            <button className="qa-close" onClick={close} aria-label="Fermer">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Scrollable */}
+            <div className="qa-scroll">
+              <div className="qa-body">
+
+                {/* Titre */}
+                <p className="qa-title">{product.title}</p>
+
+                {/* Prix */}
+                <div className="qa-pricing">
+                  {product.compare_price && product.compare_price > product.price && (
+                    <span className="qa-compare">{product.compare_price.toFixed(2)} DT</span>
+                  )}
+                  <span className="qa-price">{product.price.toFixed(2)} DT</span>
+                </div>
+
+                {/* Séparateur */}
+                <div className="qa-divider" />
+
+                {/* Stock */}
+                <p className={`qa-stock ${product.stock <= 0 ? "qa-stock--out" : ""}`}>
+                  <span className="qa-stock-dot" />
+                  {product.stock > 0
+                    ? `En stock — ${product.stock} article${product.stock > 1 ? "s" : ""}`
+                    : "Rupture de stock"}
+                </p>
+
+                {/* Quantité */}
+                {product.stock > 0 && (
+                  <div className="qa-qty-block">
+                    <p className="qa-qty-label">Quantité</p>
+                    <div className="qa-qty">
+                      <button
+                        type="button"
+                        onClick={() => setQty(Math.max(1, qty - 1))}
+                        aria-label="Diminuer"
+                        disabled={qty <= 1}
+                      >
+                        <svg width="12" height="2" viewBox="0 0 12 2" fill="none">
+                          <path d="M1 1h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                        </svg>
+                      </button>
+                      <span className="qa-qty-val">{qty}</span>
+                      <button
+                        type="button"
+                        onClick={() => setQty(Math.min(product.stock, qty + 1))}
+                        aria-label="Augmenter"
+                        disabled={qty >= product.stock}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                          <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Pied : CTA + lien fiche */}
+            <div className="qa-footer">
+              <button
+                className={`qa-add-btn ${added ? "qa-add-btn--done" : ""}`}
+                onClick={handleAdd}
+                disabled={product.stock <= 0 || added}
+              >
+                {added ? (
+                  <>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 6L9 17l-5-5" />
+                    </svg>
+                    Ajouté !
+                  </>
+                ) : product.stock <= 0 ? (
+                  "Rupture de stock"
+                ) : (
+                  <>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+                    </svg>
+                    Ajouter au panier
+                  </>
+                )}
+              </button>
+
+              <Link href={`/produit/${product.id}`} className="qa-view-link" onClick={close}>
+                Voir la fiche complète
+                <svg width="12" height="10" viewBox="0 0 14 10" fill="none">
+                  <path d="M1 5h12m0 0L9 1m4 4L9 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </>

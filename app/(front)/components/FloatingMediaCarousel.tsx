@@ -16,6 +16,8 @@ type Props = {
   tagline?: string;
   ctaLabel?: string;
   ctaHref?: string;
+  /** When true, all cards share the same min-width instead of cycling wide/medium/narrow. */
+  uniform?: boolean;
 };
 
 export default function FloatingMediaCarousel({
@@ -26,6 +28,7 @@ export default function FloatingMediaCarousel({
   tagline,
   ctaLabel,
   ctaHref,
+  uniform = false,
 }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -91,7 +94,7 @@ export default function FloatingMediaCarousel({
   };
 
   return (
-    <div className="fmc">
+    <div className={`fmc${uniform ? " fmc--uniform" : ""}`}>
       {/* Section header */}
       {(badge || title || tagline) && (
         <div className="fmc__head">
@@ -128,7 +131,7 @@ export default function FloatingMediaCarousel({
             <FmcCard
               key={item.id}
               item={item}
-              size={SIZES[idx % SIZES.length]}
+              size={uniform ? "medium" : SIZES[idx % SIZES.length]}
               idx={idx}
             />
           ))}
@@ -246,6 +249,51 @@ function FmcCard({
       )}
       {/* Bottom vignette — purely decorative */}
       <div className="fmc__card-shade" aria-hidden="true" />
+
+      {/* Lien transparent couvrant toute la carte → page produit */}
+      {item.href && (
+        <Link
+          href={item.href}
+          aria-label="Voir le détail du produit"
+          style={{ position: "absolute", inset: 0, zIndex: 2 }}
+        />
+      )}
+
+      {/* Ruban de remise en coin — alimenté automatiquement depuis compare_price du produit */}
+      {item.badge && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            right: 0,
+            width: 96,
+            height: 96,
+            overflow: "hidden",
+            pointerEvents: "none",
+            userSelect: "none",
+          }}
+          aria-label={`Remise de ${item.badge}`}
+        >
+          <span
+            style={{
+              position: "absolute",
+              top: 20,
+              right: -26,
+              width: 102,
+              background: "#f43f5e",
+              color: "#fff",
+              textAlign: "center",
+              transform: "rotate(45deg)",
+              lineHeight: 1.25,
+              padding: "6px 0",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.28)",
+            }}
+          >
+            <span style={{ display: "block", fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", opacity: 0.88 }}>SOLDES</span>
+            <span style={{ display: "block", fontSize: 13, fontWeight: 900, letterSpacing: "0.01em" }}>{item.badge}</span>
+          </span>
+        </div>
+      )}
     </div>
   );
 }

@@ -469,6 +469,7 @@ body {
   align-items: center;
   justify-content: center;
   padding: 24px;
+  overflow-y: auto;
   animation: fadeIn 0.2s ease;
   backdrop-filter: blur(2px);
 }

@@ -6,18 +6,20 @@ import ProductCard from "./components/ProductCard";
 import DroneHeroSlider, { type HeroSlide } from "./components/DroneHeroSlider";
 import ScrollReveal from "./components/ScrollReveal";
 import BannerMedia, { type BannerMediaItem } from "./components/BannerMedia";
-import FloatingMediaCarousel from "./components/FloatingMediaCarousel";
+import SoldeArrivalsSection from "./components/SoldeArrivalsSection";
 import CategoryStrip from "./components/CategoryStrip";
+import SuggestionsScroll from "./components/SuggestionsScroll";
 
 type HomeSectionMedia = BannerMediaItem & { display_order: number };
 type HomeSectionRow = {
   id: string;
-  section: "suggestion" | "recommandation" | "solde";
+  section: "suggestion" | "recommandation" | "solde" | "quoi_de_neuf";
   title: string;
   tagline: string | null;
   cta_label: string | null;
   cta_href: string | null;
   visible: boolean;
+  display_order?: number;
   home_section_media: HomeSectionMedia[] | null;
 };
 
@@ -36,16 +38,14 @@ const CIRCLE_CATS = [
 export default async function HomePage() {
   const supabase = await createClient();
 
-  const [{ data: featured }, { data: categories }, { data: whatsNew }, { data: handheld }, { data: homeSections }, { data: promoPool }, { data: heroSoldes }, { data: pinnedNew }, { data: heroSlidesAdmin }] = await Promise.all([
+  const [{ data: featured }, { data: categories }, { data: whatsNew }, { data: homeSections }, { data: heroSoldes }, { data: pinnedNew }, { data: heroSlidesAdmin }] = await Promise.all([
     // Suggestions : produits featured ordonnés par featured_order (admin-managed)
     supabase.from("products").select("*").eq("status", "published").eq("featured", true).order("featured_order", { ascending: true }).limit(8),
     supabase.from("categories").select("*").order("name"),
     supabase.from("products").select("*").eq("status", "published").order("created_at", { ascending: false }).limit(60),
-    supabase.from("products").select("*").eq("status", "published").order("display_order", { ascending: true }).order("created_at", { ascending: false }).range(8, 11),
-    supabase.from("home_sections").select("*, home_section_media(*)"),
-    // Articles en Solde : uniquement les produits solde_hero=true, ordonnés par solde_hero_order (admin-managed)
-    supabase.from("products").select("*").eq("status", "published").eq("solde_hero", true).not("compare_price", "is", null).order("solde_hero_order", { ascending: true }).limit(8),
-    supabase.from("products").select("id, title, price, compare_price, short_description, image_url, product_media(url, type, position)").eq("status", "published").eq("solde_hero", true).not("compare_price", "is", null).order("solde_hero_order", { ascending: true }).limit(5),
+    supabase.from("home_sections").select("*, home_section_media(*)").order("display_order", { ascending: true }),
+    // Articles en Solde : grille produits + bannières médias admin
+    supabase.from("products").select("id, title, price, compare_price, stock, short_description, image_url, product_media(url, type, position)").eq("status", "published").eq("solde_hero", true).not("compare_price", "is", null).order("solde_hero_order", { ascending: true }).limit(6),
     // Quoi de neuf : ordonnés par whats_new_order (admin-managed)
     supabase.from("products").select("*").eq("status", "published").eq("whats_new", true).order("whats_new_order", { ascending: true }).limit(8),
     // Slides hero gérés manuellement depuis l'admin (priorité sur solde_hero)
@@ -61,8 +61,26 @@ export default async function HomePage() {
     ])
   );
   const suggestion = sectionMap.get("suggestion");
-  const recommandation = sectionMap.get("recommandation");
   const solde = sectionMap.get("solde");
+
+  // Ordre d'affichage des sections sur la page — respecte display_order depuis la DB.
+  // Repli si la colonne n'existe pas encore (avant migration v16).
+  const FALLBACK_PAGE_ORDER = ["solde", "quoi_de_neuf", "suggestion"] as const;
+  const pageOrder: string[] = (() => {
+    const withOrder = ((homeSections ?? []) as HomeSectionRow[])
+      .filter((s) => ["suggestion", "solde", "quoi_de_neuf"].includes(s.section))
+      .sort((a, b) => {
+        const ao = a.display_order ?? (FALLBACK_PAGE_ORDER.indexOf(a.section as typeof FALLBACK_PAGE_ORDER[number]) + 1) * 10;
+        const bo = b.display_order ?? (FALLBACK_PAGE_ORDER.indexOf(b.section as typeof FALLBACK_PAGE_ORDER[number]) + 1) * 10;
+        return ao - bo;
+      })
+      .map((s) => s.section as string);
+    // S'assurer que les 3 sections sont présentes même si absentes de la DB
+    for (const k of FALLBACK_PAGE_ORDER) {
+      if (!withOrder.includes(k)) withOrder.push(k);
+    }
+    return withOrder;
+  })();
 
   // « Quoi de neuf » : épinglés par l'admin ou (si aucun) dernier article par catégorie
   const nouveautes = (pinnedNew && pinnedNew.length > 0)
@@ -76,28 +94,16 @@ export default async function HomePage() {
           return true;
         }).slice(0, 8);
       })();
-  const soldeProducts = promoPool ?? [];
 
   // Slides du hero : articles soldés « à la une » avec leur vidéo
   // (fichier direct) ou image ; sinon le slider garde ses slides démo.
   type HeroSoldeRow = {
-    id: string; title: string; price: number; compare_price: number;
+    id: string; title: string; price: number; compare_price: number; stock: number;
     short_description: string | null; image_url: string | null;
     product_media: { url: string; type: string; position: number }[] | null;
   };
   const heroSoldesActifs = ((heroSoldes ?? []) as HeroSoldeRow[]).filter((p) => p.compare_price > p.price);
 
-  // Synchronisation : la bannière de la section « Articles en Solde »
-  // affiche les médias (vidéo ou image) des articles soldés mis en
-  // avant par l'admin ; les médias saisis manuellement dans
-  // Admin → Page accueil ne servent que de repli.
-  const soldeSyncMedia: BannerMediaItem[] = heroSoldesActifs.flatMap((p): BannerMediaItem[] => {
-    const media = [...(p.product_media ?? [])].sort((a, b) => a.position - b.position);
-    const video = media.find((m) => m.type === "video" && /\.(mp4|webm|mov)(\?|$)/i.test(m.url));
-    if (video) return [{ id: `sync-${p.id}`, media_type: "video" as const, url: video.url, poster_url: p.image_url }];
-    const image = p.image_url || media.find((m) => m.type === "image")?.url;
-    return image ? [{ id: `sync-${p.id}`, media_type: "image" as const, url: image, poster_url: null }] : [];
-  });
 
   // Slides hero : priorité admin → produits solde_hero → slides démo (undefined)
   const heroSlides: HeroSlide[] = (() => {
@@ -153,107 +159,110 @@ export default async function HomePage() {
       {/* ====== CIRCLE CATEGORY STRIP (auto + flèches + glissement) ====== */}
       <CategoryStrip items={circleCats} marquee={marquee} />
 
-      {/* ====== WHAT'S NEW ====== */}
-      <section className="section" style={{ paddingTop: "var(--s5)" }}>
-        <div className="container">
-          <ScrollReveal animation="fade-up">
-            <div className="section-head">
-              <div>
-                <span className="section-tag">Nouveau</span>
-                <h2>Quoi de neuf</h2>
-              </div>
-              <Link href="/boutique" className="view-all">
-                Voir tout
-                <svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5h12m0 0L9 1m4 4L9 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-              </Link>
-            </div>
-          </ScrollReveal>
-          <ScrollReveal animation="fade-up" delay={100} className="stagger">
-            <div className="products products--4">
-              {nouveautes.length > 0 ? (
-                nouveautes.map((p) => (
-                  <ProductCard key={p.id} id={p.id} title={p.title} price={p.price} compare_price={p.compare_price} stock={p.stock} image_url={p.image_url} loyalty_points={p.loyalty_points} badge={p.compare_price && p.compare_price > p.price ? "Promo" : undefined} />
-                ))
-              ) : (
-                <p style={{ gridColumn: "1/-1", textAlign: "center", color: "var(--fg-mute)" }}>
-                  Aucun produit pour le moment. <Link href="/admin/produits" style={{ color: "var(--indigo)" }}>Ajoutez-en depuis l&apos;admin</Link>
-                </p>
-              )}
-            </div>
-          </ScrollReveal>
-        </div>
-      </section>
+      {/* ====== SECTIONS DYNAMIQUES — ordre géré depuis Admin → Page d'accueil ====== */}
+      {pageOrder.map((sectionKey) => {
 
-      {/* ====== SERIES: SUGGESTION (admin-managed media + 4 featured products) ====== */}
-      {(!suggestion || suggestion.visible) && (
-        <section className="series-section">
-          <div className="container">
-            <ScrollReveal animation="fade-up">
-              <h2 className="series-section__label">{suggestion ? "Nos Suggestions" : "Caméras Professionnelles"}</h2>
-              <div className="series-banner">
-                {suggestion && suggestion.media.length > 0 ? (
-                  <BannerMedia items={suggestion.media} />
-                ) : (
-                  <video
-                    className="series-banner__video"
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    poster="https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=1600&q=85&auto=format&fit=crop"
-                  >
-                    <source src="https://videos.pexels.com/video-files/2890196/2890196-hd_1920_1080_30fps.mp4" type="video/mp4" />
-                  </video>
+        /* ── Articles en solde (SoldeArrivalsSection) ── */
+        if (sectionKey === "solde") {
+          if (solde && !solde.visible) return null;
+          return (
+            <SoldeArrivalsSection
+              key="solde"
+              products={heroSoldesActifs}
+              media={solde?.media ?? []}
+              title={solde?.title ?? "Articles en Solde"}
+              ctaLabel={solde?.cta_label ?? "Voir tout"}
+              ctaHref={solde?.cta_href ?? "/boutique"}
+            />
+          );
+        }
+
+        /* ── Quoi de neuf ── */
+        if (sectionKey === "quoi_de_neuf") {
+          const qdn = sectionMap.get("quoi_de_neuf");
+          if (qdn && !qdn.visible) return null;
+          return (
+            <section key="quoi_de_neuf" className="section" style={{ paddingTop: "var(--s5)" }}>
+              <div className="container">
+                <ScrollReveal animation="fade-up">
+                  <div className="section-head">
+                    <div>
+                      <span className="section-tag">Nouveau</span>
+                      <h2>Quoi de neuf</h2>
+                    </div>
+                    <Link href="/boutique?nouveautes=1" className="view-all">
+                      Voir tout
+                      <svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5h12m0 0L9 1m4 4L9 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </Link>
+                  </div>
+                </ScrollReveal>
+                <ScrollReveal animation="fade-up" delay={100} className="stagger">
+                  <div className="products products--4">
+                    {nouveautes.length > 0 ? (
+                      nouveautes.map((p) => (
+                        <ProductCard key={p.id} id={p.id} title={p.title} price={p.price} compare_price={p.compare_price} stock={p.stock} image_url={p.image_url} loyalty_points={p.loyalty_points} badge={p.compare_price && p.compare_price > p.price ? "Promo" : undefined} />
+                      ))
+                    ) : (
+                      <p style={{ gridColumn: "1/-1", textAlign: "center", color: "var(--fg-mute)" }}>
+                        Aucun produit pour le moment. <Link href="/admin/produits" style={{ color: "var(--indigo)" }}>Ajoutez-en depuis l&apos;admin</Link>
+                      </p>
+                    )}
+                  </div>
+                </ScrollReveal>
+              </div>
+            </section>
+          );
+        }
+
+        /* ── Suggestions (bannière + produits vedettes) ── */
+        if (sectionKey === "suggestion") {
+          if (suggestion && !suggestion.visible) return null;
+          return (
+            <section key="suggestion" className="series-section">
+              <div className="container">
+                <ScrollReveal animation="fade-up">
+                  <h2 className="series-section__label">{suggestion ? "Nos Suggestions" : "Caméras Professionnelles"}</h2>
+                  <div className="series-banner">
+                    {suggestion && suggestion.media.length > 0 ? (
+                      <BannerMedia items={suggestion.media} />
+                    ) : (
+                      <video
+                        className="series-banner__video"
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        poster="https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=1600&q=85&auto=format&fit=crop"
+                      >
+                        <source src="https://videos.pexels.com/video-files/2890196/2890196-hd_1920_1080_30fps.mp4" type="video/mp4" />
+                      </video>
+                    )}
+                    <div className="series-banner__content">
+                      <h3 className="series-banner__name">{suggestion?.title ?? "Caméra Cinéma Pro"}</h3>
+                      <p className="series-banner__tagline">{suggestion?.tagline ?? "Filmez comme un professionnel"}</p>
+                      <Link href={suggestion?.cta_href ?? "/boutique?q=camera"} className="series-banner__btn">
+                        {suggestion?.cta_label ?? "Acheter"}
+                        <svg width="12" height="9" viewBox="0 0 14 10" fill="none"><path d="M1 5h12m0 0L9 1m4 4L9 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      </Link>
+                    </div>
+                  </div>
+                </ScrollReveal>
+                {featured && featured.length > 0 && (
+                  <ScrollReveal animation="fade-up" delay={100} className="stagger">
+                    <SuggestionsScroll>
+                      {featured.map((p) => (
+                        <ProductCard key={p.id} id={p.id} title={p.title} price={p.price} compare_price={p.compare_price} stock={p.stock} image_url={p.image_url} loyalty_points={p.loyalty_points} badge={p.compare_price && p.compare_price > p.price ? "Promo" : undefined} />
+                      ))}
+                    </SuggestionsScroll>
+                  </ScrollReveal>
                 )}
-                <div className="series-banner__content">
-                  <h3 className="series-banner__name">{suggestion?.title || "Caméra Cinéma Pro"}</h3>
-                  <p className="series-banner__tagline">{suggestion?.tagline || "Filmez comme un professionnel"}</p>
-                  <Link href={suggestion?.cta_href || "/boutique?q=camera"} className="series-banner__btn">
-                    {suggestion?.cta_label || "Acheter"}
-                    <svg width="12" height="9" viewBox="0 0 14 10" fill="none"><path d="M1 5h12m0 0L9 1m4 4L9 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  </Link>
-                </div>
               </div>
-            </ScrollReveal>
-            {featured && featured.length > 0 && (
-              <ScrollReveal animation="fade-up" delay={100} className="stagger">
-                <div className="series-products">
-                  {featured.map((p) => (
-                    <ProductCard key={p.id} id={p.id} title={p.title} price={p.price} compare_price={p.compare_price} stock={p.stock} image_url={p.image_url} loyalty_points={p.loyalty_points} badge={p.compare_price && p.compare_price > p.price ? "Promo" : undefined} />
-                  ))}
-                </div>
-              </ScrollReveal>
-            )}
-          </div>
-        </section>
-      )}
+            </section>
+          );
+        }
 
-      {/* ====== SHOWCASE — géré depuis "Articles en solde" dans l'admin ====== */}
-      {(!solde || solde.visible) && (() => {
-        // Priority: 1) admin-uploaded media  2) solde_hero product images  3) demo images
-        const DEMO: BannerMediaItem[] = [
-          { id: "demo-1", media_type: "image", url: "https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=1200&q=80&auto=format&fit=crop", poster_url: null },
-          { id: "demo-2", media_type: "image", url: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=900&q=80&auto=format&fit=crop", poster_url: null },
-          { id: "demo-3", media_type: "image", url: "https://images.unsplash.com/photo-1508444845599-5c89863b1c44?w=700&q=80&auto=format&fit=crop", poster_url: null },
-        ];
-        const items: BannerMediaItem[] =
-          solde?.media && solde.media.length > 0 ? solde.media
-          : soldeSyncMedia.length > 0 ? soldeSyncMedia
-          : DEMO;
-        return (
-          <section className="series-section">
-            <div className="container">
-              <FloatingMediaCarousel
-                items={items}
-                title={solde?.title || "DJI Série Professionnelle"}
-                tagline={solde?.tagline ?? "Précision, autonomie et performance. La référence mondiale de la capture aérienne."}
-                ctaLabel={solde?.cta_label ?? "Acheter maintenant"}
-                ctaHref={solde?.cta_href ?? "/boutique"}
-              />
-            </div>
-          </section>
-        );
-      })()}
+        return null;
+      })}
 
 
       {/* ====== SHOP OUR SELECTIONS (categories) ====== */}

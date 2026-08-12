@@ -7,6 +7,10 @@ export type BannerMediaItem = {
   media_type: "image" | "video";
   url: string;
   poster_url: string | null;
+  /** Badge de remise affiché en superposition sur la carte (ex : "-30%") */
+  badge?: string;
+  /** Lien vers la page produit — rend la carte cliquable */
+  href?: string;
 };
 
 // Rotating background media (images and/or videos) for the home banners.

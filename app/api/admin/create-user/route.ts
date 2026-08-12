@@ -36,8 +36,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Le mot de passe doit contenir au moins 6 caracteres." }, { status: 400 });
   }
 
-  if (!["admin", "manager"].includes(role_name)) {
-    return NextResponse.json({ error: "Le role doit etre admin ou manager." }, { status: 400 });
+  if (!["admin"].includes(role_name)) {
+    return NextResponse.json({ error: "Le role doit etre admin." }, { status: 400 });
   }
 
   const supabaseAdmin = createAdminClient();
