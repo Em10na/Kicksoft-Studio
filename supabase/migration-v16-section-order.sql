@@ -2,6 +2,16 @@
 -- Ajoute un ordre d'affichage configurable aux sections de la page d'accueil.
 -- À exécuter dans le SQL Editor de Supabase.
 
+-- 0. Élargir la contrainte CHECK héritée de la v5, qui n'autorise que
+--    ('suggestion', 'recommandation', 'solde') et fait donc échouer
+--    l'insertion de 'quoi_de_neuf' à l'étape 3.
+ALTER TABLE public.home_sections
+  DROP CONSTRAINT IF EXISTS home_sections_section_check;
+
+ALTER TABLE public.home_sections
+  ADD CONSTRAINT home_sections_section_check
+  CHECK (section IN ('suggestion', 'recommandation', 'solde', 'quoi_de_neuf'));
+
 -- 1. Ajouter la colonne display_order aux sections existantes
 ALTER TABLE home_sections ADD COLUMN IF NOT EXISTS display_order integer DEFAULT 0;
 
