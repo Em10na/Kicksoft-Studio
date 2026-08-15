@@ -44,8 +44,8 @@ export default async function HomePage() {
     supabase.from("categories").select("*").order("name"),
     supabase.from("products").select("*").eq("status", "published").order("created_at", { ascending: false }).limit(60),
     supabase.from("home_sections").select("*, home_section_media(*)").order("display_order", { ascending: true }),
-    // Articles en Solde : grille produits + bannières médias admin
-    supabase.from("products").select("id, title, price, compare_price, stock, short_description, image_url, product_media(url, type, position)").eq("status", "published").eq("solde_hero", true).not("compare_price", "is", null).order("solde_hero_order", { ascending: true }).limit(6),
+    // Articles en Solde : TOUS les produits avec compare_price (solde_hero flag = slider uniquement)
+    supabase.from("products").select("id, title, price, compare_price, stock, short_description, image_url, product_media(url, type, position)").eq("status", "published").not("compare_price", "is", null).order("solde_hero_order", { ascending: true, nullsFirst: false }).order("display_order", { ascending: true }).limit(48),
     // Quoi de neuf : ordonnés par whats_new_order (admin-managed)
     supabase.from("products").select("*").eq("status", "published").eq("whats_new", true).order("whats_new_order", { ascending: true }).limit(8),
     // Slides hero gérés manuellement depuis l'admin (priorité sur solde_hero)
@@ -172,7 +172,7 @@ export default async function HomePage() {
               media={solde?.media ?? []}
               title={solde?.title ?? "Articles en Solde"}
               ctaLabel={solde?.cta_label ?? "Voir tout"}
-              ctaHref={solde?.cta_href ?? "/boutique"}
+              ctaHref={solde?.cta_href ?? "/boutique?soldes=1"}
             />
           );
         }

@@ -4,7 +4,7 @@ import ProductCard from "../components/ProductCard";
 import BoutiqueFilters from "./BoutiqueFilters";
 
 type Props = {
-  searchParams: Promise<{ q?: string; categorie?: string; tri?: string; page?: string; nouveautes?: string }>;
+  searchParams: Promise<{ q?: string; categorie?: string; tri?: string; page?: string; nouveautes?: string; soldes?: string }>;
 };
 
 const ITEMS_PAR_PAGE = 12;
@@ -25,6 +25,9 @@ export default async function BoutiquePage({ searchParams }: Props) {
 
   // Filtre "Quoi de neuf" — activé depuis le bouton "Voir tout" de la section accueil
   if (params.nouveautes === "1") query = query.eq("whats_new", true);
+
+  // Filtre "Articles en Solde" — activé depuis "Voir tout" de la section soldes
+  if (params.soldes === "1") query = query.not("compare_price", "is", null).gt("compare_price", 0);
 
   if (params.categorie) query = query.eq("category_id", params.categorie);
   if (params.q) {
@@ -66,6 +69,7 @@ export default async function BoutiquePage({ searchParams }: Props) {
     if (p.categorie) sp.set("categorie", p.categorie);
     if (p.tri) sp.set("tri", p.tri);
     if (p.nouveautes) sp.set("nouveautes", p.nouveautes);
+    if (p.soldes) sp.set("soldes", p.soldes);
     if (p.page && p.page !== "1") sp.set("page", p.page);
     const qs = sp.toString();
     return `/boutique${qs ? `?${qs}` : ""}`;
@@ -77,13 +81,22 @@ export default async function BoutiquePage({ searchParams }: Props) {
         <div className="container">
           <div className="crumbs">
             <Link href="/">Accueil</Link> <span className="sep">&rsaquo;</span>{" "}
-            <span>{categorieActive ? categorieActive.name : params.nouveautes === "1" ? "Nouveautés" : "Boutique"}</span>
+            {params.soldes === "1" ? (
+              <><Link href="/boutique">Boutique</Link> <span className="sep">&rsaquo;</span> <span>Articles en Solde</span></>
+            ) : (
+              <span>{categorieActive ? categorieActive.name : params.nouveautes === "1" ? "Nouveautés" : "Boutique"}</span>
+            )}
           </div>
-          <h1>{categorieActive ? categorieActive.name : params.nouveautes === "1" ? "Quoi de neuf" : "Tous les produits"}</h1>
+          <h1>{
+            params.soldes === "1" ? "Articles en Solde" :
+            categorieActive ? categorieActive.name :
+            params.nouveautes === "1" ? "Quoi de neuf" :
+            "Tous les produits"
+          }</h1>
           <p>
-            {total} produit(s) disponible(s).
+            {total} produit(s) {params.soldes === "1" ? "en solde" : "disponible(s)"}.
             {params.q && ` Recherche : "${params.q}"`}
-            {" "}Utilisez les filtres pour affiner votre selection.
+            {" "}{params.soldes !== "1" && "Utilisez les filtres pour affiner votre selection."}
           </p>
         </div>
       </section>
@@ -173,6 +186,7 @@ export default async function BoutiquePage({ searchParams }: Props) {
                       key={p.id} id={p.id} title={p.title} price={p.price}
                       compare_price={p.compare_price} stock={p.stock} image_url={p.image_url}
                       loyalty_points={p.loyalty_points}
+                      badge={p.compare_price && p.compare_price > p.price ? "Solde" : undefined}
                     />
                   ))
                 ) : (

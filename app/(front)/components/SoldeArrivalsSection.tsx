@@ -53,7 +53,7 @@ export default function SoldeArrivalsSection({
   media,
   title = "Articles en Solde",
   ctaLabel = "Voir tout",
-  ctaHref = "/boutique",
+  ctaHref = "/boutique?soldes=1",
 }: Props) {
   const [page, setPage] = useState(0);
   const perPage = 6;
