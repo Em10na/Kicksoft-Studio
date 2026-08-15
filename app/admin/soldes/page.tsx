@@ -26,6 +26,7 @@ export default function SoldesPage() {
   const [saving, setSaving] = useState(false);
   const [migrationManquante, setMigrationManquante] = useState(false);
 
+  const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; detail?: string; confirmLabel?: string; confirmIcon?: string; variant?: "danger" | "warning"; onConfirm: () => void } | null>(null);
   // Modal
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -183,16 +184,29 @@ export default function SoldesPage() {
     charger();
   }
 
-  async function terminerSolde(p: Produit) {
+  async function terminerSoldeConfirme(p: Produit) {
     if (!p.compare_price) return;
-    if (!confirm(`Terminer la solde de « ${p.title} » ? Le prix reviendra à ${p.compare_price} DT.`)) return;
     const { error } = await supabase
       .from("products")
       .update({ price: p.compare_price, compare_price: null, solde_hero: false, solde_notified_at: null })
       .eq("id", p.id);
+    setConfirmAction(null);
     if (error) { showAlert("Erreur : " + error.message, "danger"); return; }
     showAlert(`Solde terminée — « ${p.title} » repasse à ${p.compare_price} DT.`, "success");
     charger();
+  }
+
+  function terminerSolde(p: Produit) {
+    if (!p.compare_price) return;
+    setConfirmAction({
+      title: "Terminer la solde",
+      message: `Voulez-vous retirer "${p.title}" des articles en solde ?`,
+      detail: `Le prix repassera au prix original : ${p.compare_price} DT.`,
+      confirmLabel: "Terminer la solde",
+      confirmIcon: "ti-x",
+      variant: "danger",
+      onConfirm: () => terminerSoldeConfirme(p),
+    });
   }
 
   async function deplacerSolde(id: string, dir: "up" | "down") {
@@ -209,9 +223,8 @@ export default function SoldesPage() {
     charger();
   }
 
-  async function renvoyerNotif(p: Produit) {
+  async function renvoyerNotifConfirme(p: Produit) {
     if (!p.compare_price) return;
-    if (!confirm(`Renvoyer la notification de solde de « ${p.title} » à tous les clients ?`)) return;
     const pct = remisePct(p.price, p.compare_price);
     setSaving(true);
     try {
@@ -237,7 +250,22 @@ export default function SoldesPage() {
       showAlert("Échec de l'envoi.", "danger");
     } finally {
       setSaving(false);
+      setConfirmAction(null);
     }
+  }
+
+  function renvoyerNotif(p: Produit) {
+    if (!p.compare_price) return;
+    const pct = remisePct(p.price, p.compare_price);
+    setConfirmAction({
+      title: "Renvoyer la notification",
+      message: `Renvoyer la notification de solde de "${p.title}" à tous les clients ?`,
+      detail: `-${pct}% — ${p.price} DT au lieu de ${p.compare_price} DT`,
+      confirmLabel: "Renvoyer",
+      confirmIcon: "ti-send",
+      variant: "warning",
+      onConfirm: () => renvoyerNotifConfirme(p),
+    });
   }
 
   const remiseMoyenne = soldes.length
@@ -479,6 +507,45 @@ export default function SoldesPage() {
               </button>
             </div>
             <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal confirmation universelle ── */}
+      {confirmAction && (
+        <div className="ak-modal-backdrop" onClick={() => setConfirmAction(null)}>
+          <div className="ak-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div className="ak-modal__header">
+              <h3 className="ak-modal__title">
+                <i className="ti ti-alert-triangle" style={{ marginRight: 8, color: confirmAction.variant === "warning" ? "#f59e0b" : "#f43f5e" }}></i>
+                {confirmAction.title}
+              </h3>
+              <button className="ak-modal__close" onClick={() => setConfirmAction(null)}>✕</button>
+            </div>
+            <div className="ak-modal__body">
+              <p style={{ fontSize: 14, color: "#475569", margin: 0 }}>{confirmAction.message}</p>
+              {confirmAction.detail && (
+                <div style={{
+                  marginTop: 12, padding: "10px 14px", borderRadius: 10, fontSize: 13,
+                  background: confirmAction.variant === "warning" ? "#fffbeb" : "#fff1f2",
+                  borderLeft: `3px solid ${confirmAction.variant === "warning" ? "#f59e0b" : "#f43f5e"}`,
+                  color: confirmAction.variant === "warning" ? "#92400e" : "#9f1239",
+                }}>
+                  {confirmAction.detail}
+                </div>
+              )}
+            </div>
+            <div className="ak-modal__footer">
+              <button className="ak-btn ak-btn--ghost" onClick={() => setConfirmAction(null)}>Annuler</button>
+              <button
+                className={`ak-btn ${confirmAction.variant === "warning" ? "ak-btn--primary" : "ak-btn--danger"}`}
+                onClick={confirmAction.onConfirm}
+                disabled={saving}
+              >
+                <i className={`ti ${confirmAction.confirmIcon ?? "ti-check"}`}></i>
+                {" "}{confirmAction.confirmLabel ?? "Confirmer"}
+              </button>
+            </div>
           </div>
         </div>
       )}

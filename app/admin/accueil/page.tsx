@@ -117,6 +117,7 @@ export default function AccueilPage() {
   const [articulesEnSolde, setArticulesEnSolde] = useState<Produit[]>([]);
   const [searchSolde, setSearchSolde] = useState("");
   const [showDropSolde, setShowDropSolde] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; detail?: string; confirmLabel?: string; confirmIcon?: string; onConfirm: () => void } | null>(null);
 
   function notifier(message: string, type: "success" | "danger" | "warning" = "success") {
     setAlert({ message, type });
@@ -171,11 +172,21 @@ export default function AccueilPage() {
     chargerHeroSlides();
   }
 
-  async function supprimerSlide(id: string) {
-    if (!confirm("Supprimer ce slide ?")) return;
+  async function supprimerSlideConfirme(id: string) {
     await supabase.from("hero_slides").delete().eq("id", id);
+    setConfirmAction(null);
     notifier("Slide supprimé.");
     chargerHeroSlides();
+  }
+
+  function supprimerSlide(id: string, title: string) {
+    setConfirmAction({
+      title: "Supprimer le slide",
+      message: `Voulez-vous supprimer le slide "${title}" du carrousel hero ?`,
+      confirmLabel: "Supprimer",
+      confirmIcon: "ti-trash",
+      onConfirm: () => supprimerSlideConfirme(id),
+    });
   }
 
   async function toggleSlideVisible(s: HeroSlideRow) {
@@ -438,11 +449,22 @@ export default function AccueilPage() {
     setUrlInputs((prev) => ({ ...prev, [s.id]: "" }));
   }
 
-  async function supprimerMedia(m: SectionMedia) {
-    if (!confirm("Supprimer ce média de la section ?")) return;
+  async function supprimerMediaConfirme(m: SectionMedia) {
     const { error } = await supabase.from("home_section_media").delete().eq("id", m.id);
+    setConfirmAction(null);
     if (error) notifier("Erreur : " + error.message, "danger");
     else { notifier("Média supprimé."); chargerSections(); }
+  }
+
+  function supprimerMedia(m: SectionMedia) {
+    setConfirmAction({
+      title: "Supprimer ce média",
+      message: "Voulez-vous retirer ce média de la section ?",
+      detail: m.media_type === "video" ? "🎬 Fichier vidéo de la section" : "🖼️ Image de la section",
+      confirmLabel: "Supprimer",
+      confirmIcon: "ti-trash",
+      onConfirm: () => supprimerMediaConfirme(m),
+    });
   }
 
   async function deplacerMedia(s: HomeSection, m: SectionMedia, dir: -1 | 1) {
@@ -672,7 +694,7 @@ export default function AccueilPage() {
                             <i className={`ti ${s.visible ? "ti-eye" : "ti-eye-off"}`}></i>
                           </button>
                           <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" onClick={() => { setHeroForm({ title: s.title, tagline: s.tagline ?? "", badge: s.badge ?? "", image_url: s.image_url ?? "", video_url: s.video_url ?? "", buy_href: s.buy_href, more_href: s.more_href }); setEditingSlideId(s.id); setShowHeroForm(true); }} title="Modifier"><i className="ti ti-pencil"></i></button>
-                          <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => supprimerSlide(s.id)} title="Supprimer"><i className="ti ti-trash"></i></button>
+                          <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => supprimerSlide(s.id, s.title)} title="Supprimer"><i className="ti ti-trash"></i></button>
                         </div>
                       </div>
                     ))
@@ -1116,6 +1138,37 @@ export default function AccueilPage() {
         );
         return createPortal(_modal, document.body);
       })()}
+
+      {/* ── Modal confirmation universelle (slide / média) ── */}
+      {confirmAction && mounted && createPortal(
+        <div className="ak-modal-backdrop" onClick={() => setConfirmAction(null)}>
+          <div className="ak-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div className="ak-modal__header">
+              <h3 className="ak-modal__title">
+                <i className="ti ti-alert-triangle" style={{ marginRight: 8, color: "#f43f5e" }}></i>
+                {confirmAction.title}
+              </h3>
+              <button className="ak-modal__close" onClick={() => setConfirmAction(null)}>✕</button>
+            </div>
+            <div className="ak-modal__body">
+              <p style={{ fontSize: 14, color: "#475569", margin: 0 }}>{confirmAction.message}</p>
+              {confirmAction.detail && (
+                <div style={{ marginTop: 12, padding: "10px 14px", background: "#fff1f2", borderRadius: 10, borderLeft: "3px solid #f43f5e", fontSize: 13, color: "#9f1239" }}>
+                  {confirmAction.detail}
+                </div>
+              )}
+            </div>
+            <div className="ak-modal__footer">
+              <button className="ak-btn ak-btn--ghost" onClick={() => setConfirmAction(null)}>Annuler</button>
+              <button className="ak-btn ak-btn--danger" onClick={confirmAction.onConfirm}>
+                <i className={`ti ${confirmAction.confirmIcon ?? "ti-trash"}`}></i>
+                {" "}{confirmAction.confirmLabel ?? "Supprimer"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
     </div>
   );

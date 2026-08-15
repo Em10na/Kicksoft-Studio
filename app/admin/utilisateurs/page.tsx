@@ -17,6 +17,7 @@ export default function UtilisateursPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createForm, setCreateForm] = useState({ email: "", password: "", full_name: "", phone: "", role_name: "admin" });
+  const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; detail?: string; onConfirm: () => void } | null>(null);
 
   function showAlert(msg: string, type: string) { setAlert({ message: msg, type }); setTimeout(() => setAlert({ message: "", type: "" }), 3000); }
 
@@ -44,12 +45,21 @@ export default function UtilisateursPage() {
     setCreating(false);
   }
 
-  async function supprimer(id: string, name: string) {
-    if (!confirm(`Supprimer le compte de "${name}" ? Action irréversible.`)) return;
+  async function supprimerConfirme(id: string) {
     const res = await fetch(`/api/admin/create-user?id=${id}`, { method: "DELETE" });
     const data = await res.json();
+    setConfirmAction(null);
     if (!res.ok) showAlert(data.error || "Erreur.", "danger");
     else { showAlert("Compte supprimé.", "success"); charger(); }
+  }
+
+  function supprimer(id: string, name: string) {
+    setConfirmAction({
+      title: "Supprimer le compte utilisateur",
+      message: `Voulez-vous vraiment supprimer le compte de "${name}" ?`,
+      detail: "Cette action est irréversible. L'utilisateur perdra l'accès à son compte et toutes ses données associées.",
+      onConfirm: () => supprimerConfirme(id),
+    });
   }
 
   const filtres = utilisateurs.filter((u) => {
@@ -177,6 +187,34 @@ export default function UtilisateursPage() {
         </div>
       )}
 
+      {/* ── Modal confirmation suppression compte ── */}
+      {confirmAction && (
+        <div className="ak-modal-backdrop" onClick={() => setConfirmAction(null)}>
+          <div className="ak-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div className="ak-modal__header">
+              <h3 className="ak-modal__title">
+                <i className="ti ti-alert-triangle" style={{ marginRight: 8, color: "#f43f5e" }}></i>
+                {confirmAction.title}
+              </h3>
+              <button className="ak-modal__close" onClick={() => setConfirmAction(null)}>✕</button>
+            </div>
+            <div className="ak-modal__body">
+              <p style={{ fontSize: 14, color: "#475569", margin: 0 }}>{confirmAction.message}</p>
+              {confirmAction.detail && (
+                <div style={{ marginTop: 12, padding: "10px 14px", background: "#fff1f2", borderRadius: 10, borderLeft: "3px solid #f43f5e", fontSize: 13, color: "#9f1239" }}>
+                  {confirmAction.detail}
+                </div>
+              )}
+            </div>
+            <div className="ak-modal__footer">
+              <button className="ak-btn ak-btn--ghost" onClick={() => setConfirmAction(null)}>Annuler</button>
+              <button className="ak-btn ak-btn--danger" onClick={confirmAction.onConfirm}>
+                <i className="ti ti-trash"></i> Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

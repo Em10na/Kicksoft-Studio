@@ -58,6 +58,7 @@ export default function DevisAdminPage() {
   const [detail, setDetail] = useState<DevisParsed | null>(null);
   const [filtreStatut, setFiltreStatut] = useState("");
   const [recherche, setRecherche] = useState("");
+  const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; detail?: string; onConfirm: () => void } | null>(null);
 
   async function charger() {
     setLoading(true);
@@ -86,11 +87,20 @@ export default function DevisAdminPage() {
     }
   }
 
-  async function supprimerDevis(id: string) {
-    if (!confirm("Supprimer cette demande de devis ?")) return;
+  async function supprimerDevisConfirme(id: string) {
     await supabase.from("tickets_support").delete().eq("id", id);
+    setConfirmAction(null);
     notifier("Demande supprimée.");
     charger();
+  }
+
+  function supprimerDevis(d: DevisParsed) {
+    setConfirmAction({
+      title: "Supprimer la demande de devis",
+      message: `Voulez-vous supprimer la demande de ${d.nom || d.societe || "ce client"} ?`,
+      detail: d.description ? d.description.slice(0, 100) + (d.description.length > 100 ? "…" : "") : undefined,
+      onConfirm: () => supprimerDevisConfirme(d.id),
+    });
   }
 
   const filtres = devis.filter((d) => {
@@ -190,7 +200,7 @@ export default function DevisAdminPage() {
                       <button className="ak-btn ak-btn--ghost ak-btn--sm" onClick={() => { setDetail(d); setShowDetail(true); }}>
                         <i className="ti ti-eye" style={{ fontSize: 15 }}></i> Détail
                       </button>
-                      <button className="ak-btn ak-btn--danger ak-btn--sm ak-btn--icon" onClick={() => supprimerDevis(d.id)}>
+                      <button className="ak-btn ak-btn--danger ak-btn--sm ak-btn--icon" onClick={() => supprimerDevis(d)}>
                         <i className="ti ti-trash" style={{ fontSize: 15 }}></i>
                       </button>
                     </div>
@@ -259,6 +269,35 @@ export default function DevisAdminPage() {
                 </a>
               )}
               <button className="ak-btn ak-btn--ghost" onClick={() => setShowDetail(false)}>Fermer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal confirmation ── */}
+      {confirmAction && (
+        <div className="ak-modal-backdrop" onClick={() => setConfirmAction(null)}>
+          <div className="ak-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div className="ak-modal__header">
+              <h3 className="ak-modal__title">
+                <i className="ti ti-alert-triangle" style={{ marginRight: 8, color: "#f43f5e" }}></i>
+                {confirmAction.title}
+              </h3>
+              <button className="ak-modal__close" onClick={() => setConfirmAction(null)}>✕</button>
+            </div>
+            <div className="ak-modal__body">
+              <p style={{ fontSize: 14, color: "#475569", margin: 0 }}>{confirmAction.message}</p>
+              {confirmAction.detail && (
+                <div style={{ marginTop: 12, padding: "10px 14px", background: "#fff1f2", borderRadius: 10, borderLeft: "3px solid #f43f5e", fontSize: 13, color: "#9f1239" }}>
+                  {confirmAction.detail}
+                </div>
+              )}
+            </div>
+            <div className="ak-modal__footer">
+              <button className="ak-btn ak-btn--ghost" onClick={() => setConfirmAction(null)}>Annuler</button>
+              <button className="ak-btn ak-btn--danger" onClick={confirmAction.onConfirm}>
+                <i className="ti ti-trash"></i> Supprimer
+              </button>
             </div>
           </div>
         </div>
