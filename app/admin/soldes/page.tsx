@@ -53,10 +53,12 @@ export default function SoldesPage() {
       setMigrationManquante(true);
     } else {
       const all = (prodData as unknown as Produit[]) ?? [];
-      setSoldes(all.filter((p) => p.compare_price && p.compare_price > p.price));
-      // Tous les produits apparaissent dans le dropdown — y compris ceux déjà en solde
-      // afin de permettre la mise à jour du prix sans passer par l'icône crayon.
-      setDisponibles(all);
+      const enSolde = all.filter((p) => p.compare_price && p.compare_price > p.price);
+      setSoldes(enSolde);
+      // Dropdown d'ajout : seulement les produits PAS encore en solde
+      // (les produits en solde sont modifiables via l'icône ✏️ dans le tableau)
+      const soldeIds = new Set(enSolde.map((p) => p.id));
+      setDisponibles(all.filter((p) => !soldeIds.has(p.id)));
     }
     setCategories(catData ?? []);
     setLoading(false);
@@ -246,7 +248,7 @@ export default function SoldesPage() {
     { label: "Articles en solde", value: String(soldes.length), icon: "ti-discount-2", color: "#f43f5e", bg: "#fff1f2" },
     { label: "Remise moyenne", value: soldes.length ? `-${remiseMoyenne}%` : "—", icon: "ti-percentage", color: "#f59e0b", bg: "#fffbeb" },
     { label: "Notifications envoyées", value: String(soldes.filter((p) => p.solde_notified_at).length), icon: "ti-checks", color: "#10b981", bg: "#ecfdf5" },
-    { label: "Disponibles pour solde", value: String(disponibles.length), icon: "ti-package", color: "#6366f1", bg: "#f5f3ff" },
+    { label: "Produits hors solde", value: String(disponibles.length), icon: "ti-package", color: "#6366f1", bg: "#f5f3ff" },
   ];
 
   const selectedProduit = editingId
@@ -395,15 +397,11 @@ export default function SoldesPage() {
                       if (opts.length === 0) return null;
                       return (
                         <optgroup key={cat.id} label={cat.name}>
-                          {opts.map((p) => {
-                            const dejaSolde = p.compare_price && p.compare_price > p.price;
-                            return (
-                              <option key={p.id} value={p.id}>
-                                {dejaSolde ? "✏️ " : ""}{p.title} — {p.price} DT
-                                {dejaSolde ? ` (déjà en solde, barré ${p.compare_price} DT)` : ""}
-                              </option>
-                            );
-                          })}
+                          {opts.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.title} — {p.price} DT
+                            </option>
+                          ))}
                         </optgroup>
                       );
                     })}
@@ -413,15 +411,11 @@ export default function SoldesPage() {
                       if (sans.length === 0) return null;
                       return (
                         <optgroup label="Sans catégorie">
-                          {sans.map((p) => {
-                            const dejaSolde = p.compare_price && p.compare_price > p.price;
-                            return (
+                          {sans.map((p) => (
                               <option key={p.id} value={p.id}>
-                                {dejaSolde ? "✏️ " : ""}{p.title} — {p.price} DT
-                                {dejaSolde ? ` (déjà en solde, barré ${p.compare_price} DT)` : ""}
+                                {p.title} — {p.price} DT
                               </option>
-                            );
-                          })}
+                            ))}
                         </optgroup>
                       );
                     })()}
