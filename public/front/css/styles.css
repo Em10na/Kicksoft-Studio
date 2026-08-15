@@ -162,11 +162,28 @@ input, select, textarea { font: inherit; color: inherit; }
 .utility .links a:hover { color: var(--paper); }
 
 /* ---------- Top header (logo + search + icons) ---------- */
+/*
+  position: fixed  → le header reste EN HAUT à tout moment, même pendant le scroll.
+  left/right/width  → couvre toute la largeur de l'écran.
+  #main / .page-offset → padding-top compensatoire pour éviter que le contenu
+  passe derrière le header (valeurs synchronisées avec --header-h ci-dessous).
+*/
+:root {
+  --header-h: 102px; /* 64px top-bar + 38px nav-bar (desktop ≥ 1025px) */
+}
+@media (max-width: 1024px) { :root { --header-h: 60px; } }
+@media (max-width: 768px)  { :root { --header-h: 56px;  } }
+
 .site-header {
   background: var(--paper);
   border-bottom: 1px solid var(--rule);
-  position: sticky; top: 0; z-index: 60;
+  position: fixed; top: 0; left: 0; right: 0; width: 100%; z-index: 60;
   transition: background 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
+}
+
+/* Décale tout le contenu principal sous le header fixe */
+#main {
+  padding-top: var(--header-h);
 }
 .site-header .container {
   display: grid;

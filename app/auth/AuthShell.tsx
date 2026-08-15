@@ -87,16 +87,17 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
         }
         .auth-logo__mark {
           width: 36px; height: 36px;
-          background: #0f172a;
+          background: linear-gradient(135deg, #db2777, #9d174d);
           border-radius: 10px;
           display: grid; place-items: center;
           color: #fff; font-weight: 800; font-size: 16px;
           font-family: 'Plus Jakarta Sans', sans-serif;
+          box-shadow: 0 4px 14px rgba(219,39,119,0.35);
         }
         .auth-logo__text {
           font-family: 'Plus Jakarta Sans', sans-serif;
           font-size: 21px; font-weight: 800;
-          color: #0f172a; letter-spacing: -0.02em;
+          color: #be185d; letter-spacing: -0.02em;
         }
 
         .auth-title {
@@ -128,8 +129,8 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
         .auth-input::placeholder { color: #94a3b8; }
         .auth-input:hover { border-color: #cbd5e1; }
         .auth-input:focus {
-          border-color: #0f172a;
-          box-shadow: 0 0 0 4px rgba(15,23,42,0.08);
+          border-color: #db2777;
+          box-shadow: 0 0 0 4px rgba(219,39,119,0.12);
         }
         .auth-input--error { border-color: #dc2626; }
         .auth-error { color: #dc2626; font-size: 12px; margin: 5px 0 0 4px; }
@@ -140,7 +141,7 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
           cursor: pointer; color: #94a3b8;
           padding: 0; display: flex;
         }
-        .auth-eye:hover { color: #0f172a; }
+        .auth-eye:hover { color: #db2777; }
 
         .auth-row {
           display: flex;
@@ -149,8 +150,8 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
           margin: 0 2px 18px;
           font-size: 12.5px;
         }
-        .auth-row a { color: #0f172a; font-weight: 600; text-decoration: none; }
-        .auth-row a:hover { text-decoration: underline; }
+        .auth-row a { color: #be185d; font-weight: 600; text-decoration: none; }
+        .auth-row a:hover { text-decoration: underline; color: #9d174d; }
 
         .auth-check {
           display: flex;
@@ -163,11 +164,11 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
         }
         .auth-check input {
           width: 16px; height: 16px;
-          accent-color: #0f172a;
+          accent-color: #db2777;
           cursor: pointer;
           flex-shrink: 0;
         }
-        .auth-check a { color: #0f172a; font-weight: 600; }
+        .auth-check a { color: #be185d; font-weight: 600; }
 
         .auth-submit {
           width: 100%;
@@ -177,21 +178,22 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
           padding: 14px 24px;
           border: none;
           border-radius: 12px;
-          background: #0f172a;
+          background: linear-gradient(135deg, #db2777, #9d174d);
           color: #fff;
           font-family: 'Plus Jakarta Sans', sans-serif;
           font-size: 14.5px;
           font-weight: 700;
           cursor: pointer;
-          transition: background 0.2s, transform 0.2s;
+          transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+          box-shadow: 0 4px 18px rgba(219,39,119,0.35);
         }
-        .auth-submit:hover { background: #1e293b; transform: translateY(-1px); }
+        .auth-submit:hover { opacity: 0.88; transform: translateY(-1px); box-shadow: 0 6px 24px rgba(219,39,119,0.45); }
         .auth-submit:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
 
         .auth-alert {
-          background: #fef2f2;
-          border: 1px solid #fecaca;
-          color: #dc2626;
+          background: #fdf2f8;
+          border: 1px solid #fbcfe8;
+          color: #be185d;
           font-size: 13px;
           border-radius: 12px;
           padding: 11px 14px;
@@ -203,12 +205,12 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
         }
 
         .auth-switch { font-size: 13.5px; color: #475569; margin-top: 22px; }
-        .auth-switch a { color: #0f172a; font-weight: 700; text-decoration: none; }
-        .auth-switch a:hover { text-decoration: underline; }
+        .auth-switch a { color: #be185d; font-weight: 700; text-decoration: none; }
+        .auth-switch a:hover { text-decoration: underline; color: #9d174d; }
 
         .auth-perks { margin-top: 18px; display: flex; flex-direction: column; gap: 6px; text-align: left; }
         .auth-perk { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #475569; }
-        .auth-perk span { color: #10b981; font-weight: 700; }
+        .auth-perk span { color: #db2777; font-weight: 700; }
 
         .auth-strength { margin-top: 8px; display: flex; gap: 4px; }
         .auth-strength div { flex: 1; height: 3px; border-radius: 2px; background: #e5e7eb; }
