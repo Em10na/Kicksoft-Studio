@@ -15,17 +15,20 @@ export default function UtilisateursPage() {
   const [recherche, setRecherche] = useState("");
   const [filtreRole, setFiltreRole] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [createForm, setCreateForm] = useState({ email: "", password: "", full_name: "", phone: "", role_name: "manager" });
-  const [editForm, setEditForm] = useState({ user_id: "", full_name: "", phone: "", role_name: "client" });
+  const [createForm, setCreateForm] = useState({ email: "", password: "", full_name: "", phone: "", role_name: "admin" });
+  const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; detail?: string; onConfirm: () => void } | null>(null);
 
   function showAlert(msg: string, type: string) { setAlert({ message: msg, type }); setTimeout(() => setAlert({ message: "", type: "" }), 3000); }
 
   async function charger() {
     setLoading(true);
-    const { data } = await supabase.from("profiles").select("*, roles(name)").order("created_at", { ascending: false });
+    // Filtre sur le rôle "client" uniquement via inner join
+    const { data } = await supabase
+      .from("profiles")
+      .select("*, roles!inner(name)")
+      .eq("roles.name", "client")
+      .order("created_at", { ascending: false });
     setUtilisateurs(data ?? []);
     setLoading(false);
   }
@@ -38,41 +41,34 @@ export default function UtilisateursPage() {
     const res = await fetch("/api/admin/create-user", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(createForm) });
     const data = await res.json();
     if (!res.ok) showAlert(data.error || "Erreur.", "danger");
-    else { showAlert(`Compte ${createForm.role_name} créé !`, "success"); setShowCreateModal(false); setCreateForm({ email: "", password: "", full_name: "", phone: "", role_name: "manager" }); charger(); }
+    else { showAlert(`Compte ${createForm.role_name} créé !`, "success"); setShowCreateModal(false); setCreateForm({ email: "", password: "", full_name: "", phone: "", role_name: "admin" }); charger(); }
     setCreating(false);
   }
 
-  function ouvrirEdition(u: Utilisateur) {
-    const rn = (u.roles as { name: string } | null)?.name ?? "client";
-    setEditForm({ user_id: u.id, full_name: u.full_name, phone: u.phone ?? "", role_name: rn });
-    setShowEditModal(true);
-  }
-
-  async function sauvegarder() {
-    setSaving(true);
-    const res = await fetch("/api/admin/create-user", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(editForm) });
-    const data = await res.json();
-    if (!res.ok) showAlert(data.error || "Erreur.", "danger");
-    else { showAlert("Utilisateur modifié !", "success"); setShowEditModal(false); charger(); }
-    setSaving(false);
-  }
-
-  async function supprimer(id: string, name: string) {
-    if (!confirm(`Supprimer le compte de "${name}" ? Action irréversible.`)) return;
+  async function supprimerConfirme(id: string) {
     const res = await fetch(`/api/admin/create-user?id=${id}`, { method: "DELETE" });
     const data = await res.json();
+    setConfirmAction(null);
     if (!res.ok) showAlert(data.error || "Erreur.", "danger");
     else { showAlert("Compte supprimé.", "success"); charger(); }
   }
 
+  function supprimer(id: string, name: string) {
+    setConfirmAction({
+      title: "Supprimer le compte utilisateur",
+      message: `Voulez-vous vraiment supprimer le compte de "${name}" ?`,
+      detail: "Cette action est irréversible. L'utilisateur perdra l'accès à son compte et toutes ses données associées.",
+      onConfirm: () => supprimerConfirme(id),
+    });
+  }
+
   const filtres = utilisateurs.filter((u) => {
-    const t = `${u.full_name} ${u.phone ?? ""} ${u.roles?.name ?? ""}`.toLowerCase();
-    return (recherche === "" || t.includes(recherche.toLowerCase())) && (filtreRole === "" || u.role_id === filtreRole);
+    const t = `${u.full_name} ${u.phone ?? ""}`.toLowerCase();
+    return recherche === "" || t.includes(recherche.toLowerCase());
   });
 
   function roleClasses(name?: string) {
     if (name === "admin") return "ak-badge--danger";
-    if (name === "manager") return "ak-badge--warning";
     return "ak-badge--muted";
   }
 
@@ -87,11 +83,12 @@ export default function UtilisateursPage() {
 
       <div className="ak-page-header">
         <div>
-          <h1 className="ak-page-title">Utilisateurs <span className="ak-count-badge">{utilisateurs.length}</span></h1>
-          <p className="ak-page-sub">Gestion des comptes clients, managers et admins</p>
+          <h1 className="ak-page-title">Clients <span className="ak-count-badge">{utilisateurs.length}</span></h1>
+          <p className="ak-page-sub">Liste des comptes clients enregistrés</p>
         </div>
         <button className="ak-btn ak-btn--primary" onClick={() => setShowCreateModal(true)}>
-          <i className="ti ti-plus"></i> Créer un compte
+          <i className="ti ti-plus"></i>
+          Créer un compte admin
         </button>
       </div>
 
@@ -100,12 +97,8 @@ export default function UtilisateursPage() {
           <div className="ak-filters">
             <div className="ak-search" style={{ flex: 1, minWidth: 200 }}>
               <i className="ti ti-search"></i>
-              <input className="ak-input" placeholder="Rechercher par nom, téléphone, rôle..." value={recherche} onChange={(e) => setRecherche(e.target.value)} />
+              <input className="ak-input" placeholder="Rechercher par nom ou téléphone..." value={recherche} onChange={(e) => setRecherche(e.target.value)} />
             </div>
-            <select className="ak-select" style={{ width: 180 }} value={filtreRole} onChange={(e) => setFiltreRole(e.target.value)}>
-              <option value="">Tous les rôles</option>
-              {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
             <span className="ak-filters__count">{filtres.length} résultat(s)</span>
           </div>
         </div>
@@ -142,7 +135,6 @@ export default function UtilisateursPage() {
                     <td><span className="ak-cell-muted">{new Date(u.created_at).toLocaleDateString("fr-FR")}</span></td>
                     <td className="ak-cell-actions">
                       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                        <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" onClick={() => ouvrirEdition(u)} title="Modifier"><i className="ti ti-edit" style={{ fontSize: 15 }}></i></button>
                         <button className="ak-btn ak-btn--danger ak-btn--sm ak-btn--icon" onClick={() => supprimer(u.id, u.full_name)} title="Supprimer"><i className="ti ti-trash" style={{ fontSize: 15 }}></i></button>
                       </div>
                     </td>
@@ -182,7 +174,6 @@ export default function UtilisateursPage() {
               <div className="ak-field" style={{ marginBottom: 0 }}>
                 <label className="ak-label">Rôle <span>*</span></label>
                 <select className="ak-select" value={createForm.role_name} onChange={(e) => setCreateForm({ ...createForm, role_name: e.target.value })}>
-                  <option value="manager">Manager</option>
                   <option value="admin">Admin</option>
                 </select>
                 <p className="ak-helper">Le rôle sera attribué automatiquement à la création.</p>
@@ -196,35 +187,30 @@ export default function UtilisateursPage() {
         </div>
       )}
 
-      {/* Modal modification */}
-      {showEditModal && (
-        <div className="ak-modal-backdrop" onClick={() => setShowEditModal(false)}>
-          <div className="ak-modal" onClick={(e) => e.stopPropagation()}>
+      {/* ── Modal confirmation suppression compte ── */}
+      {confirmAction && (
+        <div className="ak-modal-backdrop" onClick={() => setConfirmAction(null)}>
+          <div className="ak-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
             <div className="ak-modal__header">
-              <h3 className="ak-modal__title">Modifier l'utilisateur</h3>
-              <button className="ak-modal__close" onClick={() => setShowEditModal(false)}>✕</button>
+              <h3 className="ak-modal__title">
+                <i className="ti ti-alert-triangle" style={{ marginRight: 8, color: "#f43f5e" }}></i>
+                {confirmAction.title}
+              </h3>
+              <button className="ak-modal__close" onClick={() => setConfirmAction(null)}>✕</button>
             </div>
             <div className="ak-modal__body">
-              <div className="ak-field">
-                <label className="ak-label">Nom complet <span>*</span></label>
-                <input className="ak-input" value={editForm.full_name} onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })} />
-              </div>
-              <div className="ak-field">
-                <label className="ak-label">Téléphone</label>
-                <input className="ak-input" type="tel" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
-              </div>
-              <div className="ak-field" style={{ marginBottom: 0 }}>
-                <label className="ak-label">Rôle</label>
-                <select className="ak-select" value={editForm.role_name} onChange={(e) => setEditForm({ ...editForm, role_name: e.target.value })}>
-                  <option value="client">Client</option>
-                  <option value="manager">Manager</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
+              <p style={{ fontSize: 14, color: "#475569", margin: 0 }}>{confirmAction.message}</p>
+              {confirmAction.detail && (
+                <div style={{ marginTop: 12, padding: "10px 14px", background: "#fff1f2", borderRadius: 10, borderLeft: "3px solid #f43f5e", fontSize: 13, color: "#9f1239" }}>
+                  {confirmAction.detail}
+                </div>
+              )}
             </div>
             <div className="ak-modal__footer">
-              <button className="ak-btn ak-btn--ghost" onClick={() => setShowEditModal(false)}>Annuler</button>
-              <button className="ak-btn ak-btn--primary" onClick={sauvegarder} disabled={saving}>{saving ? "Enregistrement..." : "Enregistrer"}</button>
+              <button className="ak-btn ak-btn--ghost" onClick={() => setConfirmAction(null)}>Annuler</button>
+              <button className="ak-btn ak-btn--danger" onClick={confirmAction.onConfirm}>
+                <i className="ti ti-trash"></i> Supprimer
+              </button>
             </div>
           </div>
         </div>

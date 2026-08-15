@@ -28,6 +28,7 @@ export default function ProduitsPage() {
   const [videoUrl, setVideoUrl] = useState("");
   const [showVideoInput, setShowVideoInput] = useState(false);
   const imageFileRef = useRef<HTMLInputElement>(null);
+  const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; detail?: string; onConfirm: () => void } | null>(null);
   const [form, setForm] = useState({
     title: "", category_id: "", price: "",
     stock: "0", short_description: "", status: "draft", loyalty_points: "0", display_order: "0",
@@ -199,11 +200,20 @@ export default function ProduitsPage() {
     chargerProduits();
   }
 
-  async function supprimerProduit(id: string) {
-    if (!confirm("Supprimer ce produit ?")) return;
+  async function supprimerProduitConfirme(id: string) {
     await supabase.from("products").delete().eq("id", id);
+    setConfirmAction(null);
     showAlert("Produit supprimé.", "success");
     chargerProduits();
+  }
+
+  function supprimerProduit(p: Produit) {
+    setConfirmAction({
+      title: "Supprimer le produit",
+      message: `Voulez-vous vraiment supprimer "${p.title}" ?`,
+      detail: "Cette action supprimera également les médias et les données associées. Irréversible.",
+      onConfirm: () => supprimerProduitConfirme(p.id),
+    });
   }
 
   async function deplacerProduit(id: string, direction: "up" | "down") {
@@ -292,7 +302,7 @@ export default function ProduitsPage() {
                   <td className="ak-cell-actions">
                     <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                       <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" onClick={() => ouvrirEdition(p)}><i className="ti ti-edit" style={{ fontSize: 15 }}></i></button>
-                      <button className="ak-btn ak-btn--danger ak-btn--sm ak-btn--icon" onClick={() => supprimerProduit(p.id)}><i className="ti ti-trash" style={{ fontSize: 15 }}></i></button>
+                      <button className="ak-btn ak-btn--danger ak-btn--sm ak-btn--icon" onClick={() => supprimerProduit(p)}><i className="ti ti-trash" style={{ fontSize: 15 }}></i></button>
                     </div>
                   </td>
                 </tr>
@@ -444,6 +454,35 @@ export default function ProduitsPage() {
               </button>
             </div>
             <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal confirmation suppression produit ── */}
+      {confirmAction && (
+        <div className="ak-modal-backdrop" onClick={() => setConfirmAction(null)}>
+          <div className="ak-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div className="ak-modal__header">
+              <h3 className="ak-modal__title">
+                <i className="ti ti-alert-triangle" style={{ marginRight: 8, color: "#f43f5e" }}></i>
+                {confirmAction.title}
+              </h3>
+              <button className="ak-modal__close" onClick={() => setConfirmAction(null)}>✕</button>
+            </div>
+            <div className="ak-modal__body">
+              <p style={{ fontSize: 14, color: "#475569", margin: 0 }}>{confirmAction.message}</p>
+              {confirmAction.detail && (
+                <div style={{ marginTop: 12, padding: "10px 14px", background: "#fff1f2", borderRadius: 10, borderLeft: "3px solid #f43f5e", fontSize: 13, color: "#9f1239" }}>
+                  {confirmAction.detail}
+                </div>
+              )}
+            </div>
+            <div className="ak-modal__footer">
+              <button className="ak-btn ak-btn--ghost" onClick={() => setConfirmAction(null)}>Annuler</button>
+              <button className="ak-btn ak-btn--danger" onClick={confirmAction.onConfirm}>
+                <i className="ti ti-trash"></i> Supprimer
+              </button>
+            </div>
           </div>
         </div>
       )}

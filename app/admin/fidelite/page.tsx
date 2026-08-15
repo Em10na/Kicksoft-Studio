@@ -39,6 +39,7 @@ export default function FidelitePage() {
   const [userSummaries, setUserSummaries] = useState<UserSummary[]>([]);
   const [searchUser, setSearchUser] = useState("");
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; detail?: string; confirmLabel?: string; confirmIcon?: string; onConfirm: () => void } | null>(null);
 
   async function chargerTout() {
     const [ordersRes, txRes] = await Promise.all([
@@ -104,15 +105,27 @@ export default function FidelitePage() {
     chargerTout();
   }
 
-  async function ignorerAttribution(orderId: string) {
-    if (!confirm("Ignorer l'attribution de points pour cette commande ?")) return;
+  async function ignorerAttributionConfirme(orderId: string) {
     const order = deliveredOrders.find((o) => o.id === orderId);
     if (!order) return;
     await supabase.from("loyalty_transactions").insert({
       user_id: order.user_id, order_id: orderId, points: 0, type: "earn",
       description: `Commande #${orderId.slice(0, 8)} — attribution ignoree par admin`,
     });
-    showAlert("Attribution ignoree."); chargerTout();
+    setConfirmAction(null);
+    showAlert("Attribution ignorée."); chargerTout();
+  }
+
+  function ignorerAttribution(orderId: string) {
+    const order = deliveredOrders.find((o) => o.id === orderId);
+    setConfirmAction({
+      title: "Ignorer l'attribution de points",
+      message: `Voulez-vous ignorer les points pour la commande #${orderId.slice(0, 8)} de ${(order?.profiles as { full_name: string } | null)?.full_name ?? "ce client"} ?`,
+      detail: "Le client ne recevra aucun point pour cette commande. Cette action ne peut pas être annulée.",
+      confirmLabel: "Ignorer",
+      confirmIcon: "ti-x",
+      onConfirm: () => ignorerAttributionConfirme(orderId),
+    });
   }
 
   const filteredSummaries = searchUser
@@ -392,6 +405,35 @@ export default function FidelitePage() {
           )}
         </div>
       </div>
+
+      {/* ── Modal confirmation ── */}
+      {confirmAction && (
+        <div className="ak-modal-backdrop" onClick={() => setConfirmAction(null)}>
+          <div className="ak-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div className="ak-modal__header">
+              <h3 className="ak-modal__title">
+                <i className="ti ti-alert-triangle" style={{ marginRight: 8, color: "#f59e0b" }}></i>
+                {confirmAction.title}
+              </h3>
+              <button className="ak-modal__close" onClick={() => setConfirmAction(null)}>✕</button>
+            </div>
+            <div className="ak-modal__body">
+              <p style={{ fontSize: 14, color: "#475569", margin: 0 }}>{confirmAction.message}</p>
+              {confirmAction.detail && (
+                <div style={{ marginTop: 12, padding: "10px 14px", background: "#fffbeb", borderRadius: 10, borderLeft: "3px solid #f59e0b", fontSize: 13, color: "#92400e" }}>
+                  {confirmAction.detail}
+                </div>
+              )}
+            </div>
+            <div className="ak-modal__footer">
+              <button className="ak-btn ak-btn--ghost" onClick={() => setConfirmAction(null)}>Annuler</button>
+              <button className="ak-btn ak-btn--danger" onClick={confirmAction.onConfirm}>
+                <i className={`ti ${confirmAction.confirmIcon ?? "ti-x"}`}></i> {confirmAction.confirmLabel ?? "Confirmer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

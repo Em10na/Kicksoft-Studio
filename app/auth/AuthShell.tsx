@@ -2,17 +2,12 @@
 
 import Link from "next/link";
 
-// Coque commune connexion / inscription : simple et épurée.
-// Vidéo en fond adoucie, une seule carte blanche centrée.
+// Coque commune connexion / inscription — thème sombre DJI Store TN.
+// Vidéo aérienne en fond, carte noire avec animations cinématiques.
 export default function AuthShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="auth-page">
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link
-        rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap"
-      />
-
+      {/* Fond vidéo */}
       <video
         className="auth-bg"
         autoPlay
@@ -25,15 +20,21 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
       </video>
       <div className="auth-bg-veil" />
 
+      {/* Halos lumineux ambiants */}
+      <div className="auth-glow auth-glow--1" />
+      <div className="auth-glow auth-glow--2" />
+
       <div className="auth-card">
         <Link href="/" className="auth-logo">
-          <span className="auth-logo__mark">K</span>
-          <span className="auth-logo__text">kicksoft</span>
+          <img src="/assets/images/logos/logo-store.png" alt="DJI Store TN" className="auth-logo__img" />
         </Link>
         {children}
       </div>
 
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap');
+
+        /* ── Page ─────────────────────────────────────────────────── */
         .auth-page {
           position: relative;
           min-height: 100vh;
@@ -43,8 +44,10 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
           justify-content: center;
           padding: 24px;
           font-family: 'Outfit', system-ui, -apple-system, 'Segoe UI', sans-serif;
-          background: #0a0a0a;
+          background: #030712;
         }
+
+        /* ── Fond vidéo ───────────────────────────────────────────── */
         .auth-bg {
           position: absolute; inset: 0;
           width: 100%; height: 100%;
@@ -52,146 +55,192 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
         }
         .auth-bg-veil {
           position: absolute; inset: 0;
-          background: rgba(8, 8, 12, 0.55);
-          backdrop-filter: blur(3px);
-          -webkit-backdrop-filter: blur(3px);
+          background: linear-gradient(135deg, rgba(3,7,18,0.82) 0%, rgba(15,23,42,0.7) 100%);
+          backdrop-filter: blur(2px);
+          -webkit-backdrop-filter: blur(2px);
         }
 
+        /* ── Halos ambiants ───────────────────────────────────────── */
+        @keyframes authGlowFloat {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50%       { transform: translate(20px, -25px) scale(1.08); }
+        }
+        .auth-glow {
+          position: fixed; border-radius: 50%;
+          filter: blur(90px); opacity: 0.13; pointer-events: none; z-index: 1;
+        }
+        .auth-glow--1 {
+          width: 600px; height: 600px;
+          background: radial-gradient(circle, #4f46e5 0%, transparent 70%);
+          top: -150px; right: -100px;
+          animation: authGlowFloat 14s ease-in-out infinite;
+        }
+        .auth-glow--2 {
+          width: 450px; height: 450px;
+          background: radial-gradient(circle, #0ea5e9 0%, transparent 70%);
+          bottom: -120px; left: -80px;
+          animation: authGlowFloat 18s ease-in-out infinite reverse;
+        }
+
+        /* ── Animations d'entrée ──────────────────────────────────── */
         @keyframes authRise {
-          from { opacity: 0; transform: translateY(16px); }
-          to { opacity: 1; transform: none; }
+          from { opacity: 0; transform: translateY(24px) scale(0.98); }
+          to   { opacity: 1; transform: none; }
+        }
+        @keyframes authLogoIn {
+          from { opacity: 0; transform: scale(0.8) translateY(-10px); }
+          to   { opacity: 1; transform: none; }
+        }
+        @keyframes authShimmer {
+          0%       { left: -70%; }
+          40%, 100% { left: 130%; }
+        }
+        @keyframes authPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.1); }
+          50%       { box-shadow: 0 0 0 6px rgba(255,255,255,0); }
         }
 
+        /* ── Carte principale ─────────────────────────────────────── */
         .auth-card {
           position: relative;
           z-index: 2;
-          width: min(420px, 100%);
-          background: #fff;
-          border-radius: 24px;
-          box-shadow: 0 30px 90px -25px rgba(0,0,0,0.6);
-          padding: 40px 36px;
-          animation: authRise 0.55s cubic-bezier(0.22,1,0.36,1) both;
+          width: min(430px, 100%);
+          background: rgba(15, 23, 42, 0.9);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 28px;
+          box-shadow:
+            0 40px 100px -20px rgba(0,0,0,0.85),
+            0 0 0 1px rgba(255,255,255,0.04),
+            inset 0 1px 0 rgba(255,255,255,0.06);
+          padding: 42px 38px;
+          animation: authRise 0.6s cubic-bezier(0.22,1,0.36,1) both;
           max-height: calc(100vh - 48px);
           overflow-y: auto;
           text-align: center;
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
         }
-        .auth-card::-webkit-scrollbar { width: 5px; }
-        .auth-card::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 99px; }
+        .auth-card::-webkit-scrollbar { width: 4px; }
+        .auth-card::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 99px; }
 
+        /* ── Logo DJI Store TN ────────────────────────────────────── */
         .auth-logo {
-          display: inline-flex;
-          align-items: center;
-          gap: 9px;
+          display: inline-block;
           text-decoration: none;
-          margin-bottom: 18px;
+          margin-bottom: 22px;
+          animation: authLogoIn 0.5s cubic-bezier(0.22,1,0.36,1) 0.2s both;
         }
-        .auth-logo__mark {
-          width: 36px; height: 36px;
-          background: #0f172a;
-          border-radius: 10px;
-          display: grid; place-items: center;
-          color: #fff; font-weight: 800; font-size: 16px;
-          font-family: 'Plus Jakarta Sans', sans-serif;
+        .auth-logo__img {
+          height: 38px;
+          width: auto;
+          max-width: 200px;
+          object-fit: contain;
+          /* Filtre pour rendre le logo blanc sur fond sombre */
+          filter: brightness(0) invert(1);
+          transition: opacity 0.2s;
         }
-        .auth-logo__text {
-          font-family: 'Plus Jakarta Sans', sans-serif;
-          font-size: 21px; font-weight: 800;
-          color: #0f172a; letter-spacing: -0.02em;
-        }
+        .auth-logo:hover .auth-logo__img { opacity: 0.8; }
 
+        /* ── Textes ───────────────────────────────────────────────── */
         .auth-title {
           font-family: 'Plus Jakarta Sans', sans-serif;
-          font-size: 24px;
+          font-size: 22px;
           font-weight: 800;
           letter-spacing: -0.02em;
-          color: #0f172a;
+          color: #f1f5f9;
           margin: 0 0 6px;
         }
-        .auth-sub { font-size: 14px; color: #64748b; margin: 0 0 26px; }
+        .auth-sub { font-size: 13.5px; color: #64748b; margin: 0 0 26px; }
 
-        .auth-field { margin-bottom: 14px; text-align: left; }
-        .auth-field__wrap { position: relative; }
-        .auth-field__icon { display: none; }
+        /* ── Champs de saisie ─────────────────────────────────────── */
         .auth-input {
           width: 100%;
           padding: 13px 16px;
-          border: 1.5px solid #e2e8f0;
+          border: 1.5px solid rgba(255,255,255,0.1);
           border-radius: 12px;
-          background: #fff;
+          background: rgba(255,255,255,0.04);
           font-size: 14px;
           font-family: inherit;
-          color: #111827;
+          color: #f1f5f9;
           outline: none;
           box-sizing: border-box;
-          transition: border-color 0.2s, box-shadow 0.2s;
+          transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
         }
-        .auth-input::placeholder { color: #94a3b8; }
-        .auth-input:hover { border-color: #cbd5e1; }
+        .auth-input::placeholder { color: #475569; }
+        .auth-input:hover { border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.06); }
         .auth-input:focus {
-          border-color: #0f172a;
-          box-shadow: 0 0 0 4px rgba(15,23,42,0.08);
+          border-color: rgba(255,255,255,0.4);
+          background: rgba(255,255,255,0.07);
+          box-shadow: 0 0 0 4px rgba(255,255,255,0.06), 0 0 20px rgba(255,255,255,0.04);
         }
-        .auth-input--error { border-color: #dc2626; }
-        .auth-error { color: #dc2626; font-size: 12px; margin: 5px 0 0 4px; }
+        .auth-input--error { border-color: rgba(248,113,113,0.5); }
+        .auth-error { color: #f87171; font-size: 12px; margin: 5px 0 0 4px; }
+
         .auth-eye {
           position: absolute; right: 14px; top: 50%;
           transform: translateY(-50%);
           background: none; border: none;
-          cursor: pointer; color: #94a3b8;
+          cursor: pointer; color: #475569;
           padding: 0; display: flex;
+          transition: color 0.2s;
         }
-        .auth-eye:hover { color: #0f172a; }
+        .auth-eye:hover { color: #94a3b8; }
 
+        /* ── Liens ────────────────────────────────────────────────── */
         .auth-row {
-          display: flex;
-          align-items: center;
+          display: flex; align-items: center;
           justify-content: space-between;
-          margin: 0 2px 18px;
-          font-size: 12.5px;
+          margin: 0 2px 18px; font-size: 12.5px;
         }
-        .auth-row a { color: #0f172a; font-weight: 600; text-decoration: none; }
-        .auth-row a:hover { text-decoration: underline; }
+        .auth-row a { color: #94a3b8; font-weight: 600; text-decoration: none; transition: color 0.2s; }
+        .auth-row a:hover { color: #f1f5f9; }
 
-        .auth-check {
-          display: flex;
-          align-items: center;
-          gap: 9px;
-          font-size: 12.5px;
-          color: #475569;
-          margin: 2px 2px 18px;
-          text-align: left;
-        }
-        .auth-check input {
-          width: 16px; height: 16px;
-          accent-color: #0f172a;
-          cursor: pointer;
-          flex-shrink: 0;
-        }
-        .auth-check a { color: #0f172a; font-weight: 600; }
-
+        /* ── Bouton principal ─────────────────────────────────────── */
         .auth-submit {
+          position: relative;
+          overflow: hidden;
           width: 100%;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           padding: 14px 24px;
           border: none;
-          border-radius: 12px;
-          background: #0f172a;
-          color: #fff;
+          border-radius: 14px;
+          background: #fff;
+          color: #0f172a;
           font-family: 'Plus Jakarta Sans', sans-serif;
           font-size: 14.5px;
           font-weight: 700;
           cursor: pointer;
-          transition: background 0.2s, transform 0.2s;
+          transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+          box-shadow: 0 4px 20px rgba(255,255,255,0.15), 0 1px 3px rgba(0,0,0,0.3);
+          letter-spacing: -0.01em;
+          animation: authPulse 3s ease-in-out infinite 1.5s;
         }
-        .auth-submit:hover { background: #1e293b; transform: translateY(-1px); }
-        .auth-submit:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+        /* Reflet shimmer automatique */
+        .auth-submit::after {
+          content: '';
+          position: absolute;
+          top: -50%; left: -70%;
+          width: 40%; height: 200%;
+          background: linear-gradient(105deg, transparent, rgba(255,255,255,0.25), transparent);
+          transform: skewX(-20deg);
+          animation: authShimmer 3.5s ease-in-out infinite 1s;
+        }
+        .auth-submit:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 32px rgba(255,255,255,0.22), 0 1px 3px rgba(0,0,0,0.4);
+          background: #f1f5f9;
+        }
+        .auth-submit:active { transform: translateY(0); }
+        .auth-submit:disabled { opacity: 0.4; cursor: not-allowed; transform: none; animation: none; }
+        .auth-submit:disabled::after { display: none; }
 
+        /* ── Alerte d'erreur ──────────────────────────────────────── */
         .auth-alert {
-          background: #fef2f2;
-          border: 1px solid #fecaca;
-          color: #dc2626;
+          background: rgba(239,68,68,0.1);
+          border: 1px solid rgba(239,68,68,0.25);
+          color: #fca5a5;
           font-size: 13px;
           border-radius: 12px;
           padding: 11px 14px;
@@ -202,19 +251,27 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
           text-align: left;
         }
 
+        /* ── Pied de formulaire ───────────────────────────────────── */
         .auth-switch { font-size: 13.5px; color: #475569; margin-top: 22px; }
-        .auth-switch a { color: #0f172a; font-weight: 700; text-decoration: none; }
-        .auth-switch a:hover { text-decoration: underline; }
+        .auth-switch a, .auth-switch button {
+          color: #94a3b8; font-weight: 700; text-decoration: none;
+          transition: color 0.2s;
+        }
+        .auth-switch a:hover, .auth-switch button:hover { color: #f1f5f9; }
 
-        .auth-perks { margin-top: 18px; display: flex; flex-direction: column; gap: 6px; text-align: left; }
-        .auth-perk { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #475569; }
-        .auth-perk span { color: #10b981; font-weight: 700; }
+        /* ── Checkbox ─────────────────────────────────────────────── */
+        .auth-check {
+          display: flex; align-items: center; gap: 9px;
+          font-size: 12.5px; color: #64748b;
+          margin: 2px 2px 18px; text-align: left;
+        }
+        .auth-check input { width: 16px; height: 16px; accent-color: #94a3b8; cursor: pointer; flex-shrink: 0; }
+        .auth-check a { color: #94a3b8; font-weight: 600; }
 
-        .auth-strength { margin-top: 8px; display: flex; gap: 4px; }
-        .auth-strength div { flex: 1; height: 3px; border-radius: 2px; background: #e5e7eb; }
-
+        /* ── Responsive ───────────────────────────────────────────── */
         @media (max-width: 520px) {
-          .auth-card { padding: 32px 22px; border-radius: 20px; }
+          .auth-card { padding: 32px 22px; border-radius: 22px; }
+          .auth-title { font-size: 20px; }
         }
       `}</style>
     </div>

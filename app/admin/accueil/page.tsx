@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 
 type Categorie = { id: string; name: string };
@@ -45,6 +46,12 @@ type SectionMedia = {
   url: string;
   poster_url: string | null;
   display_order: number;
+  banner_label?: string | null;
+  banner_title?: string | null;
+  banner_sub?: string | null;
+  banner_cta?: string | null;
+  banner_cta_href?: string | null;
+  banner_visible?: boolean;
 };
 
 type HomeSection = {
@@ -61,17 +68,20 @@ type HomeSection = {
 type SectionForm = { title: string; tagline: string; cta_label: string; cta_href: string };
 
 const SECTION_META: Record<HomeSection["section"], { label: string; desc: string; icon: string }> = {
-  suggestion: { label: "Suggestions", desc: "Bannière au-dessus des produits vedettes", icon: "ti-bulb" },
-  solde: { label: "Articles en solde", desc: "Carousel flottant — images et vidéos des produits en vedette", icon: "ti-discount-2" },
+  suggestion: { label: "Suggestions",       desc: "Bannière au-dessus des produits vedettes",                      icon: "ti-bulb"       },
+  solde:      { label: "Articles en solde", desc: "Carousel flottant — images et vidéos des produits en vedette", icon: "ti-discount-2" },
 };
-const SECTION_ORDER: HomeSection["section"][] = ["suggestion", "solde"];
+
+const SECTION_ORDER: HomeSection["section"][] = ["solde", "suggestion"];
 
 const SECTION_DEFAULTS: Record<HomeSection["section"], { title: string; tagline: string; cta_label: string; cta_href: string }> = {
-  suggestion: { title: "Caméra Cinéma Pro",        tagline: "Filmez comme un professionnel",                                     cta_label: "Acheter", cta_href: "/boutique?q=camera" },
-  solde:      { title: "DJI Série Professionnelle", tagline: "Précision, autonomie et performance. La référence mondiale de la capture aérienne.", cta_label: "Acheter maintenant", cta_href: "/boutique" },
+  suggestion: { title: "Caméra Cinéma Pro",        tagline: "Filmez comme un professionnel",                                                        cta_label: "Acheter",            cta_href: "/boutique?q=camera" },
+  solde:      { title: "Nos articles en solde",      tagline: "Des offres exclusives sélectionnées pour vous — profitez-en avant la fin des soldes.", cta_label: "Voir les soldes",    cta_href: "/boutique"          },
 };
 
 const BUCKET = "media";
+
+const QUICK_HREFS = ["/boutique?soldes=1", "/boutique", "/boutique?nouveautes=1", "/"];
 
 function estVideo(nomOuUrl: string, mime?: string): boolean {
   if (mime) return mime.startsWith("video/");
@@ -96,12 +106,10 @@ export default function AccueilPage() {
   const heroFileRef = useRef<HTMLInputElement | null>(null);
   const heroVideoRef = useRef<HTMLInputElement | null>(null);
 
-  const [featuredOrderDispo, setFeaturedOrderDispo] = useState(true);
-
   const [searchWhatsNew, setSearchWhatsNew] = useState("");
   const [showDropWhatsNew, setShowDropWhatsNew] = useState(false);
 
-  // Sections média (suggestion / recommandation / solde)
+  // Sections média (suggestion / solde)
   const [sections, setSections] = useState<HomeSection[]>([]);
   const [sectionsDispo, setSectionsDispo] = useState(true);
   const [sectionForms, setSectionForms] = useState<Record<string, SectionForm>>({});
@@ -111,10 +119,45 @@ export default function AccueilPage() {
   const [editingSection, setEditingSection] = useState<HomeSection | null>(null);
   const [showWhatsNewModal, setShowWhatsNewModal] = useState(false);
   const [showHeroModal, setShowHeroModal] = useState(false);
+  // Monté côté client (nécessaire pour createPortal en Next.js)
+  const [mounted, setMounted] = useState(false);
+  // Articles en solde chargés SANS filtre de statut (comme la page /admin/soldes)
+  const [articulesEnSolde, setArticulesEnSolde] = useState<Produit[]>([]);
+  const [searchSolde, setSearchSolde] = useState("");
+  const [showDropSolde, setShowDropSolde] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; detail?: string; confirmLabel?: string; confirmIcon?: string; onConfirm: () => void } | null>(null);
+  // Modal de configuration par bannière (solde section)
+  const [bannerEdit, setBannerEdit] = useState<{
+    media: SectionMedia;
+    label: string; title: string; sub: string; cta: string; cta_href: string; visible: boolean;
+  } | null>(null);
 
   function notifier(message: string, type: "success" | "danger" | "warning" = "success") {
     setAlert({ message, type });
     setTimeout(() => setAlert({ message: "", type: "" }), 3000);
+  }
+
+  // Nécessaire pour que createPortal fonctionne côté serveur (Next.js)
+  useEffect(() => { setMounted(true); }, []);
+
+  // Charge les articles en solde SANS filtre de statut, comme la page /admin/soldes.
+  // chargerProduits() filtre par status="published" (nécessaire pour featured/whats_new).
+  // Pour les soldes hero on veut TOUS les produits avec compare_price > price.
+  async function chargerSoldes() {
+    const { data, error } = await supabase
+      .from("products")
+      .select("id, title, price, featured, featured_order, status, compare_price, solde_hero, solde_hero_order, whats_new, whats_new_order, image_url, category_id")
+      .order("title", { ascending: true });
+    if (error) return;
+    setArticulesEnSolde(
+      (data ?? [])
+        .map((p: any) => ({
+          ...p,
+          featured_order: p.featured_order ?? 0,
+          solde_hero_order: p.solde_hero_order ?? 0,
+          whats_new_order: p.whats_new_order ?? 0,
+        }))
+    );
   }
 
   async function chargerHeroSlides() {
@@ -142,26 +185,25 @@ export default function AccueilPage() {
     chargerHeroSlides();
   }
 
-  async function supprimerSlide(id: string) {
-    if (!confirm("Supprimer ce slide ?")) return;
+  async function supprimerSlideConfirme(id: string) {
     await supabase.from("hero_slides").delete().eq("id", id);
+    setConfirmAction(null);
     notifier("Slide supprimé.");
     chargerHeroSlides();
   }
 
-  async function toggleSlideVisible(s: HeroSlideRow) {
-    await supabase.from("hero_slides").update({ visible: !s.visible }).eq("id", s.id);
-    chargerHeroSlides();
+  function supprimerSlide(id: string, title: string) {
+    setConfirmAction({
+      title: "Supprimer le slide",
+      message: `Voulez-vous supprimer le slide "${title}" du carrousel hero ?`,
+      confirmLabel: "Supprimer",
+      confirmIcon: "ti-trash",
+      onConfirm: () => supprimerSlideConfirme(id),
+    });
   }
 
-  async function moveSlide(id: string, dir: -1 | 1) {
-    const idx = heroSlides.findIndex((s) => s.id === id);
-    const voisin = heroSlides[idx + dir];
-    if (!voisin) return;
-    await Promise.all([
-      supabase.from("hero_slides").update({ display_order: voisin.display_order }).eq("id", id),
-      supabase.from("hero_slides").update({ display_order: heroSlides[idx].display_order }).eq("id", voisin.id),
-    ]);
+  async function toggleSlideVisible(s: HeroSlideRow) {
+    await supabase.from("hero_slides").update({ visible: !s.visible }).eq("id", s.id);
     chargerHeroSlides();
   }
 
@@ -209,8 +251,6 @@ export default function AccueilPage() {
       .order("title", { ascending: true });
 
     if (error) {
-      // Colonnes de migration absentes — repli sans les colonnes _order
-      setFeaturedOrderDispo(false);
       const { data: fallback, error: e2 } = await supabase
         .from("products")
         .select("id, title, price, featured, status, compare_price, solde_hero, whats_new, image_url, category_id")
@@ -226,13 +266,12 @@ export default function AccueilPage() {
   async function chargerSections() {
     const { data, error } = await supabase.from("home_sections").select("*, home_section_media(*)");
     if (error) {
-      // Table absente tant que la migration v5 n'a pas été exécutée
       setSectionsDispo(false);
       return;
     }
     setSectionsDispo(true);
 
-    // Auto-créer les sections manquantes (suggestion / recommandation / solde)
+    // Auto-créer les sections manquantes (solde / suggestion)
     const existingKeys = new Set((data ?? []).map((s: HomeSection) => s.section));
     const manquantes = SECTION_ORDER.filter((k) => !existingKeys.has(k));
     if (manquantes.length > 0) {
@@ -241,7 +280,6 @@ export default function AccueilPage() {
           supabase.from("home_sections").insert({ section: k, ...SECTION_DEFAULTS[k], visible: true })
         )
       );
-      // Recharger après la création
       const { data: data2 } = await supabase.from("home_sections").select("*, home_section_media(*)");
       return chargerSectionsDepuisData(data2 ?? []);
     }
@@ -249,10 +287,12 @@ export default function AccueilPage() {
   }
 
   function chargerSectionsDepuisData(data: HomeSection[]) {
-    const tri = data.map((s) => ({
-      ...s,
-      home_section_media: [...(s.home_section_media ?? [])].sort((a, b) => a.display_order - b.display_order),
-    }));
+    const tri = data
+      .filter((s) => s.section in SECTION_META)
+      .map((s) => ({
+        ...s,
+        home_section_media: [...(s.home_section_media ?? [])].sort((a, b) => a.display_order - b.display_order),
+      }));
     tri.sort((a, b) => SECTION_ORDER.indexOf(a.section) - SECTION_ORDER.indexOf(b.section));
     setSections(tri);
     setSectionForms((prev) => {
@@ -296,7 +336,9 @@ export default function AccueilPage() {
   }
 
   useEffect(() => {
-    Promise.all([chargerHeroSlides(), chargerProduits(), chargerSections(), chargerCategories()]).then(() => setLoading(false));
+    Promise.all([chargerHeroSlides(), chargerProduits(), chargerSoldes(), chargerSections(), chargerCategories()])
+      .then(() => setLoading(false))
+      .catch(() => setLoading(false)); // réseau instable → débloquer le loading
   }, []);
 
   async function toggleFeatured(produitId: string, actuel: boolean) {
@@ -304,18 +346,6 @@ export default function AccueilPage() {
     const { error } = await supabase.from("products").update({ featured: !actuel, featured_order: nextOrder }).eq("id", produitId);
     if (error) { notifier("Erreur : " + error.message, "danger"); return; }
     notifier(!actuel ? "Produit mis en avant !" : "Produit retiré de la mise en avant.");
-    chargerProduits();
-  }
-
-  async function moveFeatured(produitId: string, dir: -1 | 1) {
-    const ordered = [...produits.filter((p) => p.featured)].sort((a, b) => a.featured_order - b.featured_order);
-    const idx = ordered.findIndex((p) => p.id === produitId);
-    const voisin = ordered[idx + dir];
-    if (!voisin) return;
-    await Promise.all([
-      supabase.from("products").update({ featured_order: voisin.featured_order }).eq("id", produitId),
-      supabase.from("products").update({ featured_order: ordered[idx].featured_order }).eq("id", voisin.id),
-    ]);
     chargerProduits();
   }
 
@@ -329,23 +359,40 @@ export default function AccueilPage() {
     chargerProduits();
   }
 
-  // Articles soldés affichés sur l'accueil (bannière solde + slider du haut)
   async function toggleSoldeAffiche(p: Produit) {
-    const nextOrder = p.solde_hero ? 0 : Math.max(0, ...produits.filter((x) => x.solde_hero).map((x) => x.solde_hero_order)) + 1;
-    const { error } = await supabase.from("products").update({ solde_hero: !p.solde_hero, solde_hero_order: nextOrder }).eq("id", p.id);
+    const isAdding = !p.solde_hero;
+    const nextOrder = isAdding
+      ? Math.max(0, ...articulesEnSolde.filter((x) => x.solde_hero).map((x) => x.solde_hero_order)) + 1
+      : 0;
+    const { error } = await supabase.from("products").update({ solde_hero: isAdding, solde_hero_order: nextOrder }).eq("id", p.id);
     if (error) { notifier("Erreur : " + error.message, "danger"); return; }
-    notifier(!p.solde_hero ? `« ${p.title} » ajouté au slider soldes.` : `« ${p.title} » retiré du slider soldes.`);
-    chargerProduits();
+    // Auto-alimenter la section "Médias" avec l'image du produit ajouté
+    if (isAdding && p.image_url) {
+      const soldeSection = sections.find((sec) => sec.section === "solde");
+      if (soldeSection && !soldeSection.home_section_media.some((m) => m.url === p.image_url)) {
+        const ordre = (soldeSection.home_section_media.at(-1)?.display_order ?? -1) + 1;
+        await supabase.from("home_section_media").insert({
+          section_id: soldeSection.id,
+          media_type: "image",
+          url: p.image_url,
+          display_order: ordre,
+          banner_visible: true,
+        });
+      }
+    }
+    notifier(isAdding ? `« ${p.title} » ajouté au slider soldes.` : `« ${p.title} » retiré du slider soldes.`);
+    chargerSoldes();
+    chargerSections();
   }
 
   async function deplacerSoldeVers(produitId: string, newIdx: number) {
-    const ordered = [...produits.filter((p) => p.solde_hero)].sort((a, b) => a.solde_hero_order - b.solde_hero_order);
+    const ordered = [...articulesEnSolde.filter((p) => p.solde_hero)].sort((a, b) => a.solde_hero_order - b.solde_hero_order);
     const fromIdx = ordered.findIndex((p) => p.id === produitId);
     if (fromIdx === newIdx) return;
     const [moved] = ordered.splice(fromIdx, 1);
     ordered.splice(newIdx, 0, moved);
     await Promise.all(ordered.map((p, i) => supabase.from("products").update({ solde_hero_order: i + 1 }).eq("id", p.id)));
-    chargerProduits();
+    chargerSoldes();
   }
 
   // ---------- Sections média ----------
@@ -385,6 +432,7 @@ export default function AccueilPage() {
       media_type: type,
       url,
       display_order: ordre,
+      banner_visible: true,
     });
     if (error) notifier("Erreur : " + error.message, "danger");
     else {
@@ -401,10 +449,7 @@ export default function AccueilPage() {
       const file = files[i];
       const nom = `home/${Date.now()}_${file.name.replace(/\s+/g, "_")}`;
       const { error } = await supabase.storage.from(BUCKET).upload(nom, file, { upsert: false });
-      if (error) {
-        notifier("Upload échoué : " + error.message, "danger");
-        continue;
-      }
+      if (error) { notifier("Upload échoué : " + error.message, "danger"); continue; }
       const { data } = supabase.storage.from(BUCKET).getPublicUrl(nom);
       await ajouterMedia(s, data.publicUrl, estVideo(file.name, file.type) ? "video" : "image");
     }
@@ -419,14 +464,48 @@ export default function AccueilPage() {
     setUrlInputs((prev) => ({ ...prev, [s.id]: "" }));
   }
 
-  async function supprimerMedia(m: SectionMedia) {
-    if (!confirm("Supprimer ce média de la section ?")) return;
+  async function supprimerMediaConfirme(m: SectionMedia) {
     const { error } = await supabase.from("home_section_media").delete().eq("id", m.id);
+    setConfirmAction(null);
     if (error) notifier("Erreur : " + error.message, "danger");
-    else {
-      notifier("Média supprimé.");
-      chargerSections();
-    }
+    else { notifier("Média supprimé."); chargerSections(); }
+  }
+
+  function supprimerMedia(m: SectionMedia) {
+    setConfirmAction({
+      title: "Supprimer ce média",
+      message: "Voulez-vous retirer ce média de la section ?",
+      detail: m.media_type === "video" ? "🎬 Fichier vidéo de la section" : "🖼️ Image de la section",
+      confirmLabel: "Supprimer",
+      confirmIcon: "ti-trash",
+      onConfirm: () => supprimerMediaConfirme(m),
+    });
+  }
+
+  // Remet banner_visible = true pour TOUS les médias d'une section
+  async function reinitialiserBannersVisibles(s: HomeSection) {
+    const ids = s.home_section_media.map((m) => m.id);
+    if (ids.length === 0) return;
+    await Promise.all(
+      ids.map((id) => supabase.from("home_section_media").update({ banner_visible: true }).eq("id", id))
+    );
+    notifier("Tous les médias sont maintenant visibles !");
+    chargerSections();
+  }
+
+  async function sauvegarderBanner() {
+    if (!bannerEdit) return;
+    await supabase.from("home_section_media").update({
+      banner_label:   bannerEdit.label,
+      banner_title:   bannerEdit.title,
+      banner_sub:     bannerEdit.sub,
+      banner_cta:     bannerEdit.cta,
+      banner_cta_href: bannerEdit.cta_href,
+      banner_visible: bannerEdit.visible,
+    }).eq("id", bannerEdit.media.id);
+    setBannerEdit(null);
+    notifier("Bannière configurée !");
+    chargerSections();
   }
 
   async function deplacerMedia(s: HomeSection, m: SectionMedia, dir: -1 | 1) {
@@ -454,6 +533,8 @@ export default function AccueilPage() {
   if (loading) {
     return <p style={{ color: "#94a3b8", padding: 24 }}>Chargement...</p>;
   }
+
+  const pinnedCount = produits.filter((p) => p.whats_new).length;
 
   return (
     <div className="ak-animate">
@@ -506,19 +587,21 @@ export default function AccueilPage() {
         )}
       </div>
 
-      {/* ---------- Sections média ---------- */}
+      {/* ---------- Sections média (solde / suggestion) ---------- */}
       {!sectionsDispo ? (
         <div className="ak-alert ak-alert--warning" style={{ marginBottom: 20 }}>
           <i className="ti ti-alert-circle"></i> Les tables des sections média n&apos;existent pas encore —
           exécutez <code>supabase/migration-v5-home-sections.sql</code> dans le SQL Editor de Supabase puis rechargez.
         </div>
       ) : (
-        sections.filter((s) => s.section in SECTION_META).map((s) => {
-          const meta = SECTION_META[s.section];
+        sections.map((s) => {
+          // Ignorer les sections inconnues (ex: quoi_de_neuf si la migration v16 a été exécutée)
+          const meta = SECTION_META[s.section as HomeSection["section"]];
+          if (!meta) return null;
           return (
             <div key={s.id} className="ak-card" style={{ marginBottom: 12 }}>
               <div className="ak-card__header" style={{ padding: "14px 18px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
                   <span style={{ width: 40, height: 40, borderRadius: 10, background: "#f0f0ff", display: "grid", placeItems: "center", flexShrink: 0 }}>
                     <i className={`ti ${meta.icon}`} style={{ color: "#6366f1", fontSize: 20 }}></i>
                   </span>
@@ -556,8 +639,61 @@ export default function AccueilPage() {
         })
       )}
 
+      {/* ---------- Quoi de neuf ---------- */}
+      <div className="ak-card" style={{ marginBottom: 12 }}>
+        <div className="ak-card__header" style={{ padding: "14px 18px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
+            <span style={{ width: 40, height: 40, borderRadius: 10, background: "#f0fdf4", display: "grid", placeItems: "center", flexShrink: 0 }}>
+              <i className="ti ti-sparkles" style={{ color: "#10b981", fontSize: 20 }}></i>
+            </span>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <h3 className="ak-card__title" style={{ margin: 0 }}>Quoi de neuf</h3>
+                <span className="ak-count-badge">
+                  {pinnedCount > 0 ? `${pinnedCount} épinglé${pinnedCount > 1 ? "s" : ""}` : "auto"}
+                </span>
+              </div>
+              <p className="ak-card__subtitle" style={{ margin: 0, fontSize: 12 }}>
+                Épinglez des produits prioritaires. Si aucun n&apos;est épinglé, le dernier article de chaque catégorie s&apos;affiche automatiquement.
+              </p>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+            {produits.some((p) => p.whats_new) && (
+              <button
+                className="ak-btn ak-btn--ghost ak-btn--sm"
+                onClick={async () => {
+                  await Promise.all(produits.filter((p) => p.whats_new).map((p) => supabase.from("products").update({ whats_new: false, whats_new_order: 0 }).eq("id", p.id)));
+                  notifier("Sélection effacée — mode automatique activé.");
+                  chargerProduits();
+                }}
+              >
+                <i className="ti ti-refresh"></i> Réinitialiser
+              </button>
+            )}
+            {whatsnewDispo && produits.length > 0 && (
+              <button className="ak-btn ak-btn--primary ak-btn--sm" onClick={() => setShowWhatsNewModal(true)}>
+                <i className="ti ti-pencil"></i> Modifier
+              </button>
+            )}
+          </div>
+        </div>
+        {!whatsnewDispo && (
+          <div className="ak-card__body">
+            <div className="ak-alert ak-alert--warning" style={{ margin: 0 }}>
+              <i className="ti ti-alert-circle"></i> La colonne <code>whats_new</code> n&apos;existe pas encore — exécutez <code>supabase/migration-v12-whats-new.sql</code> dans le SQL Editor de Supabase puis rechargez.
+            </div>
+          </div>
+        )}
+        {whatsnewDispo && produits.length === 0 && (
+          <div className="ak-card__body">
+            <p style={{ color: "#94a3b8", margin: 0 }}>Aucun produit publié. <a href="/admin/produits" style={{ color: "#6366f1", fontWeight: 600 }}>Ajouter des produits</a></p>
+          </div>
+        )}
+      </div>
+
       {/* ---------- Modal Slides Hero ---------- */}
-      {showHeroModal && (
+      {mounted && showHeroModal && createPortal(
         <div className="ak-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) { setShowHeroModal(false); setShowHeroForm(false); setEditingSlideId(null); setHeroForm({ ...HERO_FORM_EMPTY }); } }}>
           <div className="ak-modal ak-modal--lg" onClick={(e) => e.stopPropagation()}>
             <div className="ak-modal__header">
@@ -572,7 +708,6 @@ export default function AccueilPage() {
 
             <div className="ak-modal__body" style={{ overflowY: "auto", maxHeight: "70vh" }}>
               {!showHeroForm ? (
-                /* ---- Vue liste ---- */
                 <>
                   {heroSlides.length === 0 ? (
                     <p style={{ color: "var(--a-ink-mute)", fontSize: 13, marginBottom: 0 }}>
@@ -600,14 +735,13 @@ export default function AccueilPage() {
                             <i className={`ti ${s.visible ? "ti-eye" : "ti-eye-off"}`}></i>
                           </button>
                           <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" onClick={() => { setHeroForm({ title: s.title, tagline: s.tagline ?? "", badge: s.badge ?? "", image_url: s.image_url ?? "", video_url: s.video_url ?? "", buy_href: s.buy_href, more_href: s.more_href }); setEditingSlideId(s.id); setShowHeroForm(true); }} title="Modifier"><i className="ti ti-pencil"></i></button>
-                          <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => supprimerSlide(s.id)} title="Supprimer"><i className="ti ti-trash"></i></button>
+                          <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => supprimerSlide(s.id, s.title)} title="Supprimer"><i className="ti ti-trash"></i></button>
                         </div>
                       </div>
                     ))
                   )}
                 </>
               ) : (
-                /* ---- Vue formulaire ---- */
                 <>
                   <div className="ak-form-row" style={{ marginBottom: 12 }}>
                     <div className="ak-field">
@@ -709,11 +843,12 @@ export default function AccueilPage() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ---------- Modal Quoi de neuf ---------- */}
-      {showWhatsNewModal && (
+      {mounted && showWhatsNewModal && createPortal(
         <div className="ak-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setShowWhatsNewModal(false); }}>
           <div className="ak-modal ak-modal--lg" onClick={(e) => e.stopPropagation()}>
             <div className="ak-modal__header">
@@ -727,7 +862,6 @@ export default function AccueilPage() {
             </div>
 
             <div className="ak-modal__body" style={{ overflowY: "auto", maxHeight: "70vh" }}>
-              {/* Liste ordonnée des produits épinglés */}
               {(() => {
                 const orderedWN = [...produits.filter((p) => p.whats_new)].sort((a, b) => a.whats_new_order - b.whats_new_order);
                 if (orderedWN.length === 0) return (
@@ -756,7 +890,6 @@ export default function AccueilPage() {
                 );
               })()}
 
-              {/* Combobox recherche */}
               <label className="ak-label" style={{ marginBottom: 8 }}>Ajouter un produit à épingler</label>
               <div style={{ position: "relative", maxWidth: 420 }}>
                 <div style={{ position: "relative" }}>
@@ -790,19 +923,16 @@ export default function AccueilPage() {
               <button className="ak-btn ak-btn--ghost" onClick={() => setShowWhatsNewModal(false)}>Fermer</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ---------- Modal édition section ---------- */}
-      {showSectionModal && editingSection && (() => {
+      {mounted && showSectionModal && editingSection && (() => {
         const s = editingSection;
         const meta = SECTION_META[s.section];
         const f = sectionForms[s.id] ?? { title: "", tagline: "", cta_label: "", cta_href: "" };
-        return (
-          <div
-            className="ak-modal-backdrop"
-            onClick={(e) => { if (e.target === e.currentTarget) setShowSectionModal(false); }}
-          >
+        const _modal = (<div className="ak-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setShowSectionModal(false); }}>
             <div className="ak-modal ak-modal--lg" onClick={(e) => e.stopPropagation()}>
               <div className="ak-modal__header">
                 <h2 className="ak-modal__title">
@@ -836,12 +966,7 @@ export default function AccueilPage() {
                     <div style={{ display: "flex", gap: 6 }}>
                       <input className="ak-input" placeholder="/boutique" value={f.cta_href} onChange={(e) => setSectionForms({ ...sectionForms, [s.id]: { ...f, cta_href: e.target.value } })} />
                       {categories.length > 0 && (
-                        <select
-                          className="ak-input"
-                          style={{ maxWidth: 160, flexShrink: 0, cursor: "pointer" }}
-                          value=""
-                          onChange={(e) => { if (e.target.value) setSectionForms({ ...sectionForms, [s.id]: { ...f, cta_href: `/boutique?categorie=${e.target.value}` } }); }}
-                        >
+                        <select className="ak-input" style={{ maxWidth: 160, flexShrink: 0, cursor: "pointer" }} value="" onChange={(e) => { if (e.target.value) setSectionForms({ ...sectionForms, [s.id]: { ...f, cta_href: `/boutique?categorie=${e.target.value}` } }); }}>
                           <option value="">Catégorie…</option>
                           {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
@@ -852,15 +977,15 @@ export default function AccueilPage() {
 
                 {/* Articles soldés — section solde uniquement */}
                 {s.section === "solde" && (() => {
-                  const soldes = produits.filter((p) => p.compare_price && p.compare_price > p.price);
-                  const orderedSoldes = [...produits.filter((p) => p.solde_hero)].sort((a, b) => a.solde_hero_order - b.solde_hero_order);
+                  const soldes = articulesEnSolde;
+                  const orderedSoldes = [...articulesEnSolde.filter((p) => p.solde_hero)].sort((a, b) => a.solde_hero_order - b.solde_hero_order);
                   return (
                     <div style={{ marginBottom: 18, padding: "14px 16px", background: "#fff1f2", borderRadius: 12, border: "1px solid #fecdd3" }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
                         <span className="ak-label" style={{ margin: 0 }}>
                           <i className="ti ti-discount-2" style={{ marginRight: 5, color: "#f43f5e" }}></i>
                           Articles soldés dans le slider{" "}
-                          <span style={{ color: "#94a3b8", fontWeight: 500 }}>({orderedSoldes.length} sélectionné{orderedSoldes.length > 1 ? "s" : ""}) — leur image/vidéo alimente la bannière et le slider</span>
+                          <span style={{ color: "#94a3b8", fontWeight: 500 }}>({orderedSoldes.length} sélectionné{orderedSoldes.length > 1 ? "s" : ""}) — leur image/vidéo alimente le slider</span>
                         </span>
                         <a href="/admin/soldes" style={{ color: "#6366f1", fontWeight: 600, fontSize: 12 }}>Gérer les remises →</a>
                       </div>
@@ -892,44 +1017,77 @@ export default function AccueilPage() {
                           })}
                         </div>
                       )}
-                      {soldes.length === 0 ? (
-                        <p style={{ color: "#9f1239", fontSize: 13, margin: 0 }}>Aucun article en solde — créez une remise depuis <a href="/admin/soldes" style={{ color: "#6366f1", fontWeight: 600 }}>la page Soldes</a>.</p>
-                      ) : (() => {
-                        const validCatIds = new Set(categories.map((c) => c.id));
-                        const disponibles = soldes.filter((p) => !p.solde_hero);
-                        return (
-                          <select className="ak-input" style={{ borderColor: "#fecdd3", background: "#fff" }} value="" onChange={(e) => { const id = e.target.value; if (!id) return; const p = produits.find((x) => x.id === id); if (p) toggleSoldeAffiche(p); }}>
-                            <option value="">+ Ajouter un article soldé…</option>
-                            {categories.map((cat) => {
-                              const opts = disponibles.filter((p) => p.category_id === cat.id);
-                              if (opts.length === 0) return null;
-                              return (
-                                <optgroup key={cat.id} label={cat.name}>
-                                  {opts.map((p) => { const pct = p.compare_price ? Math.round((1 - p.price / p.compare_price) * 100) : 0; return <option key={p.id} value={p.id}>{p.title} — {p.price} DT (-{pct}%)</option>; })}
-                                </optgroup>
-                              );
-                            })}
-                            {(() => {
-                              const orphans = disponibles.filter((p) => !p.category_id || !validCatIds.has(p.category_id));
-                              if (orphans.length === 0) return null;
-                              return (<optgroup label="Sans catégorie">{orphans.map((p) => { const pct = p.compare_price ? Math.round((1 - p.price / p.compare_price) * 100) : 0; return <option key={p.id} value={p.id}>{p.title} — {p.price} DT (-{pct}%)</option>; })}</optgroup>);
-                            })()}
-                          </select>
-                        );
-                      })()}
+                      {produits.length === 0 ? (
+                        <p style={{ color: "#9f1239", fontSize: 13, margin: 0 }}>Aucun produit publié — <a href="/admin/produits" style={{ color: "#6366f1", fontWeight: 600 }}>créer des produits</a>.</p>
+                      ) : (
+                        <div style={{ position: "relative", maxWidth: 440 }}>
+                          <div style={{ position: "relative" }}>
+                            <i className="ti ti-search" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--a-ink-mute)", fontSize: 15, pointerEvents: "none" }}></i>
+                            <input
+                              className="ak-input"
+                              style={{ paddingLeft: 34, borderColor: "#fecdd3" }}
+                              placeholder="Rechercher un produit à ajouter…"
+                              value={searchSolde}
+                              onChange={(e) => { setSearchSolde(e.target.value); setShowDropSolde(true); }}
+                              onFocus={() => setShowDropSolde(true)}
+                              onBlur={() => setTimeout(() => setShowDropSolde(false), 180)}
+                            />
+                          </div>
+                          {showDropSolde && (
+                            <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--a-paper)", border: "1.5px solid var(--a-rule)", borderRadius: 12, boxShadow: "0 8px 28px rgba(0,0,0,0.14)", zIndex: 60, maxHeight: 260, overflowY: "auto" }}>
+                              {produits
+                                .filter((p) => !searchSolde || p.title.toLowerCase().includes(searchSolde.toLowerCase()))
+                                .map((p) => {
+                                  const dejaDedans = articulesEnSolde.some((s) => s.id === p.id && s.solde_hero);
+                                  const pct = p.compare_price && p.compare_price > p.price ? Math.round((1 - p.price / p.compare_price) * 100) : 0;
+                                  return (
+                                    <button
+                                      key={p.id}
+                                      onMouseDown={(e) => { e.preventDefault(); if (!dejaDedans) { toggleSoldeAffiche(p); setSearchSolde(""); setShowDropSolde(false); } }}
+                                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", width: "100%", background: dejaDedans ? "#fff1f2" : "transparent", border: "none", borderBottom: "1px solid var(--a-rule)", cursor: dejaDedans ? "default" : "pointer", textAlign: "left" }}
+                                    >
+                                      {p.image_url
+                                        ? <img src={p.image_url} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
+                                        : <span style={{ width: 36, height: 36, borderRadius: 8, background: "var(--a-bg)", display: "grid", placeItems: "center", flexShrink: 0 }}><i className="ti ti-photo" style={{ color: "#94a3b8" }}></i></span>}
+                                      <span style={{ flex: 1, fontWeight: 600, fontSize: 13, color: "var(--a-ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
+                                      <span style={{ fontSize: 12, color: "var(--a-ink-mute)", flexShrink: 0 }}>{p.price} DT</span>
+                                      {pct > 0 && <span className="ak-badge ak-badge--danger" style={{ fontSize: 10, flexShrink: 0 }}>-{pct}%</span>}
+                                      {dejaDedans && <i className="ti ti-check" style={{ color: "#f43f5e", fontSize: 15, flexShrink: 0 }}></i>}
+                                    </button>
+                                  );
+                                })}
+                              {produits.filter((p) => !searchSolde || p.title.toLowerCase().includes(searchSolde.toLowerCase())).length === 0 && (
+                                <p style={{ textAlign: "center", color: "var(--a-ink-mute)", padding: "16px 0", fontSize: 13 }}>Aucun produit trouvé</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
 
                 {/* Médias */}
-                <label className="ak-label">
-                  Médias <span style={{ color: "#94a3b8", fontWeight: 500 }}>
-                    ({s.home_section_media.length}) — {s.section === "solde" ? "image ou vidéo de la bannière (prioritaire sur les images produits)" : "images ou vidéos, affichés en carrousel"}
-                  </span>
-                </label>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <label className="ak-label" style={{ margin: 0, flex: 1 }}>
+                    Médias <span style={{ color: "#94a3b8", fontWeight: 500 }}>
+                      ({s.home_section_media.length}) — {s.section === "solde" ? "image ou vidéo de la bannière (prioritaire sur les images produits)" : "images ou vidéos, affichés en carrousel"}
+                    </span>
+                  </label>
+                  {s.section === "solde" && s.home_section_media.some((m) => m.banner_visible === false) && (
+                    <button
+                      className="ak-btn ak-btn--ghost ak-btn--sm"
+                      onClick={() => reinitialiserBannersVisibles(s)}
+                      title="Remettre tous les médias en visible"
+                      style={{ color: "#22c55e", borderColor: "#22c55e", whiteSpace: "nowrap", flexShrink: 0 }}
+                    >
+                      <i className="ti ti-eye"></i> Tout afficher
+                    </button>
+                  )}
+                </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
                   {s.home_section_media.map((m, idx) => (
-                    <div key={m.id} style={{ width: 150, border: "1px solid #e2e8f0", borderRadius: 10, padding: 5, background: "#fff" }}>
+                    <div key={m.id} style={{ width: s.section === "solde" ? 200 : 150, border: "1px solid #e2e8f0", borderRadius: 10, padding: 5, background: "#fff" }}>
                       <div style={{ height: 84, borderRadius: 7, overflow: "hidden", background: "#f1f5f9", position: "relative" }}>
                         {m.media_type === "video"
                           ? <video src={m.url} muted preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -937,14 +1095,45 @@ export default function AccueilPage() {
                         <span className="ak-badge ak-badge--dot" style={{ position: "absolute", top: 5, left: 5, background: m.media_type === "video" ? "#1e293b" : "#e2e8f0", color: m.media_type === "video" ? "#fff" : "#334155", fontSize: 10, padding: "2px 8px" }}>
                           {m.media_type === "video" ? "Vidéo" : "Image"}
                         </span>
+                        {/* Badge visible/masquée pour section solde */}
+                        {s.section === "solde" && m.banner_visible === false && (
+                          <span style={{ position: "absolute", bottom: 5, right: 5, background: "#f43f5e", color: "#fff", fontSize: 9, padding: "2px 7px", borderRadius: 10, fontWeight: 700 }}>
+                            MASQUÉE
+                          </span>
+                        )}
                       </div>
-                      <div style={{ display: "flex", justifyContent: "center", gap: 4, marginTop: 6 }}>
+                      {/* Titre de la bannière si configuré */}
+                      {s.section === "solde" && (m.banner_title || m.banner_label) && (
+                        <div style={{ padding: "4px 6px", fontSize: 10, color: "#475569", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {m.banner_title || m.banner_label}
+                        </div>
+                      )}
+                      <div style={{ display: "flex", justifyContent: "center", gap: 4, marginTop: 4 }}>
                         <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" disabled={idx === 0} style={idx === 0 ? { opacity: 0.35, cursor: "default" } : undefined} onClick={() => deplacerMedia(s, m, -1)} title="Avancer">
                           <i className="ti ti-chevron-left" style={{ fontSize: 14 }}></i>
                         </button>
                         <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" disabled={idx === s.home_section_media.length - 1} style={idx === s.home_section_media.length - 1 ? { opacity: 0.35, cursor: "default" } : undefined} onClick={() => deplacerMedia(s, m, 1)} title="Reculer">
                           <i className="ti ti-chevron-right" style={{ fontSize: 14 }}></i>
                         </button>
+                        {/* Bouton config bannière — section solde uniquement */}
+                        {s.section === "solde" && (
+                          <button
+                            className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon"
+                            onClick={() => setBannerEdit({
+                              media: m,
+                              label:    m.banner_label    ?? "",
+                              title:    m.banner_title    ?? "",
+                              sub:      m.banner_sub      ?? "",
+                              cta:      m.banner_cta      ?? "Voir",
+                              cta_href: m.banner_cta_href ?? "/boutique?soldes=1",
+                              visible:  m.banner_visible  !== false,
+                            })}
+                            title="Configurer la bannière"
+                            style={{ color: "#6366f1" }}
+                          >
+                            <i className="ti ti-settings" style={{ fontSize: 14 }}></i>
+                          </button>
+                        )}
                         <button className="ak-btn ak-btn--danger ak-btn--sm ak-btn--icon" onClick={() => supprimerMedia(m)} title="Supprimer">
                           <i className="ti ti-trash" style={{ fontSize: 14 }}></i>
                         </button>
@@ -1031,61 +1220,160 @@ export default function AccueilPage() {
             </div>
           </div>
         );
+        return createPortal(_modal, document.body);
       })()}
 
-      {/* ---------- Quoi de neuf ---------- */}
-      <div className="ak-card" style={{ marginTop: 20 }}>
-        <div className="ak-card__header" style={{ padding: "14px 18px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ width: 40, height: 40, borderRadius: 10, background: "#f0fdf4", display: "grid", placeItems: "center", flexShrink: 0 }}>
-              <i className="ti ti-sparkles" style={{ color: "#10b981", fontSize: 20 }}></i>
-            </span>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <h3 className="ak-card__title" style={{ margin: 0 }}>Quoi de neuf</h3>
-                <span className="ak-count-badge">
-                  {(() => { const n = produits.filter((p) => p.whats_new).length; return n > 0 ? `${n} épinglé${n > 1 ? "s" : ""}` : "auto"; })()}
+      {/* ── Modal configuration bannière (section solde) ── */}
+      {bannerEdit && mounted && createPortal(
+        <div className="ak-modal-backdrop" onClick={() => setBannerEdit(null)}>
+          <div className="ak-modal ak-modal--lg" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 580 }}>
+            <div className="ak-modal__header">
+              <h3 className="ak-modal__title">
+                <i className="ti ti-layout-bottombar" style={{ marginRight: 8, color: "#6366f1" }}></i>
+                Configurer la bannière
+              </h3>
+              <button className="ak-modal__close" onClick={() => setBannerEdit(null)}>✕</button>
+            </div>
+            <div className="ak-modal__body" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+              {/* Preview live */}
+              <div style={{ position: "relative", height: 130, borderRadius: 12, overflow: "hidden", flexShrink: 0 }}>
+                {bannerEdit.media.media_type === "video"
+                  ? <video src={bannerEdit.media.url} muted loop playsInline autoPlay style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  : <img src={bannerEdit.media.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.48)", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "14px 18px", gap: 2 }}>
+                  <span style={{ fontSize: 10, color: "#f43f5e", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase" }}>{bannerEdit.label || "ÉTIQUETTE"}</span>
+                  <p style={{ fontSize: 17, fontWeight: 800, color: "#fff", margin: 0 }}>{bannerEdit.title || "Titre principal"}</p>
+                  <p style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", margin: 0 }}>{bannerEdit.sub || "Sous-titre"}</p>
+                  {bannerEdit.cta && <span style={{ marginTop: 6, display: "inline-flex", width: "fit-content", padding: "5px 14px", background: "#fff", color: "#0f172a", borderRadius: 8, fontSize: 12, fontWeight: 700 }}>{bannerEdit.cta}</span>}
+                </div>
+              </div>
+
+              {/* Toggle visible */}
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <button
+                  onClick={() => setBannerEdit({ ...bannerEdit, visible: !bannerEdit.visible })}
+                  style={{
+                    width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer",
+                    background: bannerEdit.visible ? "#22c55e" : "#e2e8f0", position: "relative", transition: "background 0.2s",
+                  }}
+                >
+                  <span style={{
+                    position: "absolute", top: 2, left: bannerEdit.visible ? 22 : 2,
+                    width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                  }} />
+                </button>
+                <span style={{ fontSize: 13, color: "#475569", fontWeight: 600 }}>
+                  {bannerEdit.visible ? "✅ Bannière visible sur le site" : "🚫 Bannière masquée"}
                 </span>
               </div>
-              <p className="ak-card__subtitle" style={{ margin: 0, fontSize: 12 }}>
-                Épinglez des produits prioritaires. Si aucun n&apos;est épinglé, le dernier article de chaque catégorie s&apos;affiche automatiquement.
-              </p>
+
+              {/* Étiquette + Titre */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
+                <div className="ak-field">
+                  <label className="ak-label">Étiquette <span style={{ color: "#94a3b8", fontSize: 10 }}>(petit texte)</span></label>
+                  <input className="ak-input" value={bannerEdit.label} placeholder="SOLDES EN COURS"
+                    onChange={(e) => setBannerEdit({ ...bannerEdit, label: e.target.value })} />
+                </div>
+                <div className="ak-field">
+                  <label className="ak-label">Titre principal</label>
+                  <input className="ak-input" value={bannerEdit.title} placeholder="Jusqu'à -50%"
+                    onChange={(e) => setBannerEdit({ ...bannerEdit, title: e.target.value })} />
+                </div>
+              </div>
+
+              {/* Sous-titre */}
+              <div className="ak-field">
+                <label className="ak-label">Sous-titre</label>
+                <input className="ak-input" value={bannerEdit.sub} placeholder="Sur une sélection d'articles"
+                  onChange={(e) => setBannerEdit({ ...bannerEdit, sub: e.target.value })} />
+              </div>
+
+              {/* Bouton CTA */}
+              <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 12 }}>
+                <div className="ak-field">
+                  <label className="ak-label">Texte du bouton</label>
+                  <input className="ak-input" value={bannerEdit.cta} placeholder="Profiter"
+                    onChange={(e) => setBannerEdit({ ...bannerEdit, cta: e.target.value })} />
+                </div>
+                <div className="ak-field">
+                  <label className="ak-label">Lien du bouton</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <select
+                      className="ak-input"
+                      style={{ flex: 1 }}
+                      value={QUICK_HREFS.includes(bannerEdit.cta_href) ? bannerEdit.cta_href : "__custom"}
+                      onChange={(e) => {
+                        if (e.target.value !== "__custom") setBannerEdit({ ...bannerEdit, cta_href: e.target.value });
+                        else setBannerEdit({ ...bannerEdit, cta_href: "" });
+                      }}
+                    >
+                      <option value="/boutique?soldes=1">🏷️ Articles en solde</option>
+                      <option value="/boutique">🛍️ Toute la boutique</option>
+                      <option value="/boutique?nouveautes=1">✨ Quoi de neuf</option>
+                      <option value="/">🏠 Page d&apos;accueil</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={`/boutique?categorie=${c.id}`}>📂 {c.name}</option>
+                      ))}
+                      <option value="__custom">✏️ URL personnalisée…</option>
+                    </select>
+                    {!QUICK_HREFS.includes(bannerEdit.cta_href) && (
+                      <input
+                        className="ak-input"
+                        style={{ maxWidth: 160 }}
+                        value={bannerEdit.cta_href}
+                        placeholder="/ma-page"
+                        onChange={(e) => setBannerEdit({ ...bannerEdit, cta_href: e.target.value })}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="ak-modal__footer">
+              <button className="ak-btn ak-btn--ghost" onClick={() => setBannerEdit(null)}>Annuler</button>
+              <button className="ak-btn ak-btn--primary" onClick={sauvegarderBanner}>
+                <i className="ti ti-check"></i> Enregistrer
+              </button>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-            {produits.some((p) => p.whats_new) && (
-              <button
-                className="ak-btn ak-btn--ghost ak-btn--sm"
-                onClick={async () => {
-                  await Promise.all(produits.filter((p) => p.whats_new).map((p) => supabase.from("products").update({ whats_new: false, whats_new_order: 0 }).eq("id", p.id)));
-                  notifier("Sélection effacée — mode automatique activé.");
-                  chargerProduits();
-                }}
-              >
-                <i className="ti ti-refresh"></i> Réinitialiser
+        </div>,
+        document.body
+      )}
+
+      {/* ── Modal confirmation universelle (slide / média) ── */}
+      {confirmAction && mounted && createPortal(
+        <div className="ak-modal-backdrop" onClick={() => setConfirmAction(null)}>
+          <div className="ak-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div className="ak-modal__header">
+              <h3 className="ak-modal__title">
+                <i className="ti ti-alert-triangle" style={{ marginRight: 8, color: "#f43f5e" }}></i>
+                {confirmAction.title}
+              </h3>
+              <button className="ak-modal__close" onClick={() => setConfirmAction(null)}>✕</button>
+            </div>
+            <div className="ak-modal__body">
+              <p style={{ fontSize: 14, color: "#475569", margin: 0 }}>{confirmAction.message}</p>
+              {confirmAction.detail && (
+                <div style={{ marginTop: 12, padding: "10px 14px", background: "#fff1f2", borderRadius: 10, borderLeft: "3px solid #f43f5e", fontSize: 13, color: "#9f1239" }}>
+                  {confirmAction.detail}
+                </div>
+              )}
+            </div>
+            <div className="ak-modal__footer">
+              <button className="ak-btn ak-btn--ghost" onClick={() => setConfirmAction(null)}>Annuler</button>
+              <button className="ak-btn ak-btn--danger" onClick={confirmAction.onConfirm}>
+                <i className={`ti ${confirmAction.confirmIcon ?? "ti-trash"}`}></i>
+                {" "}{confirmAction.confirmLabel ?? "Supprimer"}
               </button>
-            )}
-            {whatsnewDispo && produits.length > 0 && (
-              <button className="ak-btn ak-btn--primary ak-btn--sm" onClick={() => setShowWhatsNewModal(true)}>
-                <i className="ti ti-pencil"></i> Modifier
-              </button>
-            )}
-          </div>
-        </div>
-        {!whatsnewDispo && (
-          <div className="ak-card__body">
-            <div className="ak-alert ak-alert--warning" style={{ margin: 0 }}>
-              <i className="ti ti-alert-circle"></i> La colonne <code>whats_new</code> n&apos;existe pas encore —
-              exécutez <code>supabase/migration-v12-whats-new.sql</code> dans le SQL Editor de Supabase puis rechargez.
             </div>
           </div>
-        )}
-        {whatsnewDispo && produits.length === 0 && (
-          <div className="ak-card__body">
-            <p style={{ color: "#94a3b8", margin: 0 }}>Aucun produit publié. <a href="/admin/produits" style={{ color: "#6366f1", fontWeight: 600 }}>Ajouter des produits</a></p>
-          </div>
-        )}
-      </div>
+        </div>,
+        document.body
+      )}
+
     </div>
   );
 }

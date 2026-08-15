@@ -24,6 +24,8 @@ export default function CommandesPage() {
   const [loadingArticles, setLoadingArticles] = useState(false);
   const [recherche, setRecherche] = useState("");
   const [filtreStatut, setFiltreStatut] = useState("");
+  // Modal de confirmation suppression
+  const [confirmId, setConfirmId] = useState<string | null>(null);
 
   async function charger() {
     setLoading(true);
@@ -46,8 +48,8 @@ export default function CommandesPage() {
   }
 
   async function supprimer(id: string) {
-    if (!confirm("Supprimer cette commande ?")) return;
     const { error } = await supabase.from("orders").delete().eq("id", id);
+    setConfirmId(null);
     if (error) showAlert("Erreur : " + error.message, "danger");
     else { showAlert("Commande supprimée.", "success"); charger(); }
   }
@@ -145,7 +147,7 @@ export default function CommandesPage() {
                       <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" onClick={() => ouvrirDetail(c)} title="Voir détail">
                         <i className="ti ti-eye" style={{ fontSize: 15 }}></i>
                       </button>
-                      <button className="ak-btn ak-btn--danger ak-btn--sm ak-btn--icon" onClick={() => supprimer(c.id)} title="Supprimer">
+                      <button className="ak-btn ak-btn--danger ak-btn--sm ak-btn--icon" onClick={() => setConfirmId(c.id)} title="Supprimer">
                         <i className="ti ti-trash" style={{ fontSize: 15 }}></i>
                       </button>
                     </div>
@@ -156,6 +158,39 @@ export default function CommandesPage() {
           </table>
         </div>
       </div>
+
+      {/* ── Modal confirmation suppression ── */}
+      {confirmId && (
+        <div className="ak-modal-backdrop" onClick={() => setConfirmId(null)}>
+          <div className="ak-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div className="ak-modal__header">
+              <h3 className="ak-modal__title">
+                <i className="ti ti-alert-triangle" style={{ marginRight: 8, color: "#f43f5e" }}></i>
+                Supprimer la commande
+              </h3>
+              <button className="ak-modal__close" onClick={() => setConfirmId(null)}>✕</button>
+            </div>
+            <div className="ak-modal__body">
+              <p style={{ fontSize: 14, color: "#475569", margin: 0 }}>
+                Voulez-vous vraiment supprimer la commande{" "}
+                <strong style={{ color: "#0f172a" }}>#{confirmId.slice(0, 8)}</strong> ?
+                <br />
+                <span style={{ fontSize: 12, color: "#94a3b8", marginTop: 6, display: "block" }}>
+                  Cette action est irréversible. Les articles liés seront également supprimés.
+                </span>
+              </p>
+            </div>
+            <div className="ak-modal__footer">
+              <button className="ak-btn ak-btn--ghost" onClick={() => setConfirmId(null)}>
+                Annuler
+              </button>
+              <button className="ak-btn ak-btn--danger" onClick={() => supprimer(confirmId)}>
+                <i className="ti ti-trash"></i> Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal detail */}
       {showDetail && detail && (

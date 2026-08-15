@@ -22,6 +22,7 @@ export default function CategoriesPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; detail?: string; onConfirm: () => void } | null>(null);
 
   function getPublicUrl(path: string) { return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl; }
   async function chargerCats() { const { data } = await supabase.from("categories").select("*").order("name"); setCategories(data ?? []); }
@@ -80,12 +81,20 @@ export default function CategoriesPage() {
     if (modalType === "categorie") chargerCats(); else chargerCols();
   }
 
-  async function supprimer(id: string, type: "categorie" | "collection") {
-    if (!confirm("Supprimer ?")) return;
+  async function supprimerConfirme(id: string, type: "categorie" | "collection") {
     const table = type === "categorie" ? "categories" : "collections";
     const { error } = await supabase.from(table).delete().eq("id", id);
     if (error) showAlert("Erreur : " + error.message, "danger");
     else { showAlert("Supprimé.", "success"); if (type === "categorie") chargerCats(); else chargerCols(); }
+    setConfirmAction(null);
+  }
+
+  function supprimer(id: string, type: "categorie" | "collection", name: string) {
+    setConfirmAction({
+      title: `Supprimer ${type === "categorie" ? "la catégorie" : "la collection"}`,
+      message: `Voulez-vous vraiment supprimer "${name}" ? Cette action est irréversible.`,
+      onConfirm: () => supprimerConfirme(id, type),
+    });
   }
 
   const liste = onglet === "categories" ? categories : collections;
@@ -154,7 +163,7 @@ export default function CategoriesPage() {
                   <td className="ak-cell-actions">
                     <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                       <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" onClick={() => ouvrirEdition(c, onglet === "categories" ? "categorie" : "collection")}><i className="ti ti-edit" style={{ fontSize: 15 }}></i></button>
-                      <button className="ak-btn ak-btn--danger ak-btn--sm ak-btn--icon" onClick={() => supprimer(c.id, onglet === "categories" ? "categorie" : "collection")}><i className="ti ti-trash" style={{ fontSize: 15 }}></i></button>
+                      <button className="ak-btn ak-btn--danger ak-btn--sm ak-btn--icon" onClick={() => supprimer(c.id, onglet === "categories" ? "categorie" : "collection", c.name)}><i className="ti ti-trash" style={{ fontSize: 15 }}></i></button>
                     </div>
                   </td>
                 </tr>
@@ -205,6 +214,35 @@ export default function CategoriesPage() {
             <div className="ak-modal__footer">
               <button className="ak-btn ak-btn--ghost" onClick={() => setShowModal(false)}>Annuler</button>
               <button className="ak-btn ak-btn--primary" onClick={sauvegarder} disabled={uploading}>{uploading ? "Upload..." : "Enregistrer"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal confirmation ── */}
+      {confirmAction && (
+        <div className="ak-modal-backdrop" onClick={() => setConfirmAction(null)}>
+          <div className="ak-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div className="ak-modal__header">
+              <h3 className="ak-modal__title">
+                <i className="ti ti-alert-triangle" style={{ marginRight: 8, color: "#f43f5e" }}></i>
+                {confirmAction.title}
+              </h3>
+              <button className="ak-modal__close" onClick={() => setConfirmAction(null)}>✕</button>
+            </div>
+            <div className="ak-modal__body">
+              <p style={{ fontSize: 14, color: "#475569", margin: 0 }}>{confirmAction.message}</p>
+              {confirmAction.detail && (
+                <div style={{ marginTop: 12, padding: "10px 14px", background: "#fff1f2", borderRadius: 10, borderLeft: "3px solid #f43f5e", fontSize: 13, color: "#9f1239" }}>
+                  {confirmAction.detail}
+                </div>
+              )}
+            </div>
+            <div className="ak-modal__footer">
+              <button className="ak-btn ak-btn--ghost" onClick={() => setConfirmAction(null)}>Annuler</button>
+              <button className="ak-btn ak-btn--danger" onClick={confirmAction.onConfirm}>
+                <i className="ti ti-trash"></i> Supprimer
+              </button>
             </div>
           </div>
         </div>
