@@ -46,6 +46,12 @@ type SectionMedia = {
   url: string;
   poster_url: string | null;
   display_order: number;
+  banner_label?: string | null;
+  banner_title?: string | null;
+  banner_sub?: string | null;
+  banner_cta?: string | null;
+  banner_cta_href?: string | null;
+  banner_visible?: boolean;
 };
 
 type HomeSection = {
@@ -74,6 +80,8 @@ const SECTION_DEFAULTS: Record<HomeSection["section"], { title: string; tagline:
 };
 
 const BUCKET = "media";
+
+const QUICK_HREFS = ["/boutique?soldes=1", "/boutique", "/boutique?nouveautes=1", "/"];
 
 function estVideo(nomOuUrl: string, mime?: string): boolean {
   if (mime) return mime.startsWith("video/");
@@ -118,6 +126,11 @@ export default function AccueilPage() {
   const [searchSolde, setSearchSolde] = useState("");
   const [showDropSolde, setShowDropSolde] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; detail?: string; confirmLabel?: string; confirmIcon?: string; onConfirm: () => void } | null>(null);
+  // Modal de configuration par bannière (solde section)
+  const [bannerEdit, setBannerEdit] = useState<{
+    media: SectionMedia;
+    label: string; title: string; sub: string; cta: string; cta_href: string; visible: boolean;
+  } | null>(null);
 
   function notifier(message: string, type: "success" | "danger" | "warning" = "success") {
     setAlert({ message, type });
@@ -465,6 +478,21 @@ export default function AccueilPage() {
       confirmIcon: "ti-trash",
       onConfirm: () => supprimerMediaConfirme(m),
     });
+  }
+
+  async function sauvegarderBanner() {
+    if (!bannerEdit) return;
+    await supabase.from("home_section_media").update({
+      banner_label:   bannerEdit.label,
+      banner_title:   bannerEdit.title,
+      banner_sub:     bannerEdit.sub,
+      banner_cta:     bannerEdit.cta,
+      banner_cta_href: bannerEdit.cta_href,
+      banner_visible: bannerEdit.visible,
+    }).eq("id", bannerEdit.media.id);
+    setBannerEdit(null);
+    notifier("Bannière configurée !");
+    chargerSections();
   }
 
   async function deplacerMedia(s: HomeSection, m: SectionMedia, dir: -1 | 1) {
@@ -1034,7 +1062,7 @@ export default function AccueilPage() {
                 </label>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
                   {s.home_section_media.map((m, idx) => (
-                    <div key={m.id} style={{ width: 150, border: "1px solid #e2e8f0", borderRadius: 10, padding: 5, background: "#fff" }}>
+                    <div key={m.id} style={{ width: s.section === "solde" ? 200 : 150, border: "1px solid #e2e8f0", borderRadius: 10, padding: 5, background: "#fff" }}>
                       <div style={{ height: 84, borderRadius: 7, overflow: "hidden", background: "#f1f5f9", position: "relative" }}>
                         {m.media_type === "video"
                           ? <video src={m.url} muted preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -1042,14 +1070,45 @@ export default function AccueilPage() {
                         <span className="ak-badge ak-badge--dot" style={{ position: "absolute", top: 5, left: 5, background: m.media_type === "video" ? "#1e293b" : "#e2e8f0", color: m.media_type === "video" ? "#fff" : "#334155", fontSize: 10, padding: "2px 8px" }}>
                           {m.media_type === "video" ? "Vidéo" : "Image"}
                         </span>
+                        {/* Badge visible/masquée pour section solde */}
+                        {s.section === "solde" && m.banner_visible === false && (
+                          <span style={{ position: "absolute", bottom: 5, right: 5, background: "#f43f5e", color: "#fff", fontSize: 9, padding: "2px 7px", borderRadius: 10, fontWeight: 700 }}>
+                            MASQUÉE
+                          </span>
+                        )}
                       </div>
-                      <div style={{ display: "flex", justifyContent: "center", gap: 4, marginTop: 6 }}>
+                      {/* Titre de la bannière si configuré */}
+                      {s.section === "solde" && (m.banner_title || m.banner_label) && (
+                        <div style={{ padding: "4px 6px", fontSize: 10, color: "#475569", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {m.banner_title || m.banner_label}
+                        </div>
+                      )}
+                      <div style={{ display: "flex", justifyContent: "center", gap: 4, marginTop: 4 }}>
                         <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" disabled={idx === 0} style={idx === 0 ? { opacity: 0.35, cursor: "default" } : undefined} onClick={() => deplacerMedia(s, m, -1)} title="Avancer">
                           <i className="ti ti-chevron-left" style={{ fontSize: 14 }}></i>
                         </button>
                         <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" disabled={idx === s.home_section_media.length - 1} style={idx === s.home_section_media.length - 1 ? { opacity: 0.35, cursor: "default" } : undefined} onClick={() => deplacerMedia(s, m, 1)} title="Reculer">
                           <i className="ti ti-chevron-right" style={{ fontSize: 14 }}></i>
                         </button>
+                        {/* Bouton config bannière — section solde uniquement */}
+                        {s.section === "solde" && (
+                          <button
+                            className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon"
+                            onClick={() => setBannerEdit({
+                              media: m,
+                              label:    m.banner_label    ?? "",
+                              title:    m.banner_title    ?? "",
+                              sub:      m.banner_sub      ?? "",
+                              cta:      m.banner_cta      ?? "Voir",
+                              cta_href: m.banner_cta_href ?? "/boutique?soldes=1",
+                              visible:  m.banner_visible  !== false,
+                            })}
+                            title="Configurer la bannière"
+                            style={{ color: "#6366f1" }}
+                          >
+                            <i className="ti ti-settings" style={{ fontSize: 14 }}></i>
+                          </button>
+                        )}
                         <button className="ak-btn ak-btn--danger ak-btn--sm ak-btn--icon" onClick={() => supprimerMedia(m)} title="Supprimer">
                           <i className="ti ti-trash" style={{ fontSize: 14 }}></i>
                         </button>
@@ -1138,6 +1197,126 @@ export default function AccueilPage() {
         );
         return createPortal(_modal, document.body);
       })()}
+
+      {/* ── Modal configuration bannière (section solde) ── */}
+      {bannerEdit && mounted && createPortal(
+        <div className="ak-modal-backdrop" onClick={() => setBannerEdit(null)}>
+          <div className="ak-modal ak-modal--lg" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 580 }}>
+            <div className="ak-modal__header">
+              <h3 className="ak-modal__title">
+                <i className="ti ti-layout-bottombar" style={{ marginRight: 8, color: "#6366f1" }}></i>
+                Configurer la bannière
+              </h3>
+              <button className="ak-modal__close" onClick={() => setBannerEdit(null)}>✕</button>
+            </div>
+            <div className="ak-modal__body" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+              {/* Preview live */}
+              <div style={{ position: "relative", height: 130, borderRadius: 12, overflow: "hidden", flexShrink: 0 }}>
+                {bannerEdit.media.media_type === "video"
+                  ? <video src={bannerEdit.media.url} muted loop playsInline autoPlay style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  : <img src={bannerEdit.media.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.48)", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "14px 18px", gap: 2 }}>
+                  <span style={{ fontSize: 10, color: "#f43f5e", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase" }}>{bannerEdit.label || "ÉTIQUETTE"}</span>
+                  <p style={{ fontSize: 17, fontWeight: 800, color: "#fff", margin: 0 }}>{bannerEdit.title || "Titre principal"}</p>
+                  <p style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", margin: 0 }}>{bannerEdit.sub || "Sous-titre"}</p>
+                  {bannerEdit.cta && <span style={{ marginTop: 6, display: "inline-flex", width: "fit-content", padding: "5px 14px", background: "#fff", color: "#0f172a", borderRadius: 8, fontSize: 12, fontWeight: 700 }}>{bannerEdit.cta}</span>}
+                </div>
+              </div>
+
+              {/* Toggle visible */}
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <button
+                  onClick={() => setBannerEdit({ ...bannerEdit, visible: !bannerEdit.visible })}
+                  style={{
+                    width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer",
+                    background: bannerEdit.visible ? "#22c55e" : "#e2e8f0", position: "relative", transition: "background 0.2s",
+                  }}
+                >
+                  <span style={{
+                    position: "absolute", top: 2, left: bannerEdit.visible ? 22 : 2,
+                    width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                  }} />
+                </button>
+                <span style={{ fontSize: 13, color: "#475569", fontWeight: 600 }}>
+                  {bannerEdit.visible ? "✅ Bannière visible sur le site" : "🚫 Bannière masquée"}
+                </span>
+              </div>
+
+              {/* Étiquette + Titre */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
+                <div className="ak-field">
+                  <label className="ak-label">Étiquette <span style={{ color: "#94a3b8", fontSize: 10 }}>(petit texte)</span></label>
+                  <input className="ak-input" value={bannerEdit.label} placeholder="SOLDES EN COURS"
+                    onChange={(e) => setBannerEdit({ ...bannerEdit, label: e.target.value })} />
+                </div>
+                <div className="ak-field">
+                  <label className="ak-label">Titre principal</label>
+                  <input className="ak-input" value={bannerEdit.title} placeholder="Jusqu'à -50%"
+                    onChange={(e) => setBannerEdit({ ...bannerEdit, title: e.target.value })} />
+                </div>
+              </div>
+
+              {/* Sous-titre */}
+              <div className="ak-field">
+                <label className="ak-label">Sous-titre</label>
+                <input className="ak-input" value={bannerEdit.sub} placeholder="Sur une sélection d'articles"
+                  onChange={(e) => setBannerEdit({ ...bannerEdit, sub: e.target.value })} />
+              </div>
+
+              {/* Bouton CTA */}
+              <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 12 }}>
+                <div className="ak-field">
+                  <label className="ak-label">Texte du bouton</label>
+                  <input className="ak-input" value={bannerEdit.cta} placeholder="Profiter"
+                    onChange={(e) => setBannerEdit({ ...bannerEdit, cta: e.target.value })} />
+                </div>
+                <div className="ak-field">
+                  <label className="ak-label">Lien du bouton</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <select
+                      className="ak-input"
+                      style={{ flex: 1 }}
+                      value={QUICK_HREFS.includes(bannerEdit.cta_href) ? bannerEdit.cta_href : "__custom"}
+                      onChange={(e) => {
+                        if (e.target.value !== "__custom") setBannerEdit({ ...bannerEdit, cta_href: e.target.value });
+                        else setBannerEdit({ ...bannerEdit, cta_href: "" });
+                      }}
+                    >
+                      <option value="/boutique?soldes=1">🏷️ Articles en solde</option>
+                      <option value="/boutique">🛍️ Toute la boutique</option>
+                      <option value="/boutique?nouveautes=1">✨ Quoi de neuf</option>
+                      <option value="/">🏠 Page d&apos;accueil</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={`/boutique?categorie=${c.id}`}>📂 {c.name}</option>
+                      ))}
+                      <option value="__custom">✏️ URL personnalisée…</option>
+                    </select>
+                    {!QUICK_HREFS.includes(bannerEdit.cta_href) && (
+                      <input
+                        className="ak-input"
+                        style={{ maxWidth: 160 }}
+                        value={bannerEdit.cta_href}
+                        placeholder="/ma-page"
+                        onChange={(e) => setBannerEdit({ ...bannerEdit, cta_href: e.target.value })}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="ak-modal__footer">
+              <button className="ak-btn ak-btn--ghost" onClick={() => setBannerEdit(null)}>Annuler</button>
+              <button className="ak-btn ak-btn--primary" onClick={sauvegarderBanner}>
+                <i className="ti ti-check"></i> Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* ── Modal confirmation universelle (slide / média) ── */}
       {confirmAction && mounted && createPortal(

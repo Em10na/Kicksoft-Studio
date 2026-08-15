@@ -10,7 +10,15 @@ import SoldeArrivalsSection from "./components/SoldeArrivalsSection";
 import CategoryStrip from "./components/CategoryStrip";
 import SuggestionsScroll from "./components/SuggestionsScroll";
 
-type HomeSectionMedia = BannerMediaItem & { display_order: number };
+type HomeSectionMedia = BannerMediaItem & {
+  display_order: number;
+  banner_label?: string | null;
+  banner_title?: string | null;
+  banner_sub?: string | null;
+  banner_cta?: string | null;
+  banner_cta_href?: string | null;
+  banner_visible?: boolean;
+};
 type HomeSectionRow = {
   id: string;
   section: "suggestion" | "recommandation" | "solde" | "quoi_de_neuf";
@@ -45,7 +53,7 @@ export default async function HomePage() {
     supabase.from("products").select("*").eq("status", "published").order("created_at", { ascending: false }).limit(60),
     supabase.from("home_sections").select("*, home_section_media(*)").order("display_order", { ascending: true }),
     // Articles en Solde : TOUS les produits avec compare_price (solde_hero flag = slider uniquement)
-    supabase.from("products").select("id, title, price, compare_price, stock, short_description, image_url, product_media(url, type, position)").eq("status", "published").not("compare_price", "is", null).order("solde_hero_order", { ascending: true, nullsFirst: false }).order("display_order", { ascending: true }).limit(48),
+    supabase.from("products").select("id, title, price, compare_price, stock, short_description, image_url, product_media(url, type, position)").eq("status", "published").not("compare_price", "is", null).order("solde_hero_order", { ascending: true, nullsFirst: false }).order("display_order", { ascending: true }).limit(48), // short_description utilisé dans le modal quick-view
     // Quoi de neuf : ordonnés par whats_new_order (admin-managed)
     supabase.from("products").select("*").eq("status", "published").eq("whats_new", true).order("whats_new_order", { ascending: true }).limit(8),
     // Slides hero gérés manuellement depuis l'admin (priorité sur solde_hero)
