@@ -54,7 +54,9 @@ export default function SoldesPage() {
     } else {
       const all = (prodData as unknown as Produit[]) ?? [];
       setSoldes(all.filter((p) => p.compare_price && p.compare_price > p.price));
-      setDisponibles(all.filter((p) => !p.compare_price || p.compare_price <= p.price));
+      // Tous les produits apparaissent dans le dropdown — y compris ceux déjà en solde
+      // afin de permettre la mise à jour du prix sans passer par l'icône crayon.
+      setDisponibles(all);
     }
     setCategories(catData ?? []);
     setLoading(false);
@@ -85,9 +87,18 @@ export default function SoldesPage() {
     setSelectedId(id);
     const p = disponibles.find((x) => x.id === id);
     if (p) {
-      setPrixBarre(String(p.price));
-      const soldePct = Number(remise) || 20;
-      setPrixSolde((p.price * (1 - soldePct / 100)).toFixed(2));
+      const dejaSolde = p.compare_price && p.compare_price > p.price;
+      if (dejaSolde) {
+        // Produit déjà en solde : pré-remplir avec les valeurs actuelles
+        setPrixBarre(String(p.compare_price));
+        setPrixSolde(String(p.price));
+        setRemise(String(remisePct(p.price, p.compare_price!)));
+      } else {
+        // Nouveau solde : prix barré = prix actuel, appliquer remise par défaut
+        setPrixBarre(String(p.price));
+        const soldePct = Number(remise) || 20;
+        setPrixSolde((p.price * (1 - soldePct / 100)).toFixed(2));
+      }
     }
   }
 
@@ -384,9 +395,15 @@ export default function SoldesPage() {
                       if (opts.length === 0) return null;
                       return (
                         <optgroup key={cat.id} label={cat.name}>
-                          {opts.map((p) => (
-                            <option key={p.id} value={p.id}>{p.title} — {p.price} DT</option>
-                          ))}
+                          {opts.map((p) => {
+                            const dejaSolde = p.compare_price && p.compare_price > p.price;
+                            return (
+                              <option key={p.id} value={p.id}>
+                                {dejaSolde ? "✏️ " : ""}{p.title} — {p.price} DT
+                                {dejaSolde ? ` (déjà en solde, barré ${p.compare_price} DT)` : ""}
+                              </option>
+                            );
+                          })}
                         </optgroup>
                       );
                     })}
@@ -396,7 +413,15 @@ export default function SoldesPage() {
                       if (sans.length === 0) return null;
                       return (
                         <optgroup label="Sans catégorie">
-                          {sans.map((p) => <option key={p.id} value={p.id}>{p.title} — {p.price} DT</option>)}
+                          {sans.map((p) => {
+                            const dejaSolde = p.compare_price && p.compare_price > p.price;
+                            return (
+                              <option key={p.id} value={p.id}>
+                                {dejaSolde ? "✏️ " : ""}{p.title} — {p.price} DT
+                                {dejaSolde ? ` (déjà en solde, barré ${p.compare_price} DT)` : ""}
+                              </option>
+                            );
+                          })}
                         </optgroup>
                       );
                     })()}
