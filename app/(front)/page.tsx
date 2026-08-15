@@ -9,6 +9,7 @@ import BannerMedia, { type BannerMediaItem } from "./components/BannerMedia";
 import SoldeArrivalsSection from "./components/SoldeArrivalsSection";
 import CategoryStrip from "./components/CategoryStrip";
 import SuggestionsScroll from "./components/SuggestionsScroll";
+import QuoiDeNeufScroll from "./components/QuoiDeNeufScroll";
 
 type HomeSectionMedia = BannerMediaItem & {
   section_id: string;
@@ -196,40 +197,18 @@ export default async function HomePage() {
           );
         }
 
-        /* ── Quoi de neuf ── */
+        /* ── Quoi de neuf (scroll horizontal) ── */
         if (sectionKey === "quoi_de_neuf") {
           const qdn = sectionMap.get("quoi_de_neuf");
           if (qdn && !qdn.visible) return null;
           return (
-            <section key="quoi_de_neuf" className="section" style={{ paddingTop: "var(--s5)" }}>
-              <div className="container">
-                <ScrollReveal animation="fade-up">
-                  <div className="section-head">
-                    <div>
-                      <span className="section-tag">Nouveau</span>
-                      <h2>Quoi de neuf</h2>
-                    </div>
-                    <Link href="/boutique?nouveautes=1" className="view-all">
-                      Voir tout
-                      <svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 5h12m0 0L9 1m4 4L9 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    </Link>
-                  </div>
-                </ScrollReveal>
-                <ScrollReveal animation="fade-up" delay={100} className="stagger">
-                  <div className="products products--4">
-                    {nouveautes.length > 0 ? (
-                      nouveautes.map((p) => (
-                        <ProductCard key={p.id} id={p.id} title={p.title} price={p.price} compare_price={p.compare_price} stock={p.stock} image_url={p.image_url} loyalty_points={p.loyalty_points} badge={p.compare_price && p.compare_price > p.price ? "Promo" : undefined} />
-                      ))
-                    ) : (
-                      <p style={{ gridColumn: "1/-1", textAlign: "center", color: "var(--fg-mute)" }}>
-                        Aucun produit pour le moment. <Link href="/admin/produits" style={{ color: "var(--indigo)" }}>Ajoutez-en depuis l&apos;admin</Link>
-                      </p>
-                    )}
-                  </div>
-                </ScrollReveal>
-              </div>
-            </section>
+            <QuoiDeNeufScroll
+              key="quoi_de_neuf"
+              products={nouveautes}
+              title={qdn?.title ?? "Quoi de neuf"}
+              ctaLabel={qdn?.cta_label ?? "Voir tout"}
+              ctaHref={qdn?.cta_href ?? "/boutique?nouveautes=1"}
+            />
           );
         }
 

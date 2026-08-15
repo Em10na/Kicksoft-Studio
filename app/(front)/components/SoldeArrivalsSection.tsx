@@ -24,7 +24,7 @@ type SectionMedia = {
   banner_sub?: string | null;
   banner_cta?: string | null;
   banner_cta_href?: string | null;
-  banner_visible?: boolean;
+  banner_visible?: boolean | null;
 };
 
 type Props = {
