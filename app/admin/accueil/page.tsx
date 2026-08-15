@@ -360,14 +360,12 @@ export default function AccueilPage() {
   }
 
   async function toggleSoldeAffiche(p: Produit) {
-    const isAdding = !p.solde_hero;
-    const nextOrder = isAdding
-      ? Math.max(0, ...articulesEnSolde.filter((x) => x.solde_hero).map((x) => x.solde_hero_order)) + 1
-      : 0;
-    const { error } = await supabase.from("products").update({ solde_hero: isAdding, solde_hero_order: nextOrder }).eq("id", p.id);
+    // Appelé uniquement pour AJOUTER au slider (le retrait passe par supprimerSoldeHero)
+    const nextOrder = Math.max(0, ...articulesEnSolde.filter((x) => x.solde_hero).map((x) => x.solde_hero_order)) + 1;
+    const { error } = await supabase.from("products").update({ solde_hero: true, solde_hero_order: nextOrder }).eq("id", p.id);
     if (error) { notifier("Erreur : " + error.message, "danger"); return; }
     // Auto-alimenter la section "Médias" avec l'image du produit ajouté
-    if (isAdding && p.image_url) {
+    if (p.image_url) {
       const soldeSection = sections.find((sec) => sec.section === "solde");
       if (soldeSection && !soldeSection.home_section_media.some((m) => m.url === p.image_url)) {
         const ordre = (soldeSection.home_section_media.at(-1)?.display_order ?? -1) + 1;
@@ -380,9 +378,34 @@ export default function AccueilPage() {
         });
       }
     }
-    notifier(isAdding ? `« ${p.title} » ajouté au slider soldes.` : `« ${p.title} » retiré du slider soldes.`);
+    notifier(`« ${p.title} » ajouté au slider soldes.`);
     chargerSoldes();
     chargerSections();
+  }
+
+  // Retire un produit du slider ET termine la solde (efface compare_price)
+  // pour garder le front et le back synchronisés.
+  function supprimerSoldeHero(p: Produit) {
+    setConfirmAction({
+      title: "Retirer des articles en solde",
+      message: `Voulez-vous retirer « ${p.title} » du slider et terminer sa solde ?`,
+      detail: `Le prix repassera au prix original : ${p.compare_price ?? p.price} DT. L'article disparaîtra du front office.`,
+      confirmLabel: "Retirer et terminer la solde",
+      confirmIcon: "ti-trash",
+      onConfirm: async () => {
+        const prixOriginal = p.compare_price ?? p.price;
+        await supabase.from("products").update({
+          solde_hero: false,
+          solde_hero_order: 0,
+          compare_price: null,
+          price: prixOriginal,
+        }).eq("id", p.id);
+        setConfirmAction(null);
+        notifier(`« ${p.title} » retiré — solde terminée.`);
+        chargerSoldes();
+        chargerSections();
+      },
+    });
   }
 
   async function deplacerSoldeVers(produitId: string, newIdx: number) {
@@ -1011,7 +1034,7 @@ export default function AccueilPage() {
                                     <span className="ak-badge ak-badge--danger" style={{ fontSize: 10 }}>-{pct}%</span>
                                   </div>
                                 </div>
-                                <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => toggleSoldeAffiche(p)} title="Retirer" style={{ flexShrink: 0 }}><i className="ti ti-trash"></i></button>
+                                <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => supprimerSoldeHero(p)} title="Retirer et terminer la solde" style={{ flexShrink: 0 }}><i className="ti ti-trash"></i></button>
                               </div>
                             );
                           })}
