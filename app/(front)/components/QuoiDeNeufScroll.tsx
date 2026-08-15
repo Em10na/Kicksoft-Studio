@@ -98,8 +98,10 @@ export default function QuoiDeNeufScroll({
         {products.length > 0 ? (
           <div
             ref={scrollRef}
+            data-qdn-scroll
             style={{
               display: "flex",
+              alignItems: "stretch",
               gap: 16,
               overflowX: "auto",
               scrollSnapType: "x mandatory",
@@ -112,7 +114,14 @@ export default function QuoiDeNeufScroll({
             {products.map((p) => (
               <div
                 key={p.id}
-                style={{ flex: "0 0 230px", minWidth: 0, scrollSnapAlign: "start" }}
+                style={{
+                  flex: "0 0 230px",
+                  minWidth: 0,
+                  scrollSnapAlign: "start",
+                  /* flex col → article.product-card s'étire à 100% de la hauteur */
+                  display: "flex",
+                  flexDirection: "column",
+                }}
               >
                 <ProductCard
                   id={p.id}
@@ -140,6 +149,8 @@ export default function QuoiDeNeufScroll({
       <style>{`
         /* Masquer la scrollbar sur webkit */
         [data-qdn-scroll]::-webkit-scrollbar { display: none; }
+        /* article.product-card remplit toute la hauteur de son wrapper — cartes uniformes */
+        [data-qdn-scroll] > div > article { flex: 1; }
       `}</style>
     </section>
   );
