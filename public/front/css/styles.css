@@ -7240,7 +7240,8 @@ font { background: transparent !important; box-shadow: none !important; }
 .na-empty a { color: var(--indigo); }
 
 /* ── Bannières du bas ── */
-.na-banners { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s4); }
+/* auto-fit + minmax : s'adapte à 1, 2, 3 ou 4 bannières sans JS */
+.na-banners { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--s4); }
 .na-banner { position: relative; border-radius: var(--r-lg); overflow: hidden; min-height: 200px; display: flex; align-items: flex-end; text-decoration: none; isolation: isolate; }
 .na-banner__bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s var(--ease); z-index: -1; }
 .na-banner:hover .na-banner__bg { transform: scale(1.05); }
@@ -7257,12 +7258,10 @@ font { background: transparent !important; box-shadow: none !important; }
 @media (max-width: 900px) {
   .na-grid { grid-template-columns: repeat(3, 1fr); }
   .na-banners { grid-template-columns: repeat(2, 1fr); }
-  .na-banners .na-banner:last-child { grid-column: 1 / -1; }
 }
 @media (max-width: 600px) {
   .na-grid { grid-template-columns: repeat(2, 1fr); gap: var(--s3); }
   .na-banners { grid-template-columns: 1fr; }
-  .na-banners .na-banner:last-child { grid-column: 1; }
 }
 
 /* ── Dark theme ── */

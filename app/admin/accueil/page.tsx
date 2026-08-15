@@ -376,6 +376,7 @@ export default function AccueilPage() {
           media_type: "image",
           url: p.image_url,
           display_order: ordre,
+          banner_visible: true,
         });
       }
     }
@@ -431,6 +432,7 @@ export default function AccueilPage() {
       media_type: type,
       url,
       display_order: ordre,
+      banner_visible: true,
     });
     if (error) notifier("Erreur : " + error.message, "danger");
     else {
@@ -478,6 +480,17 @@ export default function AccueilPage() {
       confirmIcon: "ti-trash",
       onConfirm: () => supprimerMediaConfirme(m),
     });
+  }
+
+  // Remet banner_visible = true pour TOUS les médias d'une section
+  async function reinitialiserBannersVisibles(s: HomeSection) {
+    const ids = s.home_section_media.map((m) => m.id);
+    if (ids.length === 0) return;
+    await Promise.all(
+      ids.map((id) => supabase.from("home_section_media").update({ banner_visible: true }).eq("id", id))
+    );
+    notifier("Tous les médias sont maintenant visibles !");
+    chargerSections();
   }
 
   async function sauvegarderBanner() {
@@ -1055,11 +1068,23 @@ export default function AccueilPage() {
                 })()}
 
                 {/* Médias */}
-                <label className="ak-label">
-                  Médias <span style={{ color: "#94a3b8", fontWeight: 500 }}>
-                    ({s.home_section_media.length}) — {s.section === "solde" ? "image ou vidéo de la bannière (prioritaire sur les images produits)" : "images ou vidéos, affichés en carrousel"}
-                  </span>
-                </label>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <label className="ak-label" style={{ margin: 0, flex: 1 }}>
+                    Médias <span style={{ color: "#94a3b8", fontWeight: 500 }}>
+                      ({s.home_section_media.length}) — {s.section === "solde" ? "image ou vidéo de la bannière (prioritaire sur les images produits)" : "images ou vidéos, affichés en carrousel"}
+                    </span>
+                  </label>
+                  {s.section === "solde" && s.home_section_media.some((m) => m.banner_visible === false) && (
+                    <button
+                      className="ak-btn ak-btn--ghost ak-btn--sm"
+                      onClick={() => reinitialiserBannersVisibles(s)}
+                      title="Remettre tous les médias en visible"
+                      style={{ color: "#22c55e", borderColor: "#22c55e", whiteSpace: "nowrap", flexShrink: 0 }}
+                    >
+                      <i className="ti ti-eye"></i> Tout afficher
+                    </button>
+                  )}
+                </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
                   {s.home_section_media.map((m, idx) => (
                     <div key={m.id} style={{ width: s.section === "solde" ? 200 : 150, border: "1px solid #e2e8f0", borderRadius: 10, padding: 5, background: "#fff" }}>

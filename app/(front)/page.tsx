@@ -11,13 +11,14 @@ import CategoryStrip from "./components/CategoryStrip";
 import SuggestionsScroll from "./components/SuggestionsScroll";
 
 type HomeSectionMedia = BannerMediaItem & {
+  section_id: string;
   display_order: number;
   banner_label?: string | null;
   banner_title?: string | null;
   banner_sub?: string | null;
   banner_cta?: string | null;
   banner_cta_href?: string | null;
-  banner_visible?: boolean;
+  banner_visible?: boolean | null;
 };
 type HomeSectionRow = {
   id: string;
@@ -28,7 +29,7 @@ type HomeSectionRow = {
   cta_href: string | null;
   visible: boolean;
   display_order?: number;
-  home_section_media: HomeSectionMedia[] | null;
+  home_section_media?: HomeSectionMedia[] | null;
 };
 
 // Fallback bubbles shown only while no category exists in the admin
@@ -46,12 +47,15 @@ const CIRCLE_CATS = [
 export default async function HomePage() {
   const supabase = await createClient();
 
-  const [{ data: featured }, { data: categories }, { data: whatsNew }, { data: homeSections }, { data: heroSoldes }, { data: pinnedNew }, { data: heroSlidesAdmin }] = await Promise.all([
+  const [{ data: featured }, { data: categories }, { data: whatsNew }, { data: homeSections }, { data: homeMedia }, { data: heroSoldes }, { data: pinnedNew }, { data: heroSlidesAdmin }] = await Promise.all([
     // Suggestions : produits featured ordonnés par featured_order (admin-managed)
     supabase.from("products").select("*").eq("status", "published").eq("featured", true).order("featured_order", { ascending: true }).limit(8),
     supabase.from("categories").select("*").order("name"),
     supabase.from("products").select("*").eq("status", "published").order("created_at", { ascending: false }).limit(60),
-    supabase.from("home_sections").select("*, home_section_media(*)").order("display_order", { ascending: true }),
+    // Sections : requête simple sans embed (évite les problèmes de cache PostgREST)
+    supabase.from("home_sections").select("*").order("display_order", { ascending: true }),
+    // Médias : requête séparée, jointure faite en JS (plus fiable que l'embed PostgREST)
+    supabase.from("home_section_media").select("*").order("display_order", { ascending: true }),
     // Articles en Solde : TOUS les produits avec compare_price (solde_hero flag = slider uniquement)
     supabase.from("products").select("id, title, price, compare_price, stock, short_description, image_url, product_media(url, type, position)").eq("status", "published").not("compare_price", "is", null).order("solde_hero_order", { ascending: true, nullsFirst: false }).order("display_order", { ascending: true }).limit(48), // short_description utilisé dans le modal quick-view
     // Quoi de neuf : ordonnés par whats_new_order (admin-managed)
@@ -60,13 +64,20 @@ export default async function HomePage() {
     supabase.from("hero_slides").select("*").eq("visible", true).order("display_order", { ascending: true }),
   ]);
 
-  // Admin-managed media sections; each falls back to the hardcoded
-  // template content while the v5 migration has not been run.
+  // Admin-managed media sections.
+  // Les médias sont joints manuellement (requête séparée) pour éviter
+  // les problèmes de cache PostgREST avec la syntaxe d'embed imbriquée.
+  const allMedia = (homeMedia ?? []) as HomeSectionMedia[];
   const sectionMap = new Map(
-    ((homeSections ?? []) as HomeSectionRow[]).map((s) => [
-      s.section,
-      { ...s, media: [...(s.home_section_media ?? [])].sort((a, b) => a.display_order - b.display_order) },
-    ])
+    ((homeSections ?? []) as HomeSectionRow[]).map((s) => {
+      const sectionMedia = allMedia
+        .filter((m) => m.section_id === s.id)
+        .sort((a, b) => a.display_order - b.display_order);
+      return [
+        s.section,
+        { ...s, home_section_media: sectionMedia, media: sectionMedia },
+      ];
+    })
   );
   const suggestion = sectionMap.get("suggestion");
   const solde = sectionMap.get("solde");

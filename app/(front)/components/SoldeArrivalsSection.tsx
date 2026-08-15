@@ -64,10 +64,12 @@ export default function SoldeArrivalsSection({
     scrollRef.current.scrollBy({ left: dir === "left" ? -532 : 532, behavior: "smooth" });
   }
 
-  /* ── Bannières : seulement les médias visibles (banner_visible !== false) ── */
-  const banners = media
-    .filter((m) => m.banner_visible !== false)
-    .slice(0, 3);
+  /* ── Bannières : médias visibles (banner_visible !== false) ── */
+  // Si AUCUN item n'est explicitement visible, on affiche TOUS (robustesse :
+  // évite d'afficher les images démo DEMO_BG quand l'admin a bien ajouté des
+  // médias mais n'a pas encore configuré le toggle "Visible" pour chacun).
+  const visibleBanners = media.filter((m) => m.banner_visible !== false);
+  const banners = visibleBanners.length > 0 ? visibleBanners : media;
 
   return (
     <section className="na-section">
@@ -186,7 +188,7 @@ export default function SoldeArrivalsSection({
 
         {/* ── Bannières du bas (gérées par l'admin) ────────── */}
         <div className="na-banners">
-          {(banners.length > 0 ? banners : DEMO_BG.map((url, i) => ({ url, media_type: "image" as const, id: String(i), banner_visible: true }))).map((m, i) => {
+          {(banners.length > 0 ? banners : DEMO_BG.map((url, i) => ({ url, media_type: "image" as const, id: String(i), banner_visible: true } as SectionMedia)) as SectionMedia[]).map((m, i) => {
             const def = BANNER_DEFAULTS[i] ?? BANNER_DEFAULTS[0];
             const label    = m.banner_label    || def.label;
             const banTitle = m.banner_title    || def.title;

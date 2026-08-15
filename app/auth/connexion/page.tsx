@@ -136,7 +136,17 @@ export default function ConnexionPage() {
       email: loginEmail.trim(), password: loginPwd,
     });
     if (error) { setLoginErr("Email ou mot de passe incorrect."); setLoginLoad(false); return; }
-    router.push("/admin"); router.refresh();
+    // Redirection selon le rôle : admin/manager → /admin, client → /compte
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (u) {
+      const { data: profile } = await supabase.from("profiles").select("roles(name)").eq("id", u.id).single();
+      const roles = profile?.roles as { name: string } | null;
+      const role = roles?.name;
+      router.push(role && role !== "client" ? "/admin" : "/compte");
+    } else {
+      router.push("/compte");
+    }
+    router.refresh();
   }
 
   /* ──────────────── SIGNUP ──────────────── */
@@ -188,7 +198,8 @@ export default function ConnexionPage() {
       setSignupOk("Compte créé ! Vérifiez votre email pour confirmer, puis connectez-vous.");
       setSignupLoad(false); setOnglet("login"); return;
     }
-    router.push("/admin"); router.refresh();
+    // Nouveaux inscrits = clients par défaut → espace client
+    router.push("/compte"); router.refresh();
   }
 
   /* ─── rendu ────────────────────────────────────────────────────────────── */
@@ -197,7 +208,8 @@ export default function ConnexionPage() {
       {/* ─── Onglets ─── */}
       <div style={{
         display: "flex", gap: 6, marginBottom: 24,
-        background: "#f8f0f5", borderRadius: 12, padding: 4,
+        background: "rgba(255,255,255,0.05)", borderRadius: 12, padding: 4,
+        border: "1px solid rgba(255,255,255,0.08)",
       }}>
         {(["login", "signup"] as const).map((tab) => (
           <button
@@ -207,10 +219,10 @@ export default function ConnexionPage() {
               flex: 1, padding: "9px 0", border: "none", borderRadius: 9,
               fontFamily: "'Plus Jakarta Sans', sans-serif",
               fontWeight: 700, fontSize: 13, cursor: "pointer",
-              transition: "all 0.2s",
-              background: onglet === tab ? "linear-gradient(135deg,#db2777,#9d174d)" : "transparent",
-              color:      onglet === tab ? "#fff" : "#be185d",
-              boxShadow:  onglet === tab ? "0 2px 10px rgba(219,39,119,0.3)" : "none",
+              transition: "all 0.22s",
+              background: onglet === tab ? "rgba(255,255,255,0.1)" : "transparent",
+              color:      onglet === tab ? "#f1f5f9" : "#64748b",
+              boxShadow:  onglet === tab ? "inset 0 0 0 1px rgba(255,255,255,0.12)" : "none",
             }}
           >
             {tab === "login" ? "Se connecter" : "Créer un profil"}
@@ -271,8 +283,8 @@ export default function ConnexionPage() {
           )}
           {signupOk && (
             <div style={{
-              background: "#f0fdf4", border: "1px solid #bbf7d0",
-              color: "#15803d", fontSize: 13, borderRadius: 12,
+              background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.2)",
+              color: "#6ee7b7", fontSize: 13, borderRadius: 12,
               padding: "11px 14px", marginBottom: 16,
               display: "flex", alignItems: "center", gap: 8, textAlign: "left",
             }}>

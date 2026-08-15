@@ -28,6 +28,7 @@ export default function SideMenu() {
   const [open, setOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [recherche, setRecherche] = useState("");
   const pathname = usePathname();
   const { count: cartCount } = useCart();
@@ -36,8 +37,10 @@ export default function SideMenu() {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user: u } }) => {
       if (!u) return;
-      const { data } = await supabase.from("profiles").select("full_name").eq("id", u.id).single();
+      const { data } = await supabase.from("profiles").select("full_name, roles(name)").eq("id", u.id).single();
       setUser({ name: data?.full_name ?? "Mon compte", email: u.email ?? "" });
+      const roles = data?.roles as { name: string } | null;
+      setIsAdmin(Boolean(roles?.name && roles.name !== "client"));
     });
   }, []);
 
@@ -62,7 +65,8 @@ export default function SideMenu() {
         { href: "/comparer", label: "Comparer", icon: <Icon d="M9 3v18M15 3v18M3 9h18M3 15h18" /> },
       ],
     },
-    {
+    // Espace client uniquement pour les clients (pas les admins/managers)
+    ...(!isAdmin ? [{
       section: "Mon espace",
       items: [
         { href: "/panier", label: "Panier", badge: cartCount, icon: <Icon d="M6 2l-2 5v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7l-2-5z" extra={<path d="M4 7h16" />} /> },
@@ -70,7 +74,14 @@ export default function SideMenu() {
         { href: "/compte/commandes", label: "Mes commandes", icon: <Icon d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" extra={<rect x="8" y="2" width="8" height="4" rx="1" />} /> },
         { href: "/compte/fidelite", label: "Fidélité", icon: <Icon d="M12 2l2.4 7.2H22l-6 4.6 2.3 7.2-6.3-4.5-6.3 4.5L8 13.8 2 9.2h7.6z" /> },
       ],
-    },
+    }] : []),
+    // Raccourci admin dans le menu latéral
+    ...(isAdmin ? [{
+      section: "Administration",
+      items: [
+        { href: "/admin", label: "Tableau de bord", icon: <Icon d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /> },
+      ],
+    }] : []),
     {
       section: "Aide",
       items: [
@@ -162,12 +173,22 @@ export default function SideMenu() {
         <div className="smenu__foot">
           {userMenuOpen && user && (
             <div className="smenu__user-menu">
-              <Link href="/compte" className="smenu__user-menu-item">
-                <Icon d="M4 21c0-4 4-7 8-7s8 3 8 7" extra={<circle cx="12" cy="8" r="4" />} /> Mon compte
-              </Link>
-              <Link href="/compte/commandes" className="smenu__user-menu-item">
-                <Icon d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" extra={<rect x="8" y="2" width="8" height="4" rx="1" />} /> Mes commandes
-              </Link>
+              {isAdmin ? (
+                /* Admin : lien vers le dashboard admin */
+                <Link href="/admin" className="smenu__user-menu-item">
+                  <Icon d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /> Tableau de bord
+                </Link>
+              ) : (
+                /* Client : liens espace client */
+                <>
+                  <Link href="/compte" className="smenu__user-menu-item">
+                    <Icon d="M4 21c0-4 4-7 8-7s8 3 8 7" extra={<circle cx="12" cy="8" r="4" />} /> Mon compte
+                  </Link>
+                  <Link href="/compte/commandes" className="smenu__user-menu-item">
+                    <Icon d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" extra={<rect x="8" y="2" width="8" height="4" rx="1" />} /> Mes commandes
+                  </Link>
+                </>
+              )}
               <Link href="/api/auth/signout" className="smenu__user-menu-item smenu__user-menu-item--danger">
                 <Icon d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /> Déconnexion
               </Link>
