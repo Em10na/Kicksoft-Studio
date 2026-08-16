@@ -140,7 +140,9 @@ export default function ConnexionPage() {
     const { data: { user: u } } = await supabase.auth.getUser();
     if (u) {
       const { data: profile } = await supabase.from("profiles").select("roles(name)").eq("id", u.id).single();
-      const roles = profile?.roles as { name: string } | null;
+      // PostgREST peut retourner un tableau ou un objet selon le type de relation
+      const rolesRaw = profile?.roles;
+      const roles = (Array.isArray(rolesRaw) ? rolesRaw[0] : rolesRaw) as { name: string } | null | undefined;
       const role = roles?.name;
       router.push(role && role !== "client" ? "/admin" : "/compte");
     } else {

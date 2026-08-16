@@ -18,7 +18,9 @@ export default async function Header() {
         .select("roles(name)")
         .eq("id", user.id)
         .single();
-      const roles = profile?.roles as { name: string } | null;
+      // PostgREST peut retourner un tableau ou un objet selon le type de relation
+      const rolesRaw = profile?.roles;
+      const roles = (Array.isArray(rolesRaw) ? rolesRaw[0] : rolesRaw) as { name: string } | null | undefined;
       isAdmin = Boolean(roles?.name && roles.name !== "client");
     }
   } catch { /* session non disponible — mode visiteur */ }
