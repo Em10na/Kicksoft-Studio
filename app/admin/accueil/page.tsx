@@ -393,17 +393,26 @@ export default function AccueilPage() {
     const nextOrder = Math.max(0, ...articulesEnSolde.filter((x) => x.solde_hero).map((x) => x.solde_hero_order)) + 1;
     const { error } = await supabase.from("products").update({ solde_hero: true, solde_hero_order: nextOrder }).eq("id", p.id);
     if (error) { notifier("Erreur : " + error.message, "danger"); return; }
-    // Auto-alimenter la section "Médias" avec l'image du produit ajouté
+    // Auto-alimenter la section "Médias" avec l'image du produit (si slot disponible)
     if (p.image_url) {
       const soldeSection = sections.find((sec) => sec.section === "solde");
-      if (soldeSection && !soldeSection.home_section_media.some((m) => m.url === p.image_url)) {
+      const dejaPresent = soldeSection?.home_section_media.some((m) => m.url === p.image_url);
+      const slotDisponible = (soldeSection?.home_section_media.length ?? 0) < 3;
+      if (soldeSection && !dejaPresent && slotDisponible) {
         const ordre = (soldeSection.home_section_media.at(-1)?.display_order ?? -1) + 1;
+        // Pré-remplir les textes par défaut pour que le front affiche du contenu immédiatement
+        const def = BANNER_DEFAULTS_SOLDE[soldeSection.home_section_media.length] ?? BANNER_DEFAULTS_SOLDE[0];
         await supabase.from("home_section_media").insert({
           section_id: soldeSection.id,
           media_type: "image",
           url: p.image_url,
           display_order: ordre,
           banner_visible: true,
+          banner_label:   def.label,
+          banner_title:   def.title,
+          banner_sub:     def.sub,
+          banner_cta:     def.cta,
+          banner_cta_href: def.cta_href,
         });
       }
     }
@@ -411,6 +420,47 @@ export default function AccueilPage() {
     chargerSoldes();
     chargerSections();
     revalideerFront();
+  }
+
+  /** Récupère les images des produits solde_hero existants et les insère
+   *  dans home_section_media (max 3). Utile pour corriger les cas où
+   *  l'auto-insert échouait silencieusement à cause du bug PostgREST. */
+  async function syncMediaDepuisProduits() {
+    const soldeSection = sections.find((sec) => sec.section === "solde");
+    if (!soldeSection) { notifier("Section solde introuvable.", "danger"); return; }
+    const produitsSoldeHero = articulesEnSolde
+      .filter((p) => p.solde_hero && p.image_url)
+      .sort((a, b) => a.solde_hero_order - b.solde_hero_order)
+      .slice(0, 3);
+    if (produitsSoldeHero.length === 0) { notifier("Aucun produit dans le slider.", "warning"); return; }
+    let inseres = 0;
+    let ordre = (soldeSection.home_section_media.at(-1)?.display_order ?? -1) + 1;
+    for (const p of produitsSoldeHero) {
+      if (soldeSection.home_section_media.length + inseres >= 3) break;
+      const dejaPresent = soldeSection.home_section_media.some((m) => m.url === p.image_url);
+      if (dejaPresent) continue;
+      const def = BANNER_DEFAULTS_SOLDE[(soldeSection.home_section_media.length + inseres) % 3];
+      await supabase.from("home_section_media").insert({
+        section_id: soldeSection.id,
+        media_type: "image",
+        url: p.image_url,
+        display_order: ordre++,
+        banner_visible: true,
+        banner_label:   def.label,
+        banner_title:   def.title,
+        banner_sub:     def.sub,
+        banner_cta:     def.cta,
+        banner_cta_href: def.cta_href,
+      });
+      inseres++;
+    }
+    if (inseres === 0) {
+      notifier("Images déjà présentes dans les médias.", "warning");
+    } else {
+      notifier(`${inseres} image${inseres > 1 ? "s" : ""} récupérée${inseres > 1 ? "s" : ""} — les bannières sont maintenant configurées !`);
+      chargerSections();
+      revalideerFront();
+    }
   }
 
   // Retire un produit du slider ET termine la solde (efface compare_price)
@@ -1165,6 +1215,17 @@ export default function AccueilPage() {
                       — {s.section === "solde" ? "1 image/vidéo = 1 bannière dans le slider (max 3)" : "images ou vidéos, affichés en carrousel"}
                     </span>
                   </label>
+                  {/* Bouton "Récupérer" : auto-sync des images produits → médias (correction du bug historique) */}
+                  {s.section === "solde" && s.home_section_media.length < 3 && articulesEnSolde.some((p) => p.solde_hero && p.image_url) && (
+                    <button
+                      className="ak-btn ak-btn--ghost ak-btn--sm"
+                      onClick={() => syncMediaDepuisProduits()}
+                      title="Récupérer les images des produits déjà dans le slider"
+                      style={{ color: "#6366f1", borderColor: "#6366f1", whiteSpace: "nowrap", flexShrink: 0 }}
+                    >
+                      <i className="ti ti-refresh"></i> Récupérer les images produits
+                    </button>
+                  )}
                   {s.section === "solde" && s.home_section_media.some((m) => m.banner_visible === false) && (
                     <button
                       className="ak-btn ak-btn--ghost ak-btn--sm"
