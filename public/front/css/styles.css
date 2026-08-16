@@ -7214,7 +7214,7 @@ font { background: transparent !important; box-shadow: none !important; }
 
 /* ── En-tête ── */
 .na-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s4); margin-bottom: var(--s5); flex-wrap: wrap; }
-.na-head__eyebrow { font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.1em; color: var(--indigo); text-transform: uppercase; margin: 0 0 4px; }
+.na-head__eyebrow { font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.1em; color: var(--rose); text-transform: uppercase; margin: 0 0 4px; }
 .na-head__title { font-family: var(--ff-display); font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 800; color: var(--ink); margin: 0; line-height: 1.15; }
 .na-head__right { display: flex; align-items: center; gap: var(--s4); flex-shrink: 0; }
 .na-view-all { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-sm); font-weight: 600; color: var(--ink); text-decoration: none; transition: gap 0.2s; }
