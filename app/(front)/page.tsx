@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -48,15 +49,23 @@ const CIRCLE_CATS = [
 export default async function HomePage() {
   const supabase = await createClient();
 
+  // Le client admin (service role) est utilisé pour lire la configuration des
+  // sections (home_sections, home_section_media) afin de contourner les
+  // politiques RLS qui pourraient bloquer les lectures anonymes.
+  // Ces tables contiennent uniquement des données de configuration publique
+  // (visibilité, titres, médias) — aucune donnée sensible utilisateur.
+  // Le service role key n'est jamais exposé au navigateur (RSC server-only).
+  const adminClient = createAdminClient();
+
   const [{ data: featured }, { data: categories }, { data: whatsNew }, { data: homeSections }, { data: homeMedia }, { data: heroSoldes }, { data: pinnedNew }, { data: heroSlidesAdmin }] = await Promise.all([
     // Suggestions : produits featured ordonnés par featured_order (admin-managed)
     supabase.from("products").select("*").eq("status", "published").eq("featured", true).order("featured_order", { ascending: true }).limit(8),
     supabase.from("categories").select("*").order("name"),
     supabase.from("products").select("*").eq("status", "published").order("created_at", { ascending: false }).limit(60),
-    // Sections : requête simple sans embed (évite les problèmes de cache PostgREST)
-    supabase.from("home_sections").select("*").order("display_order", { ascending: true }),
-    // Médias : requête séparée, jointure faite en JS (plus fiable que l'embed PostgREST)
-    supabase.from("home_section_media").select("*").order("display_order", { ascending: true }),
+    // Sections & médias : via adminClient pour bypasser RLS et lire le flag
+    // `visible` correctement (le client anon peut être bloqué par RLS).
+    adminClient.from("home_sections").select("id, section, title, tagline, cta_label, cta_href, visible, display_order").order("display_order", { ascending: true }),
+    adminClient.from("home_section_media").select("id, section_id, url, media_type, display_order, banner_label, banner_title, banner_sub, banner_cta, banner_cta_href, banner_visible").order("display_order", { ascending: true }),
     // Articles en Solde : uniquement les produits cochés par l'admin dans le slider (solde_hero=true),
     // dans l'ordre défini par l'admin (solde_hero_order).
     supabase.from("products").select("id, title, price, compare_price, stock, short_description, image_url, product_media(url, type, position)").eq("status", "published").eq("solde_hero", true).not("compare_price", "is", null).order("solde_hero_order", { ascending: true, nullsFirst: false }).limit(48), // short_description utilisé dans le modal quick-view
@@ -185,7 +194,7 @@ export default async function HomePage() {
 
         /* ── Articles en solde (SoldeArrivalsSection) ── */
         if (sectionKey === "solde") {
-          if (solde && !solde.visible) return null;
+          if (solde?.visible === false) return null;
           return (
             <SoldeArrivalsSection
               key="solde"
@@ -201,7 +210,7 @@ export default async function HomePage() {
         /* ── Quoi de neuf (scroll horizontal) ── */
         if (sectionKey === "quoi_de_neuf") {
           const qdn = sectionMap.get("quoi_de_neuf");
-          if (qdn && !qdn.visible) return null;
+          if (qdn?.visible === false) return null;
           return (
             <QuoiDeNeufScroll
               key="quoi_de_neuf"
@@ -215,7 +224,7 @@ export default async function HomePage() {
 
         /* ── Suggestions (bannière + produits vedettes) ── */
         if (sectionKey === "suggestion") {
-          if (suggestion && !suggestion.visible) return null;
+          if (suggestion?.visible === false) return null;
           return (
             <section key="suggestion" className="series-section">
               <div className="container">
