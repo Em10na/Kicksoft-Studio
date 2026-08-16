@@ -39,7 +39,9 @@ export default function SideMenu() {
       if (!u) return;
       const { data } = await supabase.from("profiles").select("full_name, roles(name)").eq("id", u.id).single();
       setUser({ name: data?.full_name ?? "Mon compte", email: u.email ?? "" });
-      const roles = data?.roles as { name: string } | null;
+      // PostgREST peut retourner un tableau ou un objet selon le type de relation
+      const rolesRaw = data?.roles;
+      const roles = (Array.isArray(rolesRaw) ? rolesRaw[0] : rolesRaw) as { name: string } | null | undefined;
       setIsAdmin(Boolean(roles?.name && roles.name !== "client"));
     });
   }, []);

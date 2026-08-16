@@ -40,7 +40,9 @@ export async function middleware(request: NextRequest) {
       .select("roles(name)")
       .eq("id", user.id)
       .single();
-    const roles = profile?.roles as { name: string } | null;
+    // PostgREST peut retourner un tableau ou un objet selon le type de relation
+    const rolesRaw = profile?.roles;
+    const roles = (Array.isArray(rolesRaw) ? rolesRaw[0] : rolesRaw) as { name: string } | null | undefined;
     roleName = roles?.name ?? null;
   }
 
