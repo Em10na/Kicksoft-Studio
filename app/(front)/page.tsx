@@ -57,15 +57,26 @@ export default async function HomePage() {
   // Le service role key n'est jamais exposé au navigateur (RSC server-only).
   const adminClient = createAdminClient();
 
-  const [{ data: featured }, { data: categories }, { data: whatsNew }, { data: homeSections }, { data: homeMedia }, { data: heroSoldes }, { data: pinnedNew }, { data: heroSlidesAdmin }] = await Promise.all([
+  const [
+    { data: featured },
+    { data: categories },
+    { data: whatsNew },
+    { data: homeSections, error: homeSectionsError },
+    { data: homeMedia,    error: homeMediaError },
+    { data: heroSoldes },
+    { data: pinnedNew },
+    { data: heroSlidesAdmin },
+  ] = await Promise.all([
     // Suggestions : produits featured ordonnés par featured_order (admin-managed)
     supabase.from("products").select("*").eq("status", "published").eq("featured", true).order("featured_order", { ascending: true }).limit(8),
     supabase.from("categories").select("*").order("name"),
     supabase.from("products").select("*").eq("status", "published").order("created_at", { ascending: false }).limit(60),
-    // Sections & médias : via adminClient pour bypasser RLS et lire le flag
-    // `visible` correctement (le client anon peut être bloqué par RLS).
-    adminClient.from("home_sections").select("id, section, title, tagline, cta_label, cta_href, visible, display_order").order("display_order", { ascending: true }),
-    adminClient.from("home_section_media").select("id, section_id, url, media_type, display_order, banner_label, banner_title, banner_sub, banner_cta, banner_cta_href, banner_visible").order("display_order", { ascending: true }),
+    // Sections & médias : via adminClient (service role) pour bypasser RLS.
+    // select("*") utilisé intentionnellement pour éviter les erreurs PostgREST
+    // quand des colonnes ajoutées par des migrations récentes (v18+) ne sont
+    // pas encore dans le cache de schéma ou n'existent pas encore en DB.
+    adminClient.from("home_sections").select("*").order("display_order", { ascending: true }),
+    adminClient.from("home_section_media").select("*").order("display_order", { ascending: true }),
     // Articles en Solde : uniquement les produits cochés par l'admin dans le slider (solde_hero=true),
     // dans l'ordre défini par l'admin (solde_hero_order).
     supabase.from("products").select("id, title, price, compare_price, stock, short_description, image_url, product_media(url, type, position)").eq("status", "published").eq("solde_hero", true).not("compare_price", "is", null).order("solde_hero_order", { ascending: true, nullsFirst: false }).limit(48), // short_description utilisé dans le modal quick-view
@@ -74,6 +85,10 @@ export default async function HomePage() {
     // Slides hero gérés manuellement depuis l'admin (priorité sur solde_hero)
     supabase.from("hero_slides").select("*").eq("visible", true).order("display_order", { ascending: true }),
   ]);
+
+  // Journaliser les erreurs adminClient pour faciliter le débogage.
+  if (homeSectionsError) console.error("[HomePage] home_sections query failed:", homeSectionsError.message);
+  if (homeMediaError)    console.error("[HomePage] home_section_media query failed:", homeMediaError.message);
 
   // Admin-managed media sections.
   // Les médias sont joints manuellement (requête séparée) pour éviter
