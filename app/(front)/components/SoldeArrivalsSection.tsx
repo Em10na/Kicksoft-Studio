@@ -35,17 +35,11 @@ type Props = {
   ctaHref?: string;
 };
 
-/* Defaults si l'admin n'a pas encore configuré les bannières */
+/* Textes par défaut pour chaque slot de bannière */
 const BANNER_DEFAULTS = [
   { label: "SOLDES EN COURS",     title: "Jusqu'à -50%",        sub: "Sur une sélection d'articles",           cta: "Profiter",  href: "/boutique?soldes=1" },
   { label: "NOUVELLE COLLECTION", title: "Nouveaux Arrivages",   sub: "Découvrez les dernières tendances.",      cta: "Explorer",  href: "/boutique" },
   { label: "LIVRAISON OFFERTE",   title: "Dès 200 DT d'achat",  sub: "Commandez en ligne, recevez chez vous.", cta: "Commander", href: "/boutique" },
-];
-
-const DEMO_BG = [
-  "https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=800&q=80&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&q=80&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1508444845599-5c89863b1c44?w=800&q=80&auto=format&fit=crop",
 ];
 
 export default function SoldeArrivalsSection({
@@ -66,10 +60,43 @@ export default function SoldeArrivalsSection({
 
   /* ── Bannières : médias visibles (banner_visible !== false) ── */
   // Si AUCUN item n'est explicitement visible, on affiche TOUS (robustesse :
-  // évite d'afficher les images démo DEMO_BG quand l'admin a bien ajouté des
-  // médias mais n'a pas encore configuré le toggle "Visible" pour chacun).
+  // évite de cacher les bannières quand l'admin a ajouté des médias mais
+  // n'a pas encore configuré le toggle "Visible" pour chacun).
   const visibleBanners = media.filter((m) => m.banner_visible !== false);
-  const banners = visibleBanners.length > 0 ? visibleBanners : media;
+  const adminBanners = visibleBanners.length > 0 ? visibleBanners : media;
+
+  // Fallback automatique : si aucun média admin, utiliser les images des
+  // produits du slider comme fond de bannière (les 3 premiers, avec image).
+  // Cela évite les images statiques hardcodées et rend les banners utiles
+  // dès qu'un produit est ajouté au slider, sans étape manuelle.
+  const productFallbackBanners: SectionMedia[] = adminBanners.length === 0
+    ? products
+        .filter((p) => p.image_url || (p.product_media ?? []).length > 0)
+        .slice(0, 3)
+        .map((p, i) => {
+          const url = p.image_url
+            ?? [...(p.product_media ?? [])].sort((a, b) => a.position - b.position)[0]?.url
+            ?? "";
+          const def = BANNER_DEFAULTS[i] ?? BANNER_DEFAULTS[0];
+          return {
+            id: `product-fallback-${p.id}`,
+            url,
+            media_type: "image" as const,
+            banner_visible: true,
+            banner_label: def.label,
+            banner_title: def.title,
+            banner_sub: def.sub,
+            banner_cta: def.cta,
+            banner_cta_href: def.href,
+          };
+        })
+    : [];
+
+  // Résolution finale :
+  // 1. Médias uploadés par l'admin → priorité absolue
+  // 2. Images des produits du slider → fallback automatique
+  // 3. Aucun des deux → banners masqués
+  const banners = adminBanners.length > 0 ? adminBanners : productFallbackBanners;
 
   return (
     <section className="na-section">
@@ -186,10 +213,10 @@ export default function SoldeArrivalsSection({
           </div>
         )}
 
-        {/* ── Bannières du bas (gérées par l'admin) ────────── */}
-        {/* Limité à 3 : correspond aux 3 slots fixes du slider */}
-        <div className="na-banners">
-          {(banners.length > 0 ? banners.slice(0, 3) : DEMO_BG.map((url, i) => ({ url, media_type: "image" as const, id: String(i), banner_visible: true } as SectionMedia)) as SectionMedia[]).map((m, i) => {
+        {/* ── Bannières du bas ─────────────────────────────── */}
+        {/* Médias admin si dispo, sinon images produits du slider (max 3) */}
+        {banners.length > 0 && <div className="na-banners">
+          {banners.slice(0, 3).map((m, i) => {
             const def = BANNER_DEFAULTS[i] ?? BANNER_DEFAULTS[0];
             const label    = m.banner_label    || def.label;
             const banTitle = m.banner_title    || def.title;
@@ -212,7 +239,7 @@ export default function SoldeArrivalsSection({
               </Link>
             );
           })}
-        </div>
+        </div>}
 
       </div>
 
