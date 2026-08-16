@@ -13,23 +13,42 @@ export default function PanierPage() {
   const [loading, setLoading] = useState(false);
   const [erreur, setErreur] = useState("");
   const [succes, setSucces] = useState(false);
+  const [orderId, setOrderId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [pointsBalance, setPointsBalance] = useState(0);
   const [usePoints, setUsePoints] = useState(false);
   const [pointsPercentage, setPointsPercentage] = useState(100);
   const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
   const [user, setUser] = useState<{ id: string } | null>(null);
-  const [guestForm, setGuestForm] = useState({ nom: "", prenom: "", adresse: "", telephone: "" });
+  const [guestForm, setGuestForm] = useState({
+    prenom: "",
+    nom: "",
+    adresse: "",
+    telephone: "",
+    email: "",
+  });
   const router = useRouter();
   const supabase = createClient();
 
   useEffect(() => {
     async function loadUser() {
-      const { data: { user: u } } = await supabase.auth.getUser();
-      setUser(u);
-      if (!u) return;
-      const { data: txns } = await supabase.from("loyalty_transactions").select("points").eq("user_id", u.id);
-      setPointsBalance((txns ?? []).reduce((s: number, t: { points: number }) => s + t.points, 0));
+      try {
+        // getSession() lit le localStorage sans requête réseau (plus robuste que getUser()).
+        const { data: { session } } = await supabase.auth.getSession();
+        const u = session?.user ?? null;
+        setUser(u);
+        if (!u) return;
+
+        const { data: txns } = await supabase
+          .from("loyalty_transactions")
+          .select("points")
+          .eq("user_id", u.id);
+        setPointsBalance(
+          (txns ?? []).reduce((s: number, t: { points: number }) => s + t.points, 0)
+        );
+      } catch {
+        // Réseau indisponible — mode invité par défaut
+      }
     }
     loadUser();
   }, []);
@@ -43,7 +62,7 @@ export default function PanierPage() {
       .then(({ data }) => {
         if (!data) return;
         const map: Record<string, string> = {};
-        for (const p of data as any[]) {
+        for (const p of data as { id: string; categories: { name: string } | { name: string }[] | null }[]) {
           const cats = p.categories;
           map[p.id] = (Array.isArray(cats) ? cats[0]?.name : cats?.name) ?? "Général";
         }
@@ -56,39 +75,53 @@ export default function PanierPage() {
   const livraison = total >= 50 ? 0 : 7;
   const grandTotal = Math.max(0, total - pointsDiscount + livraison);
 
-  // Étape 1 : ouvre le formulaire de livraison (obligatoire pour tous),
-  // prérempli depuis le profil si l'utilisateur est connecté.
+  // Étape 1 : ouvre le formulaire de livraison (commun à tous les utilisateurs).
+  // Pour les connectés, pré-remplit depuis le profil.
   async function ouvrirFormulaire() {
     setErreur("");
     if (user) {
-      const { data: p } = await supabase
-        .from("profiles")
-        .select("full_name, phone, adresse, ville")
-        .eq("id", user.id)
-        .single();
-      if (p) {
-        const mots = (p.full_name ?? "").trim().split(/\s+/).filter(Boolean);
-        setGuestForm({
-          prenom: mots[0] ?? "",
-          nom: mots.slice(1).join(" "),
-          telephone: p.phone ?? "",
-          adresse: [p.adresse, p.ville].filter(Boolean).join(", "),
-        });
+      try {
+        const { data: p } = await supabase
+          .from("profiles")
+          .select("full_name, phone, adresse, ville")
+          .eq("id", user.id)
+          .single();
+        if (p) {
+          const mots = (p.full_name ?? "").trim().split(/\s+/).filter(Boolean);
+          setGuestForm((prev) => ({
+            ...prev,
+            prenom: mots[0] ?? "",
+            nom: mots.slice(1).join(" "),
+            telephone: p.phone ?? "",
+            adresse: [p.adresse, p.ville].filter(Boolean).join(", "),
+          }));
+        }
+      } catch {
+        // Profil non chargeable — l'utilisateur remplira manuellement
       }
     }
     setShowForm(true);
   }
 
-  // Étape 2 : validation des champs obligatoires puis création de la commande
+  // Étape 2 : validation et création de la commande
   async function confirmerCommande() {
     setErreur("");
 
-    if (!guestForm.prenom.trim() || !guestForm.nom.trim() || !guestForm.telephone.trim() || !guestForm.adresse.trim()) {
+    if (
+      !guestForm.prenom.trim() ||
+      !guestForm.nom.trim() ||
+      !guestForm.telephone.trim() ||
+      !guestForm.adresse.trim()
+    ) {
       setErreur("Veuillez remplir tous les champs obligatoires (prénom, nom, téléphone, adresse).");
       return;
     }
-    if (!/^[+\d][\d\s.-]{7,}$/.test(guestForm.telephone.trim())) {
+    if (!/^[+\d][\d\s.\-]{7,}$/.test(guestForm.telephone.trim())) {
       setErreur("Numéro de téléphone invalide.");
+      return;
+    }
+    if (guestForm.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestForm.email.trim())) {
+      setErreur("Adresse e-mail invalide.");
       return;
     }
 
@@ -96,6 +129,7 @@ export default function PanierPage() {
     const fullName = `${guestForm.prenom.trim()} ${guestForm.nom.trim()}`;
 
     if (user) {
+      // ── Utilisateur connecté : insertion directe via client authentifié ──
       const { data: order, error: orderErr } = await supabase
         .from("orders")
         .insert({
@@ -110,19 +144,19 @@ export default function PanierPage() {
         .single();
 
       if (orderErr || !order) {
-        setErreur("Erreur lors de la creation de la commande : " + (orderErr?.message ?? ""));
+        setErreur("Erreur lors de la création de la commande : " + (orderErr?.message ?? ""));
         setLoading(false);
         return;
       }
 
-      const orderItems = items.map((item) => ({
-        order_id: order.id,
-        product_id: item.id,
-        quantity: item.qty,
-        unit_price: item.price,
-      }));
-
-      const { error: itemsErr } = await supabase.from("order_items").insert(orderItems);
+      const { error: itemsErr } = await supabase.from("order_items").insert(
+        items.map((item) => ({
+          order_id: order.id,
+          product_id: item.id,
+          quantity: item.qty,
+          unit_price: item.price,
+        }))
+      );
       if (itemsErr) {
         setErreur("Erreur lors de l'ajout des articles : " + itemsErr.message);
         setLoading(false);
@@ -135,10 +169,13 @@ export default function PanierPage() {
           order_id: order.id,
           points: -pointsToUse,
           type: "redeem_reduction",
-          description: `Reduction ${pointsDiscount.toFixed(2)} DT - commande #${order.id.slice(0, 8)} (${pointsToUse} pts utilises)`,
+          description: `Réduction ${pointsDiscount.toFixed(2)} DT — commande #${order.id.slice(0, 8)} (${pointsToUse} pts utilisés)`,
         });
       }
+
+      setOrderId(order.id);
     } else {
+      // ── Invité : via route API sécurisée (service role côté serveur) ──
       const res = await fetch("/api/orders/guest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -146,6 +183,7 @@ export default function PanierPage() {
           guest_name: fullName,
           guest_phone: guestForm.telephone.trim(),
           guest_address: guestForm.adresse.trim(),
+          guest_email: guestForm.email.trim() || null,
           items: items.map((item) => ({
             product_id: item.id,
             quantity: item.qty,
@@ -160,6 +198,7 @@ export default function PanierPage() {
         setLoading(false);
         return;
       }
+      setOrderId(data.id ?? null);
     }
 
     clearCart();
@@ -175,25 +214,71 @@ export default function PanierPage() {
     grouped[cat].push(item);
   }
 
+  // ── Écran de succès ────────────────────────────────────────────────────────
   if (succes) {
     return (
       <>
         <section className="page-head">
           <div className="container">
-            <h1>Commande confirmee !</h1>
+            <h1>Commande confirmée !</h1>
           </div>
         </section>
         <section className="section">
           <div className="container" style={{ textAlign: "center", padding: "var(--s9) 0" }}>
-            <div style={{ fontSize: "64px", marginBottom: "var(--s5)" }}>&#x2713;</div>
-            <h2 style={{ fontSize: "var(--text-2xl)", marginBottom: "var(--s4)" }}>Merci pour votre commande !</h2>
-            <p style={{ color: "var(--fg-soft)", marginBottom: "var(--s6)", maxWidth: "48ch", margin: "0 auto var(--s6)" }}>
-              Votre commande a ete enregistree avec succes.
-              {user ? " Vous pouvez suivre son statut dans votre espace client." : " Nous vous contacterons pour confirmer la livraison."}
+            <div style={{ fontSize: 64, marginBottom: "var(--s5)" }}>✓</div>
+            <h2 style={{ fontSize: "var(--text-2xl)", marginBottom: "var(--s4)" }}>
+              Merci pour votre commande !
+            </h2>
+
+            {orderId && (
+              <div style={{
+                display: "inline-block",
+                background: "var(--indigo-soft, #eef2ff)",
+                border: "1px solid var(--indigo, #6366f1)",
+                borderRadius: 10,
+                padding: "10px 20px",
+                marginBottom: "var(--s4)",
+                fontSize: "var(--text-sm)",
+                color: "var(--indigo, #6366f1)",
+                fontFamily: "var(--ff-mono)",
+                letterSpacing: "0.04em",
+              }}>
+                Référence : #{orderId.slice(0, 8).toUpperCase()}
+              </div>
+            )}
+
+            <p style={{
+              color: "var(--fg-soft)",
+              marginBottom: "var(--s6)",
+              maxWidth: "52ch",
+              margin: "0 auto var(--s6)",
+              lineHeight: 1.7,
+            }}>
+              {user
+                ? "Votre commande a été enregistrée. Vous pouvez suivre son statut dans votre espace client."
+                : "Votre commande a été enregistrée avec succès. Nous vous contacterons par téléphone pour confirmer la livraison."}
             </p>
-            <div style={{ display: "flex", gap: "var(--s4)", justifyContent: "center" }}>
-              {user && <Link href="/compte/commandes" className="btn btn--indigo">Mes commandes</Link>}
-              <Link href="/boutique" className="btn btn--ghost">Continuer les achats</Link>
+
+            {!user && guestForm.email && (
+              <p style={{ fontSize: "var(--text-sm)", color: "var(--fg-mute)", marginBottom: "var(--s4)" }}>
+                Un récapitulatif sera envoyé à <strong>{guestForm.email}</strong>.
+              </p>
+            )}
+
+            <div style={{ display: "flex", gap: "var(--s4)", justifyContent: "center", flexWrap: "wrap" }}>
+              {user && (
+                <Link href="/compte/commandes" className="btn btn--indigo">
+                  Mes commandes →
+                </Link>
+              )}
+              {!user && (
+                <Link href="/auth/connexion" className="btn btn--indigo">
+                  Créer un compte →
+                </Link>
+              )}
+              <Link href="/boutique" className="btn btn--ghost">
+                Continuer les achats
+              </Link>
             </div>
           </div>
         </section>
@@ -201,6 +286,7 @@ export default function PanierPage() {
     );
   }
 
+  // ── Page panier ────────────────────────────────────────────────────────────
   return (
     <>
       <section className="page-head">
@@ -208,39 +294,63 @@ export default function PanierPage() {
           <div className="crumbs">
             <Link href="/">Accueil</Link> <span className="sep">&rsaquo;</span> <span>Panier</span>
           </div>
-          <h1>Votre panier {count > 0 && <span style={{ fontFamily: "var(--ff-mono)", fontSize: "var(--text-lg)", color: "var(--fg-mute)", fontWeight: 400 }}>({count} article{count > 1 ? "s" : ""})</span>}</h1>
+          <h1>
+            Votre panier{" "}
+            {count > 0 && (
+              <span style={{
+                fontFamily: "var(--ff-mono)",
+                fontSize: "var(--text-lg)",
+                color: "var(--fg-mute)",
+                fontWeight: 400,
+              }}>
+                ({count} article{count > 1 ? "s" : ""})
+              </span>
+            )}
+          </h1>
         </div>
       </section>
 
       <section className="section">
         <div className="container">
           {erreur && (
-            <div style={{ padding: "12px 16px", background: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", borderRadius: "var(--r)", marginBottom: "var(--s5)", fontSize: "var(--text-sm)" }}>
+            <div style={{
+              padding: "12px 16px",
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
+              color: "#dc2626",
+              borderRadius: "var(--r)",
+              marginBottom: "var(--s5)",
+              fontSize: "var(--text-sm)",
+            }}>
               {erreur}
             </div>
           )}
 
           {items.length === 0 ? (
             <div style={{ textAlign: "center", padding: "var(--s9) 0" }}>
-              <div style={{ fontSize: "48px", marginBottom: "var(--s4)", opacity: 0.3 }}>&#x1F6D2;</div>
-              <p style={{ color: "var(--fg-mute)", marginBottom: "var(--s5)", fontSize: "var(--text-md)" }}>Votre panier est vide.</p>
-              <Link href="/boutique" className="btn btn--indigo">Decouvrir nos produits &rarr;</Link>
+              <div style={{ fontSize: 48, marginBottom: "var(--s4)", opacity: 0.3 }}>🛒</div>
+              <p style={{ color: "var(--fg-mute)", marginBottom: "var(--s5)", fontSize: "var(--text-md)" }}>
+                Votre panier est vide.
+              </p>
+              <Link href="/boutique" className="btn btn--indigo">
+                Découvrir nos produits →
+              </Link>
             </div>
           ) : (
             <div className="cart-layout">
+              {/* ── Articles ── */}
               <div>
-                {/* Articles groupés par catégorie */}
                 {Object.entries(grouped).map(([catName, catItems]) => (
-                    <div key={catName} className="cart-cat-group">
-                      <div className="cart-cat-header">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-                          <polyline points="9,22 9,12 15,12 15,22" />
-                        </svg>
-                        {catName}
-                      </div>
-                      {catItems.map((item) => (
-                        <SwipeCartItem key={item.id} onDelete={() => removeItem(item.id)}>
+                  <div key={catName} className="cart-cat-group">
+                    <div className="cart-cat-header">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                        <polyline points="9,22 9,12 15,12 15,22" />
+                      </svg>
+                      {catName}
+                    </div>
+                    {catItems.map((item) => (
+                      <SwipeCartItem key={item.id} onDelete={() => removeItem(item.id)}>
                         <div className="cart-item-v2">
                           <div className="cart-item-v2__img">
                             <img
@@ -249,10 +359,15 @@ export default function PanierPage() {
                             />
                           </div>
                           <div className="cart-item-v2__body">
-                            {/* ligne 1 : nom + corbeille */}
                             <div className="cart-item-v2__top">
-                              <Link href={`/produit/${item.id}`} className="cart-item-v2__name">{item.title}</Link>
-                              <button className="cart-item-v2__remove" onClick={() => removeItem(item.id)} aria-label="Supprimer">
+                              <Link href={`/produit/${item.id}`} className="cart-item-v2__name">
+                                {item.title}
+                              </Link>
+                              <button
+                                className="cart-item-v2__remove"
+                                onClick={() => removeItem(item.id)}
+                                aria-label="Supprimer"
+                              >
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                   <polyline points="3,6 5,6 21,6" />
                                   <path d="M19,6l-1,14a2 2 0 01-2 2H8a2 2 0 01-2-2L5,6" />
@@ -260,12 +375,10 @@ export default function PanierPage() {
                                 </svg>
                               </button>
                             </div>
-                            {/* ligne 2 : prix unitaire */}
                             <span className="cart-item-v2__price">{item.price} DT / unité</span>
-                            {/* ligne 3 : sélecteur qté + total */}
                             <div className="cart-item-v2__bottom">
                               <div className="cart-item-v2__qty">
-                                <button type="button" onClick={() => updateQty(item.id, item.qty - 1)} aria-label="Diminuer">&#x2212;</button>
+                                <button type="button" onClick={() => updateQty(item.id, item.qty - 1)} aria-label="Diminuer">−</button>
                                 <input type="text" value={item.qty} readOnly inputMode="numeric" aria-label="Quantité" />
                                 <button type="button" onClick={() => updateQty(item.id, item.qty + 1)} aria-label="Augmenter">+</button>
                               </div>
@@ -273,25 +386,28 @@ export default function PanierPage() {
                             </div>
                           </div>
                         </div>
-                        </SwipeCartItem>
-                      ))}
-                    </div>
+                      </SwipeCartItem>
+                    ))}
+                  </div>
                 ))}
 
                 <div style={{ marginTop: "var(--s5)", display: "flex", gap: "var(--s3)", flexWrap: "wrap" }}>
                   <Link href="/boutique" className="btn btn--ghost">&larr; Continuer les achats</Link>
-                  <button className="btn btn--ghost" onClick={clearCart} style={{ color: "var(--rose)" }}>Vider le panier</button>
+                  <button className="btn btn--ghost" onClick={clearCart} style={{ color: "var(--rose)" }}>
+                    Vider le panier
+                  </button>
                 </div>
-
               </div>
 
-              {/* Recapitulatif */}
+              {/* ── Récapitulatif ── */}
               <aside className="cart-summary">
-                <h3>Recapitulatif</h3>
+                <h3>Récapitulatif</h3>
 
                 <div className="cart-line">
                   <span>Sous-total ({count} article{count > 1 ? "s" : ""})</span>
-                  <span style={{ fontFamily: "var(--ff-display)", fontWeight: 600, color: "var(--ink)" }}>{total.toFixed(2)} DT</span>
+                  <span style={{ fontFamily: "var(--ff-display)", fontWeight: 600, color: "var(--ink)" }}>
+                    {total.toFixed(2)} DT
+                  </span>
                 </div>
                 <div className="cart-line">
                   <span>Livraison</span>
@@ -301,20 +417,33 @@ export default function PanierPage() {
                 </div>
                 {livraison > 0 && (
                   <div style={{ fontSize: "var(--text-xs)", color: "var(--fg-mute)", marginBottom: "var(--s3)" }}>
-                    Livraison gratuite a partir de 50 DT ({(50 - total).toFixed(2)} DT restants)
+                    Livraison gratuite à partir de 50 DT ({(50 - total).toFixed(2)} DT restants)
                   </div>
                 )}
 
-                {/* Points fidelite - seulement pour utilisateurs connectes */}
+                {/* Points fidélité — uniquement pour utilisateurs connectés */}
                 {user && pointsBalance > 0 && (
-                  <div style={{ padding: "var(--s4)", marginTop: "var(--s2)", background: usePoints ? "#f0fdf4" : "var(--bg)", border: `1px solid ${usePoints ? "#bbf7d0" : "var(--rule)"}`, borderRadius: "var(--r)" }}>
+                  <div style={{
+                    padding: "var(--s4)",
+                    marginTop: "var(--s2)",
+                    background: usePoints ? "#f0fdf4" : "var(--bg)",
+                    border: `1px solid ${usePoints ? "#bbf7d0" : "var(--rule)"}`,
+                    borderRadius: "var(--r)",
+                  }}>
                     <label style={{ display: "flex", alignItems: "center", gap: "var(--s3)", cursor: "pointer", fontSize: "var(--text-sm)" }}>
-                      <input type="checkbox" checked={usePoints} onChange={(e) => setUsePoints(e.target.checked)}
-                        style={{ width: "18px", height: "18px", accentColor: "var(--indigo)" }} />
+                      <input
+                        type="checkbox"
+                        checked={usePoints}
+                        onChange={(e) => setUsePoints(e.target.checked)}
+                        style={{ width: 18, height: 18, accentColor: "var(--indigo)" }}
+                      />
                       <div>
-                        <div style={{ fontWeight: 600 }}>Utiliser mes points de fidelite</div>
+                        <div style={{ fontWeight: 600 }}>Utiliser mes points de fidélité</div>
                         <div style={{ fontSize: "var(--text-xs)", color: "var(--fg-mute)" }}>
-                          {pointsBalance} pts disponibles = <strong style={{ color: "#16a34a" }}>{Math.min(pointsBalance * LOYALTY.REDEEM_RATE, total).toFixed(2)} DT de reduction max</strong>
+                          {pointsBalance} pts disponibles ={" "}
+                          <strong style={{ color: "#16a34a" }}>
+                            {Math.min(pointsBalance * LOYALTY.REDEEM_RATE, total).toFixed(2)} DT de réduction max
+                          </strong>
                         </div>
                       </div>
                     </label>
@@ -349,33 +478,69 @@ export default function PanierPage() {
 
                 {pointsDiscount > 0 && (
                   <div className="cart-line" style={{ marginTop: "var(--s2)" }}>
-                    <span>Reduction fidelite ({pointsToUse} pts)</span>
+                    <span>Réduction fidélité ({pointsToUse} pts)</span>
                     <span style={{ color: "#16a34a", fontWeight: 600 }}>-{pointsDiscount.toFixed(2)} DT</span>
                   </div>
                 )}
+
                 <div className="cart-line is-total">
                   <span>Total</span>
                   <span>{grandTotal.toFixed(2)} DT</span>
                 </div>
 
-                {/* Formulaire de livraison — obligatoire pour toute commande */}
+                {/* Formulaire de livraison — identique pour tous les utilisateurs */}
                 {showForm && (
-                  <div style={{ marginTop: "var(--s4)", padding: "var(--s4)", background: "var(--bg)", borderRadius: "var(--r)", border: "1px solid var(--rule)" }}>
-                    <h4 style={{ fontSize: "var(--text-sm)", fontWeight: 700, marginBottom: "var(--s3)" }}>Vos informations de livraison</h4>
+                  <div style={{
+                    marginTop: "var(--s4)",
+                    padding: "var(--s4)",
+                    background: "var(--bg)",
+                    borderRadius: "var(--r)",
+                    border: "1px solid var(--rule)",
+                  }}>
+                    {/* Badge invité */}
+                    {!user && (
+                      <div style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "8px 12px",
+                        background: "#f0f9ff",
+                        border: "1px solid #bae6fd",
+                        borderRadius: 8,
+                        marginBottom: "var(--s3)",
+                        fontSize: "var(--text-xs)",
+                        color: "#0284c7",
+                      }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <path d="M12 8v4M12 16h.01" />
+                        </svg>
+                        Vous commandez en tant qu&apos;invité — aucun compte requis.
+                      </div>
+                    )}
+
+                    <h4 style={{ fontSize: "var(--text-sm)", fontWeight: 700, marginBottom: "var(--s3)" }}>
+                      Informations de livraison
+                    </h4>
+
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--s3)" }}>
                       <div>
-                        <label style={{ fontSize: "var(--text-xs)", color: "var(--fg-mute)", display: "block", marginBottom: "4px" }}>Prenom *</label>
+                        <label style={{ fontSize: "var(--text-xs)", color: "var(--fg-mute)", display: "block", marginBottom: 4 }}>
+                          Prénom *
+                        </label>
                         <input
                           type="text"
                           required
-                          placeholder="Prenom"
+                          placeholder="Prénom"
                           value={guestForm.prenom}
                           onChange={(e) => setGuestForm({ ...guestForm, prenom: e.target.value })}
                           style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--rule)", borderRadius: "var(--r)", fontSize: "var(--text-sm)" }}
                         />
                       </div>
                       <div>
-                        <label style={{ fontSize: "var(--text-xs)", color: "var(--fg-mute)", display: "block", marginBottom: "4px" }}>Nom *</label>
+                        <label style={{ fontSize: "var(--text-xs)", color: "var(--fg-mute)", display: "block", marginBottom: 4 }}>
+                          Nom *
+                        </label>
                         <input
                           type="text"
                           required
@@ -386,19 +551,25 @@ export default function PanierPage() {
                         />
                       </div>
                     </div>
+
                     <div style={{ marginTop: "var(--s3)" }}>
-                      <label style={{ fontSize: "var(--text-xs)", color: "var(--fg-mute)", display: "block", marginBottom: "4px" }}>Adresse *</label>
+                      <label style={{ fontSize: "var(--text-xs)", color: "var(--fg-mute)", display: "block", marginBottom: 4 }}>
+                        Adresse complète *
+                      </label>
                       <input
                         type="text"
                         required
-                        placeholder="Adresse complete"
+                        placeholder="Rue, ville, code postal"
                         value={guestForm.adresse}
                         onChange={(e) => setGuestForm({ ...guestForm, adresse: e.target.value })}
                         style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--rule)", borderRadius: "var(--r)", fontSize: "var(--text-sm)" }}
                       />
                     </div>
+
                     <div style={{ marginTop: "var(--s3)" }}>
-                      <label style={{ fontSize: "var(--text-xs)", color: "var(--fg-mute)", display: "block", marginBottom: "4px" }}>Telephone *</label>
+                      <label style={{ fontSize: "var(--text-xs)", color: "var(--fg-mute)", display: "block", marginBottom: 4 }}>
+                        Téléphone *
+                      </label>
                       <input
                         type="tel"
                         required
@@ -408,18 +579,38 @@ export default function PanierPage() {
                         style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--rule)", borderRadius: "var(--r)", fontSize: "var(--text-sm)" }}
                       />
                     </div>
+
+                    {/* E-mail optionnel pour les invités */}
+                    {!user && (
+                      <div style={{ marginTop: "var(--s3)" }}>
+                        <label style={{ fontSize: "var(--text-xs)", color: "var(--fg-mute)", display: "block", marginBottom: 4 }}>
+                          E-mail (optionnel — pour le récapitulatif de commande)
+                        </label>
+                        <input
+                          type="email"
+                          placeholder="votre@email.com"
+                          value={guestForm.email}
+                          onChange={(e) => setGuestForm({ ...guestForm, email: e.target.value })}
+                          style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--rule)", borderRadius: "var(--r)", fontSize: "var(--text-sm)" }}
+                        />
+                      </div>
+                    )}
+
                     <button
                       className="btn btn--indigo btn--block"
                       onClick={confirmerCommande}
                       disabled={loading}
                       style={{ marginTop: "var(--s4)" }}
                     >
-                      {loading ? "Traitement..." : "Confirmer la commande"} &rarr;
+                      {loading ? "Traitement en cours…" : "Confirmer la commande →"}
                     </button>
+
                     {!user && (
                       <p style={{ fontSize: "var(--text-xs)", color: "var(--fg-mute)", marginTop: "var(--s3)", textAlign: "center" }}>
-                        Vous avez un compte ?{" "}
-                        <Link href="/auth/connexion" style={{ color: "var(--indigo)" }}>Se connecter</Link>
+                        Vous avez déjà un compte ?{" "}
+                        <Link href="/auth/connexion" style={{ color: "var(--indigo)" }}>
+                          Se connecter
+                        </Link>
                       </p>
                     )}
                   </div>
@@ -432,16 +623,19 @@ export default function PanierPage() {
                     disabled={loading || items.length === 0}
                     style={{ marginTop: "var(--s3)" }}
                   >
-                    Passer la commande &rarr;
+                    Passer la commande →
                   </button>
                 )}
 
                 <p style={{
-                  marginTop: "var(--s5)", fontSize: 11,
-                  fontFamily: "var(--ff-mono)", color: "var(--fg-mute)",
-                  textAlign: "center", lineHeight: 1.6,
+                  marginTop: "var(--s5)",
+                  fontSize: 11,
+                  fontFamily: "var(--ff-mono)",
+                  color: "var(--fg-mute)",
+                  textAlign: "center",
+                  lineHeight: 1.6,
                 }}>
-                  Paiement securise SSL. Vos informations ne sont jamais stockees.
+                  Paiement sécurisé SSL. Vos informations ne sont jamais stockées.
                 </p>
               </aside>
             </div>
