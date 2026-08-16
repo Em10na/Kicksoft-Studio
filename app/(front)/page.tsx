@@ -72,10 +72,12 @@ export default async function HomePage() {
     supabase.from("categories").select("*").order("name"),
     supabase.from("products").select("*").eq("status", "published").order("created_at", { ascending: false }).limit(60),
     // Sections & médias : via adminClient (service role) pour bypasser RLS.
-    // select("*") utilisé intentionnellement pour éviter les erreurs PostgREST
-    // quand des colonnes ajoutées par des migrations récentes (v18+) ne sont
-    // pas encore dans le cache de schéma ou n'existent pas encore en DB.
-    adminClient.from("home_sections").select("*").order("display_order", { ascending: true }),
+    // select("*") — évite les erreurs PostgREST sur colonnes manquantes
+    // (display_order sur home_sections ajouté par v16, banner_* par v18).
+    // Pas d'ORDER BY sur home_sections : display_order peut ne pas exister ;
+    // le tri est géré côté JS dans pageOrder. home_section_media.display_order
+    // existe depuis la création de la table — son ORDER BY est sûr.
+    adminClient.from("home_sections").select("*"),
     adminClient.from("home_section_media").select("*").order("display_order", { ascending: true }),
     // Articles en Solde : uniquement les produits cochés par l'admin dans le slider (solde_hero=true),
     // dans l'ordre défini par l'admin (solde_hero_order).
