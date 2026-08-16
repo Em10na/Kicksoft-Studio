@@ -154,6 +154,37 @@ export default function AccueilPage() {
   // Nécessaire pour que createPortal fonctionne côté serveur (Next.js)
   useEffect(() => { setMounted(true); }, []);
 
+  // ── Gestion expiration de session ────────────────────────────────────────
+  // Redirige vers la connexion dès que la session Supabase devient invalide
+  // (token expiré + refresh_token expiré = SIGNED_OUT automatique).
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        window.location.href = "/auth/connexion?raison=session-expiree";
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  /** Gère les erreurs Supabase de façon centralisée.
+   *  - Erreur JWT / session expirée → redirige vers la connexion avec message
+   *  - Autre erreur → affiche un toast rouge */
+  function gererErreur(error: { message?: string } | null, fallback = "Erreur inconnue") {
+    if (!error) return;
+    const msg = error.message ?? fallback;
+    if (
+      msg.toLowerCase().includes("jwt") ||
+      msg.toLowerCase().includes("session") ||
+      msg.includes("not authenticated") ||
+      msg.includes("Auth")
+    ) {
+      notifier("Session expirée — redirection vers la connexion…", "warning");
+      setTimeout(() => { window.location.href = "/auth/connexion?raison=session-expiree"; }, 1500);
+      return;
+    }
+    notifier("Erreur : " + msg, "danger");
+  }
+
   // Charge les articles en solde SANS filtre de statut, comme la page /admin/soldes.
   // chargerProduits() filtre par status="published" (nécessaire pour featured/whats_new).
   // Pour les soldes hero on veut TOUS les produits avec compare_price > price.
@@ -185,12 +216,12 @@ export default function AccueilPage() {
     if (!heroForm.title.trim()) { notifier("Le titre est obligatoire.", "danger"); return; }
     if (editingSlideId) {
       const { error } = await supabase.from("hero_slides").update({ ...heroForm }).eq("id", editingSlideId);
-      if (error) { notifier("Erreur : " + error.message, "danger"); return; }
+      if (error) { gererErreur(error); return; }
       notifier("Slide mis à jour !");
     } else {
       const maxOrder = Math.max(0, ...heroSlides.map((s) => s.display_order));
       const { error } = await supabase.from("hero_slides").insert({ ...heroForm, display_order: maxOrder + 1, visible: true });
-      if (error) { notifier("Erreur : " + error.message, "danger"); return; }
+      if (error) { gererErreur(error); return; }
       notifier("Slide ajouté !");
     }
     setHeroForm({ ...HERO_FORM_EMPTY });
@@ -349,7 +380,7 @@ export default function AccueilPage() {
   async function toggleWhatsNew(p: Produit) {
     const nextOrder = p.whats_new ? 0 : Math.max(0, ...produits.filter((x) => x.whats_new).map((x) => x.whats_new_order)) + 1;
     const { error } = await supabase.from("products").update({ whats_new: !p.whats_new, whats_new_order: nextOrder }).eq("id", p.id);
-    if (error) { notifier("Erreur : " + error.message, "danger"); return; }
+    if (error) { gererErreur(error); return; }
     notifier(!p.whats_new ? `Produit épinglé dans « Quoi de neuf » !` : `Produit retiré de « Quoi de neuf ».`);
     chargerProduits();
   }
@@ -373,7 +404,7 @@ export default function AccueilPage() {
   async function toggleFeatured(produitId: string, actuel: boolean) {
     const nextOrder = actuel ? 0 : Math.max(0, ...produits.filter((p) => p.featured).map((p) => p.featured_order)) + 1;
     const { error } = await supabase.from("products").update({ featured: !actuel, featured_order: nextOrder }).eq("id", produitId);
-    if (error) { notifier("Erreur : " + error.message, "danger"); return; }
+    if (error) { gererErreur(error); return; }
     notifier(!actuel ? "Produit mis en avant !" : "Produit retiré de la mise en avant.");
     chargerProduits();
   }
@@ -392,7 +423,7 @@ export default function AccueilPage() {
     // Appelé uniquement pour AJOUTER au slider (le retrait passe par supprimerSoldeHero)
     const nextOrder = Math.max(0, ...articulesEnSolde.filter((x) => x.solde_hero).map((x) => x.solde_hero_order)) + 1;
     const { error } = await supabase.from("products").update({ solde_hero: true, solde_hero_order: nextOrder }).eq("id", p.id);
-    if (error) { notifier("Erreur : " + error.message, "danger"); return; }
+    if (error) { gererErreur(error); return; }
     // Auto-alimenter la section "Médias" avec l'image du produit (si slot disponible)
     if (p.image_url) {
       const soldeSection = sections.find((sec) => sec.section === "solde");
@@ -513,7 +544,7 @@ export default function AccueilPage() {
         cta_href: f.cta_href.trim() || null,
       })
       .eq("id", s.id);
-    if (error) notifier("Erreur : " + error.message, "danger");
+    if (error) gererErreur(error);
     else {
       notifier(`Section « ${SECTION_META[s.section].label} » enregistrée !`);
       chargerSections();
@@ -523,7 +554,7 @@ export default function AccueilPage() {
 
   async function toggleVisible(s: HomeSection) {
     const { error } = await supabase.from("home_sections").update({ visible: !s.visible }).eq("id", s.id);
-    if (error) notifier("Erreur : " + error.message, "danger");
+    if (error) gererErreur(error);
     else {
       notifier(!s.visible ? "Section visible sur la boutique." : "Section masquée.");
       chargerSections();
@@ -554,7 +585,7 @@ export default function AccueilPage() {
       banner_visible: true,
       ...bannerExtras,
     });
-    if (error) notifier("Erreur : " + error.message, "danger");
+    if (error) gererErreur(error);
     else {
       notifier(type === "video" ? "Vidéo ajoutée !" : "Image ajoutée !");
       chargerSections();
@@ -588,7 +619,7 @@ export default function AccueilPage() {
   async function supprimerMediaConfirme(m: SectionMedia) {
     const { error } = await supabase.from("home_section_media").delete().eq("id", m.id);
     setConfirmAction(null);
-    if (error) notifier("Erreur : " + error.message, "danger");
+    if (error) gererErreur(error);
     else { notifier("Média supprimé."); chargerSections(); revalideerFront(); }
   }
 
