@@ -16,16 +16,24 @@ export default function WishlistButton({ productId, className = "" }: Props) {
 
   useEffect(() => {
     async function check() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      setUserId(user.id);
-      const { data } = await supabase
-        .from("wishlist")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("product_id", productId)
-        .maybeSingle();
-      if (data) setIsFav(true);
+      try {
+        // getSession() lit depuis localStorage — aucune requête réseau,
+        // pas de "Failed to fetch" si le projet Supabase est en veille (free tier).
+        // La validation RLS s'effectue sur la query wishlist qui suit.
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user ?? null;
+        if (!user) return;
+        setUserId(user.id);
+        const { data } = await supabase
+          .from("wishlist")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("product_id", productId)
+          .maybeSingle();
+        if (data) setIsFav(true);
+      } catch {
+        // réseau indisponible ou session expirée — on reste en mode non-connecté
+      }
     }
     check();
   }, [productId]);
