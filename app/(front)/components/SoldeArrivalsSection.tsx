@@ -187,8 +187,9 @@ export default function SoldeArrivalsSection({
         )}
 
         {/* ── Bannières du bas (gérées par l'admin) ────────── */}
+        {/* Limité à 3 : correspond aux 3 slots fixes du slider */}
         <div className="na-banners">
-          {(banners.length > 0 ? banners : DEMO_BG.map((url, i) => ({ url, media_type: "image" as const, id: String(i), banner_visible: true } as SectionMedia)) as SectionMedia[]).map((m, i) => {
+          {(banners.length > 0 ? banners.slice(0, 3) : DEMO_BG.map((url, i) => ({ url, media_type: "image" as const, id: String(i), banner_visible: true } as SectionMedia)) as SectionMedia[]).map((m, i) => {
             const def = BANNER_DEFAULTS[i] ?? BANNER_DEFAULTS[0];
             const label    = m.banner_label    || def.label;
             const banTitle = m.banner_title    || def.title;

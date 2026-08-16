@@ -83,6 +83,20 @@ const BUCKET = "media";
 
 const QUICK_HREFS = ["/boutique?soldes=1", "/boutique", "/boutique?nouveautes=1", "/"];
 
+/** Textes par défaut pré-remplis sur les 3 bannières du slider solde.
+ *  Synchronisé avec BANNER_DEFAULTS dans SoldeArrivalsSection.tsx */
+const BANNER_DEFAULTS_SOLDE = [
+  { label: "SOLDES EN COURS",     title: "Jusqu'à -50%",        sub: "Sur une sélection d'articles",           cta: "Profiter",  cta_href: "/boutique?soldes=1" },
+  { label: "NOUVELLE COLLECTION", title: "Nouveaux Arrivages",   sub: "Découvrez les dernières tendances.",      cta: "Explorer",  cta_href: "/boutique" },
+  { label: "LIVRAISON OFFERTE",   title: "Dès 200 DT d'achat",  sub: "Commandez en ligne, recevez chez vous.", cta: "Commander", cta_href: "/boutique" },
+] as const;
+
+/** Invalide le cache SSR de la page d'accueil front immédiatement après une
+ *  modification admin. Non-bloquant : l'échec est silencieux. */
+async function revalideerFront() {
+  try { await fetch("/api/revalidate", { method: "POST" }); } catch { /* non-bloquant */ }
+}
+
 function estVideo(nomOuUrl: string, mime?: string): boolean {
   if (mime) return mime.startsWith("video/");
   return /\.(mp4|webm|mov|m4v|ogv)(\?.*)?$/i.test(nomOuUrl);
@@ -263,16 +277,31 @@ export default function AccueilPage() {
     setProduits((data ?? []).map((p) => ({ ...p, featured_order: p.featured_order ?? 0, solde_hero_order: p.solde_hero_order ?? 0, whats_new_order: p.whats_new_order ?? 0 })));
   }
 
+  /** Charge sections + médias en 2 requêtes séparées et les joint en JS.
+   *  Évite le bug PostgREST : l'embed `home_section_media(*)` retourne des
+   *  tableaux vides après les migrations qui ont ajouté des colonnes. */
+  async function chargerSectionsFrais(): Promise<HomeSection[] | null> {
+    const [{ data: sectionsData, error }, { data: mediaData }] = await Promise.all([
+      supabase.from("home_sections").select("*"),
+      supabase.from("home_section_media").select("*").order("display_order", { ascending: true }),
+    ]);
+    if (error) return null;
+    const allMedia = (mediaData ?? []) as SectionMedia[];
+    return ((sectionsData ?? []) as HomeSection[]).map((s) => ({
+      ...s,
+      home_section_media: allMedia
+        .filter((m) => m.section_id === s.id)
+        .sort((a, b) => a.display_order - b.display_order),
+    }));
+  }
+
   async function chargerSections() {
-    const { data, error } = await supabase.from("home_sections").select("*, home_section_media(*)");
-    if (error) {
-      setSectionsDispo(false);
-      return;
-    }
+    const data = await chargerSectionsFrais();
+    if (!data) { setSectionsDispo(false); return; }
     setSectionsDispo(true);
 
     // Auto-créer les sections manquantes (solde / suggestion)
-    const existingKeys = new Set((data ?? []).map((s: HomeSection) => s.section));
+    const existingKeys = new Set(data.map((s) => s.section));
     const manquantes = SECTION_ORDER.filter((k) => !existingKeys.has(k));
     if (manquantes.length > 0) {
       await Promise.all(
@@ -280,10 +309,10 @@ export default function AccueilPage() {
           supabase.from("home_sections").insert({ section: k, ...SECTION_DEFAULTS[k], visible: true })
         )
       );
-      const { data: data2 } = await supabase.from("home_sections").select("*, home_section_media(*)");
+      const data2 = await chargerSectionsFrais();
       return chargerSectionsDepuisData(data2 ?? []);
     }
-    chargerSectionsDepuisData(data ?? []);
+    chargerSectionsDepuisData(data);
   }
 
   function chargerSectionsDepuisData(data: HomeSection[]) {
@@ -381,6 +410,7 @@ export default function AccueilPage() {
     notifier(`« ${p.title} » ajouté au slider soldes.`);
     chargerSoldes();
     chargerSections();
+    revalideerFront();
   }
 
   // Retire un produit du slider ET termine la solde (efface compare_price)
@@ -404,6 +434,7 @@ export default function AccueilPage() {
         notifier(`« ${p.title} » retiré — solde terminée.`);
         chargerSoldes();
         chargerSections();
+        revalideerFront();
       },
     });
   }
@@ -436,6 +467,7 @@ export default function AccueilPage() {
     else {
       notifier(`Section « ${SECTION_META[s.section].label} » enregistrée !`);
       chargerSections();
+      revalideerFront();
     }
   }
 
@@ -445,22 +477,38 @@ export default function AccueilPage() {
     else {
       notifier(!s.visible ? "Section visible sur la boutique." : "Section masquée.");
       chargerSections();
+      revalideerFront();
     }
   }
 
   async function ajouterMedia(s: HomeSection, url: string, type: "image" | "video") {
+    // Limite de 3 médias pour le slider solde (3 bannières fixes)
+    if (s.section === "solde" && s.home_section_media.length >= 3) {
+      notifier("Le slider solde ne peut contenir que 3 médias (3 bannières).", "warning");
+      return;
+    }
     const ordre = (s.home_section_media.at(-1)?.display_order ?? -1) + 1;
+    // Pour la section solde : pré-remplir les textes de bannière par défaut
+    // afin que le front affiche du contenu immédiatement sans configuration manuelle.
+    const bannerExtras = s.section === "solde"
+      ? (() => {
+          const def = BANNER_DEFAULTS_SOLDE[s.home_section_media.length] ?? BANNER_DEFAULTS_SOLDE[0];
+          return { banner_label: def.label, banner_title: def.title, banner_sub: def.sub, banner_cta: def.cta, banner_cta_href: def.cta_href };
+        })()
+      : {};
     const { error } = await supabase.from("home_section_media").insert({
       section_id: s.id,
       media_type: type,
       url,
       display_order: ordre,
       banner_visible: true,
+      ...bannerExtras,
     });
     if (error) notifier("Erreur : " + error.message, "danger");
     else {
       notifier(type === "video" ? "Vidéo ajoutée !" : "Image ajoutée !");
       chargerSections();
+      revalideerFront();
     }
   }
 
@@ -491,7 +539,7 @@ export default function AccueilPage() {
     const { error } = await supabase.from("home_section_media").delete().eq("id", m.id);
     setConfirmAction(null);
     if (error) notifier("Erreur : " + error.message, "danger");
-    else { notifier("Média supprimé."); chargerSections(); }
+    else { notifier("Média supprimé."); chargerSections(); revalideerFront(); }
   }
 
   function supprimerMedia(m: SectionMedia) {
@@ -529,6 +577,7 @@ export default function AccueilPage() {
     setBannerEdit(null);
     notifier("Bannière configurée !");
     chargerSections();
+    revalideerFront();
   }
 
   async function deplacerMedia(s: HomeSection, m: SectionMedia, dir: -1 | 1) {
@@ -1058,11 +1107,16 @@ export default function AccueilPage() {
                           </div>
                           {showDropSolde && (
                             <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--a-paper)", border: "1.5px solid var(--a-rule)", borderRadius: 12, boxShadow: "0 8px 28px rgba(0,0,0,0.14)", zIndex: 60, maxHeight: 260, overflowY: "auto" }}>
+                              {/* Seuls les produits avec compare_price > price (remise définie) sont éligibles */}
                               {produits
-                                .filter((p) => !searchSolde || p.title.toLowerCase().includes(searchSolde.toLowerCase()))
+                                .filter((p) => {
+                                  const matchSearch = !searchSolde || p.title.toLowerCase().includes(searchSolde.toLowerCase());
+                                  const aRemise = !!(p.compare_price && p.compare_price > p.price);
+                                  return matchSearch && aRemise;
+                                })
                                 .map((p) => {
                                   const dejaDedans = articulesEnSolde.some((s) => s.id === p.id && s.solde_hero);
-                                  const pct = p.compare_price && p.compare_price > p.price ? Math.round((1 - p.price / p.compare_price) * 100) : 0;
+                                  const pct = Math.round((1 - p.price / p.compare_price!) * 100);
                                   return (
                                     <button
                                       key={p.id}
@@ -1074,13 +1128,19 @@ export default function AccueilPage() {
                                         : <span style={{ width: 36, height: 36, borderRadius: 8, background: "var(--a-bg)", display: "grid", placeItems: "center", flexShrink: 0 }}><i className="ti ti-photo" style={{ color: "#94a3b8" }}></i></span>}
                                       <span style={{ flex: 1, fontWeight: 600, fontSize: 13, color: "var(--a-ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
                                       <span style={{ fontSize: 12, color: "var(--a-ink-mute)", flexShrink: 0 }}>{p.price} DT</span>
-                                      {pct > 0 && <span className="ak-badge ak-badge--danger" style={{ fontSize: 10, flexShrink: 0 }}>-{pct}%</span>}
+                                      <span className="ak-badge ak-badge--danger" style={{ fontSize: 10, flexShrink: 0 }}>-{pct}%</span>
                                       {dejaDedans && <i className="ti ti-check" style={{ color: "#f43f5e", fontSize: 15, flexShrink: 0 }}></i>}
                                     </button>
                                   );
                                 })}
-                              {produits.filter((p) => !searchSolde || p.title.toLowerCase().includes(searchSolde.toLowerCase())).length === 0 && (
-                                <p style={{ textAlign: "center", color: "var(--a-ink-mute)", padding: "16px 0", fontSize: 13 }}>Aucun produit trouvé</p>
+                              {produits.filter((p) => {
+                                const matchSearch = !searchSolde || p.title.toLowerCase().includes(searchSolde.toLowerCase());
+                                return matchSearch && !!(p.compare_price && p.compare_price > p.price);
+                              }).length === 0 && (
+                                <p style={{ textAlign: "center", color: "var(--a-ink-mute)", padding: "16px 0", fontSize: 13 }}>
+                                  {searchSolde ? "Aucun produit trouvé" : "Aucun produit avec remise — définissez d'abord un prix barré dans "}
+                                  {!searchSolde && <a href="/admin/soldes" style={{ color: "#6366f1" }}>Soldes</a>}
+                                </p>
                               )}
                             </div>
                           )}
@@ -1093,8 +1153,16 @@ export default function AccueilPage() {
                 {/* Médias */}
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                   <label className="ak-label" style={{ margin: 0, flex: 1 }}>
-                    Médias <span style={{ color: "#94a3b8", fontWeight: 500 }}>
-                      ({s.home_section_media.length}) — {s.section === "solde" ? "image ou vidéo de la bannière (prioritaire sur les images produits)" : "images ou vidéos, affichés en carrousel"}
+                    Médias{" "}
+                    {s.section === "solde" ? (
+                      <span style={{ color: s.home_section_media.length >= 3 ? "#f43f5e" : "#94a3b8", fontWeight: 600 }}>
+                        ({s.home_section_media.length}/3 max)
+                      </span>
+                    ) : (
+                      <span style={{ color: "#94a3b8", fontWeight: 500 }}>({s.home_section_media.length})</span>
+                    )}{" "}
+                    <span style={{ color: "#94a3b8", fontWeight: 500 }}>
+                      — {s.section === "solde" ? "1 image/vidéo = 1 bannière dans le slider (max 3)" : "images ou vidéos, affichés en carrousel"}
                     </span>
                   </label>
                   {s.section === "solde" && s.home_section_media.some((m) => m.banner_visible === false) && (
@@ -1167,19 +1235,30 @@ export default function AccueilPage() {
                     <span style={{ color: "#94a3b8", fontSize: 13 }}>Aucun média — la bannière affichera un fond vide.</span>
                   )}
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
-                  <input id={`media-upload-modal-${s.id}`} type="file" multiple accept="image/*,video/mp4,video/webm,video/quicktime" style={{ display: "none" }} disabled={uploadingId === s.id} onChange={(e) => uploaderMedia(s, e)} />
-                  <label htmlFor={uploadingId === s.id ? undefined : `media-upload-modal-${s.id}`} className="ak-btn ak-btn--ghost ak-btn--sm" style={{ cursor: uploadingId === s.id ? "not-allowed" : "pointer", opacity: uploadingId === s.id ? 0.6 : 1 }}>
-                    <i className="ti ti-upload"></i>
-                    {uploadingId === s.id ? "Upload en cours..." : "Uploader image / vidéo"}
-                  </label>
-                  <div style={{ display: "flex", gap: 6, flex: "1 1 280px", maxWidth: 440 }}>
-                    <input className="ak-input" style={{ padding: "6px 12px", fontSize: 12.5 }} placeholder="ou coller une URL (mp4, webm, jpg, png...)" value={urlInputs[s.id] ?? ""} onChange={(e) => setUrlInputs({ ...urlInputs, [s.id]: e.target.value })} onKeyDown={(e) => e.key === "Enter" && ajouterParUrl(s)} />
-                    <button className="ak-btn ak-btn--ghost ak-btn--sm" onClick={() => ajouterParUrl(s)}>
-                      <i className="ti ti-plus"></i> Ajouter
-                    </button>
-                  </div>
-                </div>
+                {(() => {
+                  const limitAtteinte = s.section === "solde" && s.home_section_media.length >= 3;
+                  const uploadDisabled = uploadingId === s.id || limitAtteinte;
+                  return (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+                      {limitAtteinte && (
+                        <span style={{ fontSize: 12, color: "#f43f5e", fontWeight: 600, background: "#fff1f2", padding: "4px 10px", borderRadius: 8, border: "1px solid #fecdd3" }}>
+                          <i className="ti ti-lock" style={{ marginRight: 4 }}></i>Limite 3/3 atteinte
+                        </span>
+                      )}
+                      <input id={`media-upload-modal-${s.id}`} type="file" multiple accept="image/*,video/mp4,video/webm,video/quicktime" style={{ display: "none" }} disabled={uploadDisabled} onChange={(e) => uploaderMedia(s, e)} />
+                      <label htmlFor={uploadDisabled ? undefined : `media-upload-modal-${s.id}`} className="ak-btn ak-btn--ghost ak-btn--sm" style={{ cursor: uploadDisabled ? "not-allowed" : "pointer", opacity: uploadDisabled ? 0.45 : 1 }}>
+                        <i className="ti ti-upload"></i>
+                        {uploadingId === s.id ? "Upload en cours..." : "Uploader image / vidéo"}
+                      </label>
+                      <div style={{ display: "flex", gap: 6, flex: "1 1 280px", maxWidth: 440, opacity: limitAtteinte ? 0.45 : 1 }}>
+                        <input className="ak-input" style={{ padding: "6px 12px", fontSize: 12.5 }} placeholder="ou coller une URL (mp4, webm, jpg, png...)" value={urlInputs[s.id] ?? ""} onChange={(e) => setUrlInputs({ ...urlInputs, [s.id]: e.target.value })} onKeyDown={(e) => e.key === "Enter" && !limitAtteinte && ajouterParUrl(s)} disabled={limitAtteinte} />
+                        <button className="ak-btn ak-btn--ghost ak-btn--sm" onClick={() => ajouterParUrl(s)} disabled={limitAtteinte}>
+                          <i className="ti ti-plus"></i> Ajouter
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Produits mis en avant — section suggestion uniquement */}
                 {s.section === "suggestion" && (() => {
