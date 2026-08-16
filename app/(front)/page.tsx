@@ -57,8 +57,9 @@ export default async function HomePage() {
     supabase.from("home_sections").select("*").order("display_order", { ascending: true }),
     // Médias : requête séparée, jointure faite en JS (plus fiable que l'embed PostgREST)
     supabase.from("home_section_media").select("*").order("display_order", { ascending: true }),
-    // Articles en Solde : TOUS les produits avec compare_price (solde_hero flag = slider uniquement)
-    supabase.from("products").select("id, title, price, compare_price, stock, short_description, image_url, product_media(url, type, position)").eq("status", "published").not("compare_price", "is", null).order("solde_hero_order", { ascending: true, nullsFirst: false }).order("display_order", { ascending: true }).limit(48), // short_description utilisé dans le modal quick-view
+    // Articles en Solde : uniquement les produits cochés par l'admin dans le slider (solde_hero=true),
+    // dans l'ordre défini par l'admin (solde_hero_order).
+    supabase.from("products").select("id, title, price, compare_price, stock, short_description, image_url, product_media(url, type, position)").eq("status", "published").eq("solde_hero", true).not("compare_price", "is", null).order("solde_hero_order", { ascending: true, nullsFirst: false }).limit(48), // short_description utilisé dans le modal quick-view
     // Quoi de neuf : ordonnés par whats_new_order (admin-managed)
     supabase.from("products").select("*").eq("status", "published").eq("whats_new", true).order("whats_new_order", { ascending: true }).limit(8),
     // Slides hero gérés manuellement depuis l'admin (priorité sur solde_hero)
