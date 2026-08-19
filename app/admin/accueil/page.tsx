@@ -23,6 +23,18 @@ const HERO_FORM_EMPTY: Omit<HeroSlideRow, "id" | "display_order" | "visible"> = 
   title: "", tagline: "", badge: "", image_url: "", video_url: "", buy_href: "/boutique", more_href: "/boutique",
 };
 
+/** Sanitise un nom de fichier pour Supabase Storage.
+ *  Supprime les apostrophes, accents et caractères spéciaux non autorisés. */
+function sanitizeFileName(name: string): string {
+  return name
+    .normalize("NFD")                        // décompose les accents (é → e + ́)
+    .replace(/[̀-ͯ]/g, "")         // supprime les diacritiques
+    .replace(/[''`´]/g, "")                  // apostrophes et accents isolés
+    .replace(/[^a-zA-Z0-9._\-]/g, "_")       // tout le reste → underscore
+    .replace(/_+/g, "_")                     // évite les doubles underscores
+    .replace(/^_|_$/g, "");                  // nettoie les bords
+}
+
 type Produit = {
   id: string;
   title: string;
@@ -266,7 +278,7 @@ export default function AccueilPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     setHeroUploading(true);
-    const nom = `hero/${Date.now()}_${file.name.replace(/\s+/g, "_")}`;
+    const nom = `hero/${Date.now()}_${sanitizeFileName(file.name)}`;
     const { error } = await supabase.storage.from(BUCKET).upload(nom, file, { upsert: false });
     if (error) { notifier("Upload échoué : " + error.message, "danger"); setHeroUploading(false); return; }
     const { data } = supabase.storage.from(BUCKET).getPublicUrl(nom);
@@ -279,7 +291,7 @@ export default function AccueilPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     setHeroVideoUploading(true);
-    const nom = `hero/${Date.now()}_${file.name.replace(/\s+/g, "_")}`;
+    const nom = `hero/${Date.now()}_${sanitizeFileName(file.name)}`;
     const { error } = await supabase.storage.from(BUCKET).upload(nom, file, { upsert: false });
     if (error) { notifier("Upload échoué : " + error.message, "danger"); setHeroVideoUploading(false); return; }
     const { data } = supabase.storage.from(BUCKET).getPublicUrl(nom);
@@ -599,7 +611,7 @@ export default function AccueilPage() {
     setUploadingId(s.id);
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      const nom = `home/${Date.now()}_${file.name.replace(/\s+/g, "_")}`;
+      const nom = `home/${Date.now()}_${sanitizeFileName(file.name)}`;
       const { error } = await supabase.storage.from(BUCKET).upload(nom, file, { upsert: false });
       if (error) { notifier("Upload échoué : " + error.message, "danger"); continue; }
       const { data } = supabase.storage.from(BUCKET).getPublicUrl(nom);
