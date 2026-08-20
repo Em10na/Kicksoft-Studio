@@ -24,8 +24,7 @@ export default function CommandesPage() {
   const [loadingArticles, setLoadingArticles] = useState(false);
   const [recherche, setRecherche] = useState("");
   const [filtreStatut, setFiltreStatut] = useState("");
-  // Modal de confirmation suppression
-  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; detail?: string; onConfirm: () => void } | null>(null);
 
   async function charger() {
     setLoading(true);
@@ -47,11 +46,21 @@ export default function CommandesPage() {
     else { showAlert(statut === "delivered" ? "Livraison confirmée ! Pensez à attribuer les points fidélité." : "Statut mis à jour !", "success"); charger(); }
   }
 
-  async function supprimer(id: string) {
+  async function supprimerConfirme(id: string) {
     const { error } = await supabase.from("orders").delete().eq("id", id);
-    setConfirmId(null);
+    setConfirmAction(null);
     if (error) showAlert("Erreur : " + error.message, "danger");
     else { showAlert("Commande supprimée.", "success"); charger(); }
+  }
+
+  function supprimer(c: Commande) {
+    const client = c.profiles?.full_name ?? c.guest_name ?? "Inconnu";
+    setConfirmAction({
+      title: "Supprimer la commande",
+      message: `Voulez-vous vraiment supprimer la commande de « ${client} » (#${c.id.slice(0, 8)}) ?`,
+      detail: "Cette action est irréversible. Les articles liés seront également supprimés.",
+      onConfirm: () => supprimerConfirme(c.id),
+    });
   }
 
   async function ouvrirDetail(c: Commande) {
@@ -147,7 +156,7 @@ export default function CommandesPage() {
                       <button className="ak-btn ak-btn--ghost ak-btn--sm ak-btn--icon" onClick={() => ouvrirDetail(c)} title="Voir détail">
                         <i className="ti ti-eye" style={{ fontSize: 15 }}></i>
                       </button>
-                      <button className="ak-btn ak-btn--danger ak-btn--sm ak-btn--icon" onClick={() => setConfirmId(c.id)} title="Supprimer">
+                      <button className="ak-btn ak-btn--danger ak-btn--sm ak-btn--icon" onClick={() => supprimer(c)} title="Supprimer">
                         <i className="ti ti-trash" style={{ fontSize: 15 }}></i>
                       </button>
                     </div>
@@ -159,32 +168,28 @@ export default function CommandesPage() {
         </div>
       </div>
 
-      {/* ── Modal confirmation suppression ── */}
-      {confirmId && (
-        <div className="ak-modal-backdrop" onClick={() => setConfirmId(null)}>
+      {/* ── Modal confirmation suppression (pattern unifié) ── */}
+      {confirmAction && (
+        <div className="ak-modal-backdrop" onClick={() => setConfirmAction(null)}>
           <div className="ak-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
             <div className="ak-modal__header">
               <h3 className="ak-modal__title">
                 <i className="ti ti-alert-triangle" style={{ marginRight: 8, color: "#f43f5e" }}></i>
-                Supprimer la commande
+                {confirmAction.title}
               </h3>
-              <button className="ak-modal__close" onClick={() => setConfirmId(null)}>✕</button>
+              <button className="ak-modal__close" onClick={() => setConfirmAction(null)}>✕</button>
             </div>
             <div className="ak-modal__body">
-              <p style={{ fontSize: 14, color: "#475569", margin: 0 }}>
-                Voulez-vous vraiment supprimer la commande{" "}
-                <strong style={{ color: "#0f172a" }}>#{confirmId.slice(0, 8)}</strong> ?
-                <br />
-                <span style={{ fontSize: 12, color: "#94a3b8", marginTop: 6, display: "block" }}>
-                  Cette action est irréversible. Les articles liés seront également supprimés.
-                </span>
-              </p>
+              <p style={{ fontSize: 14, color: "#475569", margin: 0 }}>{confirmAction.message}</p>
+              {confirmAction.detail && (
+                <div style={{ marginTop: 12, padding: "10px 14px", background: "#fff1f2", borderRadius: 10, borderLeft: "3px solid #f43f5e", fontSize: 13, color: "#9f1239" }}>
+                  {confirmAction.detail}
+                </div>
+              )}
             </div>
             <div className="ak-modal__footer">
-              <button className="ak-btn ak-btn--ghost" onClick={() => setConfirmId(null)}>
-                Annuler
-              </button>
-              <button className="ak-btn ak-btn--danger" onClick={() => supprimer(confirmId)}>
+              <button className="ak-btn ak-btn--ghost" onClick={() => setConfirmAction(null)}>Annuler</button>
+              <button className="ak-btn ak-btn--danger" onClick={confirmAction.onConfirm}>
                 <i className="ti ti-trash"></i> Supprimer
               </button>
             </div>
