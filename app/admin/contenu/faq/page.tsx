@@ -11,7 +11,7 @@ export default function FaqPage() {
   const [loading, setLoading] = useState(true);
   const [alert, setAlert]     = useState({ message: "", type: "" });
   const [showModal, setShowModal] = useState(false);
-  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; detail?: string; onConfirm: () => void } | null>(null);
   const [editId, setEditId]   = useState<string | null>(null);
   const [erreurs, setErreurs] = useState<Record<string, string>>({});
   const [saving, setSaving]   = useState(false);
@@ -74,11 +74,20 @@ export default function FaqPage() {
   }
 
   /* ── suppression ── */
-  async function supprimer(id: string) {
-    await supabase.from("faq").delete().eq("id", id);
-    setConfirmId(null);
-    showAlerte("Question supprimée.", "success");
-    charger();
+  async function supprimerConfirme(id: string) {
+    const { error } = await supabase.from("faq").delete().eq("id", id);
+    setConfirmAction(null);
+    if (error) showAlerte("Erreur : " + error.message, "danger");
+    else { showAlerte("Question supprimée.", "success"); charger(); }
+  }
+
+  function supprimer(f: Faq) {
+    setConfirmAction({
+      title: "Supprimer la question",
+      message: "Voulez-vous vraiment supprimer cette question ?",
+      detail: f.question,
+      onConfirm: () => supprimerConfirme(f.id),
+    });
   }
 
   /* ────────────── rendu ────────────── */
@@ -160,7 +169,7 @@ export default function FaqPage() {
                       </button>
                       <button
                         className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon"
-                        onClick={() => setConfirmId(f.id)} title="Supprimer"
+                        onClick={() => supprimer(f)} title="Supprimer"
                       >
                         <i className="ti ti-trash"></i>
                       </button>
@@ -173,37 +182,28 @@ export default function FaqPage() {
         </div>
       </div>
 
-      {/* ── Modal confirmation suppression ── */}
-      {confirmId && (
-        <div className="ak-modal-backdrop" onClick={() => setConfirmId(null)}>
+      {/* ── Modal confirmation suppression (pattern unifié) ── */}
+      {confirmAction && (
+        <div className="ak-modal-backdrop" onClick={() => setConfirmAction(null)}>
           <div className="ak-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
             <div className="ak-modal__header">
               <h3 className="ak-modal__title">
                 <i className="ti ti-alert-triangle" style={{ marginRight: 8, color: "#f43f5e" }}></i>
-                Supprimer la question
+                {confirmAction.title}
               </h3>
-              <button className="ak-modal__close" onClick={() => setConfirmId(null)}>✕</button>
+              <button className="ak-modal__close" onClick={() => setConfirmAction(null)}>✕</button>
             </div>
             <div className="ak-modal__body">
-              <p style={{ fontSize: 14, color: "#475569", margin: 0 }}>
-                Voulez-vous vraiment supprimer cette question ?
-                <span style={{ fontSize: 12, color: "#94a3b8", marginTop: 6, display: "block" }}>
-                  Cette action est irréversible.
-                </span>
-              </p>
-              {/* Aperçu de la question à supprimer */}
-              {(() => {
-                const f = faqs.find((x) => x.id === confirmId);
-                return f ? (
-                  <div style={{ marginTop: 14, padding: "10px 14px", background: "#fff1f2", borderRadius: 10, borderLeft: "3px solid #f43f5e", fontSize: 13, color: "#9f1239" }}>
-                    {f.question}
-                  </div>
-                ) : null;
-              })()}
+              <p style={{ fontSize: 14, color: "#475569", margin: 0 }}>{confirmAction.message}</p>
+              {confirmAction.detail && (
+                <div style={{ marginTop: 12, padding: "10px 14px", background: "#fff1f2", borderRadius: 10, borderLeft: "3px solid #f43f5e", fontSize: 13, color: "#9f1239" }}>
+                  {confirmAction.detail}
+                </div>
+              )}
             </div>
             <div className="ak-modal__footer">
-              <button className="ak-btn ak-btn--ghost" onClick={() => setConfirmId(null)}>Annuler</button>
-              <button className="ak-btn ak-btn--danger" onClick={() => supprimer(confirmId)}>
+              <button className="ak-btn ak-btn--ghost" onClick={() => setConfirmAction(null)}>Annuler</button>
+              <button className="ak-btn ak-btn--danger" onClick={confirmAction.onConfirm}>
                 <i className="ti ti-trash"></i> Supprimer
               </button>
             </div>
