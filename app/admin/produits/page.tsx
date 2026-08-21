@@ -200,9 +200,41 @@ export default function ProduitsPage() {
     chargerProduits();
   }
 
-  async function supprimerProduitConfirme(id: string) {
-    await supabase.from("products").delete().eq("id", id);
+  async function supprimerProduitConfirme(id: string, titre: string) {
+    // 1. Supprimer les médias liés explicitement (les FK ont CASCADE mais
+    //    certaines versions de PostgREST ne propagent pas bien le cascade côté client)
+    await supabase.from("product_media").delete().eq("product_id", id);
+
+    // 2. Supprimer le produit — on demande le count pour détecter un
+    //    blocage silencieux par RLS (0 lignes supprimées sans erreur)
+    const { error, count } = await supabase
+      .from("products")
+      .delete({ count: "exact" })
+      .eq("id", id);
+
     setConfirmAction(null);
+
+    if (error) {
+      if (error.code === "23503" || error.message?.includes("foreign key") || error.message?.includes("violates")) {
+        showAlert(
+          `Impossible de supprimer « ${titre} » — il est lié à des commandes. Passez-le en « Brouillon » pour le masquer.`,
+          "danger"
+        );
+      } else {
+        showAlert(`Erreur : ${error.message} (code ${error.code})`, "danger");
+      }
+      return;
+    }
+
+    if (count === 0) {
+      // RLS a bloqué silencieusement — l'admin n'a pas la permission DELETE
+      showAlert(
+        "Suppression refusée par la base de données. Vérifiez les politiques RLS dans Supabase (products_admin_delete).",
+        "danger"
+      );
+      return;
+    }
+
     showAlert("Produit supprimé.", "success");
     chargerProduits();
   }
@@ -212,7 +244,7 @@ export default function ProduitsPage() {
       title: "Supprimer le produit",
       message: `Voulez-vous vraiment supprimer "${p.title}" ?`,
       detail: "Cette action supprimera également les médias et les données associées. Irréversible.",
-      onConfirm: () => supprimerProduitConfirme(p.id),
+      onConfirm: () => supprimerProduitConfirme(p.id, p.title),
     });
   }
 
