@@ -431,6 +431,40 @@ export default function AccueilPage() {
     chargerProduits();
   }
 
+  function retirerWhatsNew(p: Produit) {
+    setConfirmAction({
+      title: "Retirer de « Quoi de neuf »",
+      message: `Voulez-vous retirer « ${p.title} » de la section « Quoi de neuf » ?`,
+      detail: "Ce produit ne sera plus épinglé. Si aucun autre produit n'est épinglé, le mode automatique reprend (dernier article par catégorie).",
+      confirmLabel: "Retirer",
+      confirmIcon: "ti-x",
+      onConfirm: async () => {
+        const { error } = await supabase.from("products").update({ whats_new: false, whats_new_order: 0 }).eq("id", p.id);
+        setConfirmAction(null);
+        if (error) { gererErreur(error); return; }
+        notifier(`« ${p.title} » retiré de « Quoi de neuf ».`);
+        chargerProduits();
+      },
+    });
+  }
+
+  function retirerFeatured(p: Produit) {
+    setConfirmAction({
+      title: "Retirer le produit vedette",
+      message: `Voulez-vous retirer « ${p.title} » des produits mis en avant ?`,
+      detail: "Ce produit n'apparaîtra plus dans la section Suggestions de la page d'accueil.",
+      confirmLabel: "Retirer",
+      confirmIcon: "ti-x",
+      onConfirm: async () => {
+        const { error } = await supabase.from("products").update({ featured: false, featured_order: 0 }).eq("id", p.id);
+        setConfirmAction(null);
+        if (error) { gererErreur(error); return; }
+        notifier(`« ${p.title} » retiré de la mise en avant.`);
+        chargerProduits();
+      },
+    });
+  }
+
   async function toggleSoldeAffiche(p: Produit) {
     // Appelé uniquement pour AJOUTER au slider (le retrait passe par supprimerSoldeHero)
     const nextOrder = Math.max(0, ...articulesEnSolde.filter((x) => x.solde_hero).map((x) => x.solde_hero_order)) + 1;
@@ -1048,7 +1082,7 @@ export default function AccueilPage() {
                           <div style={{ fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
                           <div style={{ fontSize: 12, color: "#10b981", fontWeight: 600, marginTop: 2 }}>{p.price} DT</div>
                         </div>
-                        <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => toggleWhatsNew(p)} title="Retirer" style={{ flexShrink: 0 }}><i className="ti ti-trash"></i></button>
+                        <button className="ak-btn ak-btn--danger-ghost ak-btn--sm ak-btn--icon" onClick={() => retirerWhatsNew(p)} title="Retirer" style={{ flexShrink: 0 }}><i className="ti ti-trash"></i></button>
                       </div>
                     ))}
                   </div>
@@ -1388,7 +1422,7 @@ export default function AccueilPage() {
                                 : <span style={{ width: "100%", height: 86, background: "var(--a-bg)", borderRadius: 8, display: "grid", placeItems: "center" }}><i className="ti ti-photo" style={{ color: "#94a3b8", fontSize: 22 }}></i></span>}
                               <div style={{ fontWeight: 700, fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
                               <div style={{ fontSize: 11, color: "#6366f1", fontWeight: 700 }}>{p.price} DT</div>
-                              <button className="ak-btn ak-btn--danger-ghost ak-btn--sm" style={{ fontSize: 11, padding: "3px 0", width: "100%" }} onClick={() => toggleFeatured(p.id, true)}>
+                              <button className="ak-btn ak-btn--danger-ghost ak-btn--sm" style={{ fontSize: 11, padding: "3px 0", width: "100%" }} onClick={() => retirerFeatured(p)}>
                                 <i className="ti ti-x"></i> Retirer
                               </button>
                             </div>

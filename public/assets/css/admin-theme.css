@@ -790,3 +790,226 @@ body {
 @media (max-width: 420px) {
   .dash-grid-4 { grid-template-columns: 1fr !important; }
 }
+
+/* ============================================================
+   UPGRADE VISUEL — Modern · Soft · Technological
+   Ajouté 2026-08-21 — CSS uniquement, zéro impact fonctionnel
+   ============================================================ */
+
+/* ── Variables raffinées ───────────────────────────────────────────────── */
+:root {
+  --a-bg:        #edf2f7;
+  --a-shadow-sm: 0 1px 4px rgba(15,23,42,0.05), 0 1px 2px rgba(15,23,42,0.03);
+  --a-shadow:    0 4px 16px rgba(15,23,42,0.08), 0 2px 6px rgba(15,23,42,0.04);
+  --a-shadow-lg: 0 16px 48px rgba(15,23,42,0.13), 0 4px 12px rgba(15,23,42,0.05);
+}
+
+/* ── Background maillage tech subtil ──────────────────────────────────── */
+body {
+  background-image:
+    radial-gradient(ellipse at 18% 0%, rgba(99,102,241,0.05) 0%, transparent 52%),
+    radial-gradient(ellipse at 82% 100%, rgba(14,165,233,0.05) 0%, transparent 52%);
+  background-attachment: fixed;
+}
+
+/* ── Sidebar améliorée ─────────────────────────────────────────────────── */
+.admin-sidebar {
+  background: linear-gradient(175deg, #0c1425 0%, #0f172a 45%, #091120 100%);
+  border-right: 1px solid rgba(255,255,255,0.04);
+  box-shadow: 2px 0 28px rgba(0,0,0,0.22);
+}
+
+/* Séparateur dégradé sous le logo */
+.admin-sidebar__logo {
+  position: relative;
+}
+.admin-sidebar__logo::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(99,102,241,0.4) 30%,
+    rgba(129,140,248,0.4) 70%,
+    transparent 100%
+  );
+}
+
+/* Labels de section */
+.admin-sidebar__section-label {
+  font-size: 9.5px;
+  letter-spacing: 0.13em;
+  color: rgba(255,255,255,0.22);
+}
+
+/* Item actif — gradient directionnel + barre lumineuse */
+.admin-nav-item.active {
+  background: linear-gradient(90deg,
+    rgba(99,102,241,0.2) 0%,
+    rgba(99,102,241,0.06) 100%
+  );
+  color: #a5b4fc;
+}
+.admin-nav-item.active::before {
+  width: 3px;
+  height: 22px;
+  background: linear-gradient(180deg, #a5b4fc, #6366f1);
+  box-shadow: 0 0 10px rgba(99,102,241,0.7);
+}
+
+/* Avatar avec ring indigo */
+.admin-sidebar__avatar {
+  box-shadow: 0 0 0 2px rgba(99,102,241,0.45);
+}
+
+/* Footer sidebar */
+.admin-sidebar__footer {
+  background: rgba(0,0,0,0.18);
+}
+.admin-sidebar__user {
+  background: rgba(255,255,255,0.055);
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: background 0.2s var(--a-ease);
+}
+.admin-sidebar__user:hover {
+  background: rgba(255,255,255,0.09);
+}
+
+/* ── Header glassmorphisme ─────────────────────────────────────────────── */
+.admin-header {
+  background: rgba(255,255,255,0.82);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(226,232,240,0.55);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 2px 12px rgba(15,23,42,0.04);
+}
+.admin-header__title {
+  font-size: 14.5px;
+  letter-spacing: -0.015em;
+}
+
+/* ── Cards premium depth ───────────────────────────────────────────────── */
+.ak-card {
+  background: rgba(255,255,255,0.97);
+  border: 1px solid rgba(220,228,240,0.7);
+  transition: box-shadow 0.28s var(--a-ease), transform 0.28s var(--a-ease), border-color 0.28s;
+}
+.ak-card:hover {
+  border-color: rgba(99,102,241,0.18);
+}
+.ak-card--lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 52px rgba(15,23,42,0.13), 0 4px 16px rgba(15,23,42,0.06);
+}
+
+/* Gradient léger sur header de card */
+.ak-card__header {
+  background: linear-gradient(180deg, rgba(248,250,255,0.8) 0%, rgba(255,255,255,0) 100%);
+}
+
+/* ── Welcome Banner (dash-welcome) ─────────────────────────────────────── */
+/* Surcharge du gradient inline (couleur plus froide/tech) */
+.dash-welcome {
+  background: linear-gradient(135deg, #0c1525 0%, #1a2744 55%, #0e1f3e 100%) !important;
+}
+
+/* Grille tech en overlay semi-transparent */
+.dash-welcome::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 36px 36px;
+  border-radius: 16px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Contenu du banner au-dessus de la grille */
+.dash-welcome > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Stat cards (grille des 4 KPI) ─────────────────────────────────────── */
+/* Lustre lumineux en haut de chaque carte */
+.dash-grid-4 .ak-card--lift {
+  position: relative;
+  overflow: hidden;
+}
+.dash-grid-4 .ak-card--lift::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 45%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.14) 0%, transparent 100%);
+  pointer-events: none;
+  border-radius: var(--a-r-lg) var(--a-r-lg) 0 0;
+  z-index: 0;
+}
+.dash-grid-4 .ak-card--lift > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Table améliorée ───────────────────────────────────────────────────── */
+.ak-table th {
+  background: rgba(248,250,255,0.75);
+  backdrop-filter: blur(4px);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+}
+.ak-table tbody tr:hover {
+  background: rgba(99,102,241,0.035) !important;
+}
+
+/* ── Inputs focus amélioré ─────────────────────────────────────────────── */
+.ak-input:focus,
+.ak-select:focus,
+.ak-textarea:focus {
+  box-shadow: 0 0 0 3.5px rgba(99,102,241,0.14), 0 1px 4px rgba(99,102,241,0.1);
+}
+
+/* ── Bouton primary glow ───────────────────────────────────────────────── */
+.ak-btn--primary {
+  box-shadow: 0 2px 10px rgba(99,102,241,0.28);
+}
+.ak-btn--primary:hover {
+  box-shadow: 0 6px 22px rgba(99,102,241,0.42);
+}
+
+/* ── Count badge pulsation douce ───────────────────────────────────────── */
+@keyframes accentRing {
+  0%, 100% { box-shadow: 0 0 0 0   rgba(99,102,241,0.28); }
+  60%       { box-shadow: 0 0 0 6px rgba(99,102,241,0);    }
+}
+.ak-count-badge {
+  animation: accentRing 2.8s ease-in-out infinite;
+}
+
+/* ── Badges micro-affinés ──────────────────────────────────────────────── */
+.ak-badge {
+  letter-spacing: 0.025em;
+  font-size: 10.5px;
+}
+.ak-badge--dot::before {
+  box-shadow: 0 0 4px currentColor;
+}
+
+/* ── Responsive mobile : désactiver les effets lourds ─────────────────── */
+@media (max-width: 768px) {
+  body {
+    background-image: none;
+    background-attachment: initial;
+  }
+  .admin-header {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: #fff;
+  }
+  .dash-welcome::after { display: none; }
+  .ak-count-badge { animation: none; }
+}
