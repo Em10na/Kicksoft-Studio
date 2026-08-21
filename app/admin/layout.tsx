@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -60,17 +60,47 @@ const PAGE_TITLES: Record<string, string> = {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router   = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [adminName, setAdminName] = useState("Admin");
 
+  // ── Déconnexion côté CLIENT ─────────────────────────────────────────────
+  // IMPORTANT : doit être client-side pour vider aussi le localStorage Supabase
+  // (persistSession:true stocke la session en localStorage — un signOut() serveur
+  // efface seulement les cookies, pas localStorage → l'utilisateur semble encore connecté).
+  async function handleSignOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();   // vide cookies + localStorage
+    router.replace("/auth/connexion"); // replace (pas push) : ne reste pas dans l'historique
+    router.refresh();                  // vide le cache Next.js des Server Components
+  }
+
   useEffect(() => {
     const supabase = createClient();
+
+    // ── Chargement du nom d'administrateur ──────────────────────────────────
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
       supabase.from("profiles").select("full_name").eq("id", user.id).single()
         .then(({ data }) => { if (data?.full_name) setAdminName(data.full_name); });
     });
-  }, []);
+
+    // ── Protection bfcache ──────────────────────────────────────────────────
+    // Le navigateur peut restaurer la page depuis son cache mémoire (bfcache)
+    // après un clic "retour" sans passer par le middleware.
+    // L'événement "pageshow" est déclenché dans ce cas avec event.persisted = true.
+    // On vérifie alors la session côté client et on redirige si déconnecté.
+    async function handlePageShow(e: PageTransitionEvent) {
+      if (!e.persisted) return; // navigation normale — le middleware a déjà vérifié
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.replace("/auth/connexion");
+      }
+    }
+
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, [router]);
 
   function isActive(href: string, exact?: boolean) {
     if (exact) return pathname === href;
@@ -134,10 +164,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <i className="ti ti-external-link"></i>
                 <span>Voir la boutique</span>
               </Link>
-              <Link href="/api/auth/signout" className="admin-nav-item admin-nav-item--danger">
+              <button
+                onClick={handleSignOut}
+                className="admin-nav-item admin-nav-item--danger"
+                style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+              >
                 <i className="ti ti-logout"></i>
                 <span>Déconnexion</span>
-              </Link>
+              </button>
             </div>
           </nav>
 

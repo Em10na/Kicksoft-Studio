@@ -704,8 +704,8 @@ export default function AccueilPage() {
   return (
     <div className="ak-animate">
       {alert.message && (
-        <div className={`ak-alert ak-alert--${alert.type}`}>
-          <i className={`ti ${alert.type === "success" ? "ti-check" : "ti-alert-circle"}`}></i> {alert.message}
+        <div className={`ak-toast ak-toast--${alert.type}`}>
+          <i className={`ti ${alert.type === "success" ? "ti-check-circle" : "ti-alert-circle"} ak-toast__icon`}></i> {alert.message}
         </div>
       )}
 

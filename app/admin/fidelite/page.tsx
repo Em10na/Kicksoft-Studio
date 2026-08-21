@@ -155,15 +155,10 @@ export default function FidelitePage() {
         </div>
       </div>
 
-      {/* Alerte */}
+      {/* Notification toast — toujours visible au-dessus des modales */}
       {alert.message && (
-        <div style={{
-          marginBottom: 20, padding: "12px 16px", borderRadius: 10, fontSize: 13, fontWeight: 500,
-          background: alert.type === "danger" ? "#fef2f2" : "#f0fdf4",
-          color: alert.type === "danger" ? "#b91c1c" : "#15803d",
-          border: `1px solid ${alert.type === "danger" ? "#fecaca" : "#bbf7d0"}`,
-        }}>
-          <i className={`ti ${alert.type === "danger" ? "ti-alert-circle" : "ti-circle-check"}`} style={{ marginRight: 6 }}></i>
+        <div className={`ak-toast ak-toast--${alert.type === "danger" ? "danger" : "success"}`}>
+          <i className={`ti ${alert.type === "danger" ? "ti-alert-circle" : "ti-check-circle"} ak-toast__icon`}></i>
           {alert.message}
         </div>
       )}

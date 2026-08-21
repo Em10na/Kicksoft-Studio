@@ -63,6 +63,12 @@ export async function middleware(request: NextRequest) {
       url.pathname = "/compte";
       return NextResponse.redirect(url);
     }
+    // Empêcher le bfcache (back-forward cache) de restaurer les pages admin
+    // après une déconnexion — sans ce header, le bouton "retour" ignore le middleware.
+    supabaseResponse.headers.set(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, proxy-revalidate"
+    );
   }
 
   // --- Routes compte : authentification seule ─────────────────────────────
@@ -72,6 +78,12 @@ export async function middleware(request: NextRequest) {
       url.pathname = "/auth/connexion";
       return NextResponse.redirect(url);
     }
+    // Même protection bfcache que pour /admin : empêche la restauration
+    // de la page client après déconnexion via le bouton retour.
+    supabaseResponse.headers.set(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, proxy-revalidate"
+    );
   }
 
   // --- Auth : rediriger vers le bon espace si déjà connecté ───────────────
