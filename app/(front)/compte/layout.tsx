@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -77,11 +77,24 @@ const MENU = [
 
 export default function CompteLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router   = useRouter();
   const supabase = createClient();
+
+  // ── Déconnexion côté CLIENT ─────────────────────────────────────────────
+  // persistSession:true stocke la session en localStorage.
+  // Un signOut() serveur (route API) efface les cookies mais pas localStorage.
+  // → getUser() côté client retourne encore l'utilisateur → le pageshow ne redirige pas.
+  // Solution : signOut() côté client pour vider les deux en même temps.
+  async function handleSignOut() {
+    await supabase.auth.signOut();      // vide cookies + localStorage
+    router.replace("/auth/connexion"); // replace : ne reste pas dans l'historique
+    router.refresh();                   // vide le cache Next.js
+  }
   const [identite, setIdentite] = useState({ nom: "", email: "" });
   const [avatar, setAvatar] = useState<string | null>(null);
 
   useEffect(() => {
+    // ── Chargement de l'identité du client ──────────────────────────────────
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
       // Sans nom de profil : un nom lisible dérivé de l'email ("emna.omri@..." → "Emna Omri")
@@ -99,8 +112,23 @@ export default function CompteLayout({ children }: { children: React.ReactNode }
           if (av) setAvatar(av);
         });
     });
+
+    // ── Protection bfcache ──────────────────────────────────────────────────
+    // Quand le navigateur restaure la page depuis son cache mémoire après
+    // un clic "retour" (event.persisted = true), le middleware ne s'exécute pas.
+    // On vérifie la session ici et on redirige si l'utilisateur est déconnecté.
+    async function handlePageShow(e: PageTransitionEvent) {
+      if (!e.persisted) return;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.replace("/auth/connexion");
+      }
+    }
+
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [router]);
 
   const initiales = (identite.nom || "?")
     .split(" ")
@@ -136,12 +164,16 @@ export default function CompteLayout({ children }: { children: React.ReactNode }
             })}
 
             <div className="account-nav__sep" />
-            <a href="/api/auth/signout" className="account-nav__link account-nav__link--logout">
+            <button
+              onClick={handleSignOut}
+              className="account-nav__link account-nav__link--logout"
+              style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+            >
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
               </svg>
               Déconnexion
-            </a>
+            </button>
           </nav>
 
           {/* Contenu */}

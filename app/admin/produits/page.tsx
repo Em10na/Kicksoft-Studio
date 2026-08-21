@@ -235,8 +235,8 @@ export default function ProduitsPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {alert.message && (
-        <div className={`ak-alert ak-alert--${alert.type}`}>
-          <i className={`ti ${alert.type === "success" ? "ti-check" : "ti-alert-circle"}`}></i> {alert.message}
+        <div className={`ak-toast ak-toast--${alert.type}`}>
+          <i className={`ti ${alert.type === "success" ? "ti-check-circle" : "ti-alert-circle"} ak-toast__icon`}></i> {alert.message}
         </div>
       )}
 
@@ -317,7 +317,10 @@ export default function ProduitsPage() {
         <div className="ak-modal-backdrop" onClick={() => setShowModal(false)}>
           <div className="ak-modal ak-modal--lg" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 820 }}>
             <div className="ak-modal__header">
-              <h3 className="ak-modal__title">{editId ? "Modifier le produit" : "Nouveau produit"}</h3>
+              <h3 className="ak-modal__title">
+                <i className="ti ti-package" style={{ marginRight: 8, color: "#6366f1" }}></i>
+                {editId ? "Modifier le produit" : "Nouveau produit"}
+              </h3>
               <button className="ak-modal__close" onClick={() => setShowModal(false)}>✕</button>
             </div>
             <div className="ak-modal__body" style={{ display: "flex", flexDirection: "column", gap: 20 }}>

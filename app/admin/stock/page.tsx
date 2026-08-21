@@ -110,8 +110,8 @@ export default function StockPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {alert.message && (
-        <div className={`ak-alert ak-alert--${alert.type}`}>
-          <i className={`ti ${alert.type === "success" ? "ti-check" : "ti-alert-circle"}`}></i>
+        <div className={`ak-toast ak-toast--${alert.type}`}>
+          <i className={`ti ${alert.type === "success" ? "ti-check-circle" : "ti-alert-circle"} ak-toast__icon`}></i>
           {alert.message}
         </div>
       )}
@@ -278,29 +278,36 @@ export default function StockPage() {
         </div>
       </div>
 
-      {/* Modal ajustement */}
+      {/* Modal ajustement stock (pattern unifié) */}
       {showModal && modalProduit && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.5)", zIndex: 200, display: "grid", placeItems: "center", backdropFilter: "blur(2px)" }} onClick={() => setShowModal(false)}>
-          <div className="ak-card" style={{ width: 420, maxWidth: "92vw", padding: 24 }} onClick={(e) => e.stopPropagation()}>
-            <h2 className="ak-card__title" style={{ marginBottom: 4 }}>Ajuster le stock</h2>
-            <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 16px" }}>
-              {modalProduit.title} — stock actuel : <strong>{modalProduit.stock}</strong>
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#334155", display: "block", marginBottom: 4 }}>Nouvelle quantité</label>
+        <div className="ak-modal-backdrop" onClick={() => setShowModal(false)}>
+          <div className="ak-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
+            <div className="ak-modal__header">
+              <h3 className="ak-modal__title">
+                <i className="ti ti-adjustments-horizontal" style={{ marginRight: 8, color: "#6366f1" }}></i>
+                Ajuster le stock
+              </h3>
+              <button className="ak-modal__close" onClick={() => setShowModal(false)}>✕</button>
+            </div>
+            <div className="ak-modal__body" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ padding: "10px 14px", background: "#f1f5f9", borderRadius: 10, borderLeft: "3px solid #6366f1", fontSize: 13, color: "#334155" }}>
+                <strong>{modalProduit.title}</strong>
+                <span style={{ marginLeft: 8, color: "#64748b" }}>— stock actuel : <strong>{modalProduit.stock}</strong></span>
+              </div>
+              <div className="ak-field" style={{ marginBottom: 0 }}>
+                <label className="ak-label">Nouvelle quantité</label>
                 <input type="number" min={0} className="ak-input" value={modalStock} onChange={(e) => setModalStock(e.target.value)} autoFocus />
               </div>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#334155", display: "block", marginBottom: 4 }}>Note (optionnel)</label>
+              <div className="ak-field" style={{ marginBottom: 0 }}>
+                <label className="ak-label">Note <span style={{ fontWeight: 400, color: "#94a3b8" }}>(optionnel)</span></label>
                 <input className="ak-input" placeholder="Ex : réception fournisseur, inventaire..." value={modalNote} onChange={(e) => setModalNote(e.target.value)} />
               </div>
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
-                <button className="ak-btn ak-btn--ghost ak-btn--sm" onClick={() => setShowModal(false)}>Annuler</button>
-                <button className="ak-btn ak-btn--primary ak-btn--sm" onClick={validerAjustement}>
-                  <i className="ti ti-check"></i> Enregistrer
-                </button>
-              </div>
+            </div>
+            <div className="ak-modal__footer">
+              <button className="ak-btn ak-btn--ghost" onClick={() => setShowModal(false)}>Annuler</button>
+              <button className="ak-btn ak-btn--primary" onClick={validerAjustement}>
+                <i className="ti ti-check"></i> Enregistrer
+              </button>
             </div>
           </div>
         </div>

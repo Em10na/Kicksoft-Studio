@@ -79,8 +79,8 @@ export default function CommandesPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {alert.message && (
-        <div className={`ak-alert ak-alert--${alert.type}`}>
-          <i className={`ti ${alert.type === "success" ? "ti-check" : "ti-alert-circle"}`}></i>
+        <div className={`ak-toast ak-toast--${alert.type}`}>
+          <i className={`ti ${alert.type === "success" ? "ti-check-circle" : "ti-alert-circle"} ak-toast__icon`}></i>
           {alert.message}
         </div>
       )}
@@ -203,7 +203,10 @@ export default function CommandesPage() {
           <div className="ak-modal ak-modal--lg" onClick={(e) => e.stopPropagation()}>
             <div className="ak-modal__header">
               <div>
-                <h3 className="ak-modal__title">Commande <span style={{ color: "#6366f1" }}>#{detail.id.slice(0, 8)}</span></h3>
+                <h3 className="ak-modal__title">
+                  <i className="ti ti-shopping-cart" style={{ marginRight: 8, color: "#6366f1" }}></i>
+                  Commande <span style={{ color: "#6366f1" }}>#{detail.id.slice(0, 8)}</span>
+                </h3>
                 {!detail.user_id && detail.guest_name && <span className="ak-badge ak-badge--muted" style={{ marginTop: 4 }}>Commande invité</span>}
               </div>
               <button className="ak-modal__close" onClick={() => setShowDetail(false)}>✕</button>
